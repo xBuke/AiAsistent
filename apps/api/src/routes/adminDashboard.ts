@@ -284,7 +284,7 @@ export async function getDashboardSummaryHandler(
     try {
       let gapsQuery = supabase
         .from('knowledge_gaps')
-        .select('id, question, occurrences, status, last_seen_at, reason')
+        .select('id, question, occurrences, status, last_seen_at, reason, created_at')
         .gte('created_at', timeFrom.toISOString())
         .lte('created_at', timeTo.toISOString())
         .order('occurrences', { ascending: false })
@@ -300,7 +300,7 @@ export async function getDashboardSummaryHandler(
         question: gap.question,
         count: gap.occurrences || 1,
         status: gap.status || 'open',
-        last_seen_at: gap.last_seen_at || gap.created_at,
+        last_seen_at: gap.last_seen_at || (gap as any).created_at,
         reason: gap.reason || null,
       }));
     } catch (error) {

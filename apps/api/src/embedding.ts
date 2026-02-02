@@ -1,12 +1,10 @@
-import type { Pipeline } from '@xenova/transformers';
-
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
 const EMBEDDING_DIM = 384;
 const MAX_EMBED_CHARS = 12000;
 
-let embedder: Pipeline | null = null;
+let embedder: any = null;
 
-async function getEmbedder(): Promise<Pipeline> {
+async function getEmbedder(): Promise<any> {
   if (!embedder) {
     // Lazy dynamic import to avoid loading sharp at module initialization
     const { pipeline } = await import('@xenova/transformers');

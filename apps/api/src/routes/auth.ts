@@ -25,8 +25,8 @@ export async function loginHandler(
   const body = request.body || {};
   const { cityCode } = body;
 
-  // Extract password from request body with fallback
-  const rawPassword = body.password ?? body.adminPassword ?? '';
+  // Extract password from request body
+  const rawPassword = body.password ?? '';
 
   // Normalize password (trim whitespace)
   const password = rawPassword.trim();

@@ -101,7 +101,7 @@ export async function chatHandler(
     const externalConversationId = conversationId || `conv_${randomUUID()}`;
     const now = new Date().toISOString();
     
-    const { data: existingConv, error: lookupError } = await supabase
+    const { data: existingConvData, error: lookupError } = await supabase
       .from('conversations')
       .select('id, fallback_count, created_at, category, status')
       .eq('city_id', cityUuid)
@@ -113,7 +113,8 @@ export async function chatHandler(
       request.log.warn(lookupError, 'Error looking up conversation by external_id, treating as new');
     }
 
-    if (existingConv) {
+    if (existingConvData) {
+      existingConv = existingConvData;
       conversationUuid = existingConv.id;
       // Update last_activity_at
       await supabase
@@ -438,22 +439,23 @@ OPĆENITO:
                     }
                   }
                 })
-                .catch(error => {
+                .catch(async (error) => {
                   request.log.warn({ error, conversationUuid }, 'Failed to generate conversation title/summary');
                   // Fallback: use first user message title
                   const firstUserMsg = allMessages.find(m => m.role === 'user');
                   if (firstUserMsg && firstUserMsg.content_redacted) {
                     const truncatedTitle = firstUserMsg.content_redacted.trim().slice(0, 60);
-                    supabase
-                      .from('conversations')
-                      .update({
-                        title: truncatedTitle,
-                        title_source: 'first_message',
-                      })
-                      .eq('id', conversationUuid)
-                      .catch(() => {
-                        // Ignore errors in fallback
-                      });
+                    try {
+                      await supabase
+                        .from('conversations')
+                        .update({
+                          title: truncatedTitle,
+                          title_source: 'first_message',
+                        })
+                        .eq('id', conversationUuid);
+                    } catch {
+                      // Ignore errors in fallback
+                    }
                   }
                 });
             }
@@ -693,22 +695,23 @@ OPĆENITO:
                   }
                 }
               })
-              .catch(error => {
+              .catch(async (error) => {
                 request.log.warn({ error, conversationUuid }, 'Failed to generate conversation title/summary');
                 // Fallback: use first user message title
                 const firstUserMsg = allMessages.find(m => m.role === 'user');
                 if (firstUserMsg && firstUserMsg.content_redacted) {
                   const truncatedTitle = firstUserMsg.content_redacted.trim().slice(0, 60);
-                  supabase
-                    .from('conversations')
-                    .update({
-                      title: truncatedTitle,
-                      title_source: 'first_message',
-                    })
-                    .eq('id', conversationUuid)
-                    .catch(() => {
-                      // Ignore errors in fallback
-                    });
+                  try {
+                    await supabase
+                      .from('conversations')
+                      .update({
+                        title: truncatedTitle,
+                        title_source: 'first_message',
+                      })
+                      .eq('id', conversationUuid);
+                  } catch {
+                    // Ignore errors in fallback
+                  }
                 }
               });
           }
