@@ -6,6 +6,14 @@
       "use": "@vercel/node"
     }
   ],
+  "functions": {
+    "dist/index.js": {
+      "includeFiles": [
+        "node_modules/sharp/**/*",
+        "node_modules/@img/**/*"
+      ]
+    }
+  },
   "routes": [
     {
       "src": "/(.*)",
