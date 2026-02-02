@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AdminApp } from './admin/AdminApp';
 
 type Message = {
   id: string;
@@ -113,6 +115,98 @@ function AdminPage() {
     if (content.length <= maxLength) return content;
     return content.substring(0, maxLength) + '...';
   };
+
+  // Calculate dashboard statistics from messages
+  const calculateStats = () => {
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    const totalQuestions = userMessages.length;
+    
+    // Count questions today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const questionsToday = userMessages.filter(msg => {
+      try {
+        const msgDate = new Date(msg.created_at);
+        msgDate.setHours(0, 0, 0, 0);
+        return msgDate.getTime() === today.getTime();
+      } catch {
+        return false;
+      }
+    }).length;
+    
+    // Count questions in last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const questionsLast7Days = userMessages.filter(msg => {
+      try {
+        const msgDate = new Date(msg.created_at);
+        return msgDate >= sevenDaysAgo;
+      } catch {
+        return false;
+      }
+    }).length;
+    
+    // Find most common topic (simple keyword-based)
+    const topicKeywords: { [key: string]: string[] } = {
+      'Kontakt': ['kontakt', 'telefon', 'email', 'adresa', 'radno vrijeme', 'ured'],
+      'Dokumenti': ['dokument', 'potvrda', 'izjava', 'formular', 'zahtjev'],
+      'Proračun': ['proračun', 'budžet', 'financije', 'troškovi'],
+      'Usluge': ['usluga', 'servis', 'prijava', 'zahtjev'],
+      'Informacije': ['informacije', 'pitanje', 'što', 'kako', 'gdje'],
+    };
+    
+    const topicCounts: { [key: string]: number } = {};
+    userMessages.forEach(msg => {
+      const content = msg.content.toLowerCase();
+      let found = false;
+      for (const [topic, keywords] of Object.entries(topicKeywords)) {
+        if (keywords.some(keyword => content.includes(keyword))) {
+          topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        topicCounts['Ostalo'] = (topicCounts['Ostalo'] || 0) + 1;
+      }
+    });
+    
+    const mostCommonTopic = Object.keys(topicCounts).length > 0
+      ? Object.entries(topicCounts).sort((a, b) => b[1] - a[1])[0][0]
+      : 'N/A';
+    
+    return {
+      totalQuestions,
+      questionsToday,
+      questionsLast7Days,
+      mostCommonTopic,
+    };
+  };
+
+  // Detect topic from message content (keyword-based)
+  const detectTopic = (content: string): string => {
+    if (!content || typeof content !== 'string') return 'Ostalo';
+    
+    const lowerContent = content.toLowerCase();
+    const topicKeywords: { [key: string]: string[] } = {
+      'Kontakt': ['kontakt', 'telefon', 'email', 'adresa', 'radno vrijeme', 'ured'],
+      'Dokumenti': ['dokument', 'potvrda', 'izjava', 'formular', 'zahtjev'],
+      'Proračun': ['proračun', 'budžet', 'financije', 'troškovi'],
+      'Usluge': ['usluga', 'servis', 'prijava', 'zahtjev'],
+      'Informacije': ['informacije', 'pitanje', 'što', 'kako', 'gdje'],
+    };
+    
+    for (const [topic, keywords] of Object.entries(topicKeywords)) {
+      if (keywords.some(keyword => lowerContent.includes(keyword))) {
+        return topic;
+      }
+    }
+    
+    return 'Ostalo';
+  };
+
+  const stats = calculateStats();
 
   return (
     <div
@@ -258,6 +352,157 @@ function AdminPage() {
           </form>
         ) : (
           <div>
+            {/* Dashboard Header with Summary Cards */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '1.75rem',
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  padding: '1.25rem',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                  borderLeft: '4px solid #2563eb',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#6b7280',
+                    marginBottom: '0.5rem',
+                    fontWeight: 500,
+                  }}
+                >
+                  Ukupno pitanja
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.75rem',
+                    fontWeight: 600,
+                    color: '#111827',
+                  }}
+                >
+                  {stats.totalQuestions}
+                </div>
+              </div>
+              
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  padding: '1.25rem',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                  borderLeft: '4px solid #10b981',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#6b7280',
+                    marginBottom: '0.5rem',
+                    fontWeight: 500,
+                  }}
+                >
+                  Najčešća tema
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.75rem',
+                    fontWeight: 600,
+                    color: '#111827',
+                  }}
+                >
+                  {stats.mostCommonTopic}
+                </div>
+              </div>
+              
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  padding: '1.25rem',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                  borderLeft: '4px solid #f59e0b',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#6b7280',
+                    marginBottom: '0.5rem',
+                    fontWeight: 500,
+                  }}
+                >
+                  Pitanja danas
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.75rem',
+                    fontWeight: 600,
+                    color: '#111827',
+                  }}
+                >
+                  {stats.questionsToday}
+                </div>
+              </div>
+              
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  padding: '1.25rem',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                  borderLeft: '4px solid #9333ea',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#6b7280',
+                    marginBottom: '0.5rem',
+                    fontWeight: 500,
+                  }}
+                >
+                  Zadnjih 7 dana
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.75rem',
+                    fontWeight: 600,
+                    color: '#111827',
+                  }}
+                >
+                  {stats.questionsLast7Days}
+                </div>
+              </div>
+            </div>
+
+            {/* Explanatory Info Box */}
+            <div
+              style={{
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '0.5rem',
+                padding: '1rem 1.25rem',
+                marginBottom: '1.75rem',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.9375rem',
+                  color: '#1e40af',
+                  lineHeight: 1.6,
+                }}
+              >
+                <strong>💡 Vrijednost za Grad:</strong> Ovdje Grad Ploče dobiva uvid u to što građane najčešće zanima i koje informacije traže. U budućnosti ovaj sustav omogućuje analizu trendova i prioriteta, što pomaže u donošenju informiranih odluka i poboljšanju komunikacije s građanima.
+              </div>
+            </div>
+
             <div
               style={{
                 display: 'flex',
@@ -404,6 +649,20 @@ function AdminPage() {
                           letterSpacing: '0.05em',
                         }}
                       >
+                        Tema
+                      </th>
+                      <th
+                        style={{
+                          padding: '0.875rem 1.25rem',
+                          textAlign: 'left',
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          color: '#374151',
+                          borderBottom: '2px solid #e5e7eb',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
                         Sadržaj
                       </th>
                     </tr>
@@ -478,6 +737,38 @@ function AdminPage() {
                           <td
                             style={{
                               padding: '1rem 1.25rem',
+                              fontSize: '0.875rem',
+                            }}
+                          >
+                            {isUser ? (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  padding: '0.375rem 0.75rem',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 500,
+                                  backgroundColor: '#f3f4f6',
+                                  color: '#374151',
+                                  border: '1px solid #e5e7eb',
+                                }}
+                              >
+                                {detectTopic(msg.content)}
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  color: '#9ca3af',
+                                  fontStyle: 'italic',
+                                }}
+                              >
+                                —
+                              </span>
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              padding: '1rem 1.25rem',
                               fontSize: '0.9375rem',
                               color: '#111827',
                               maxWidth: '600px',
@@ -494,6 +785,127 @@ function AdminPage() {
                 </table>
               </div>
             )}
+
+            {/* Coming Soon / Future Features Section */}
+            <div
+              style={{
+                marginTop: '2.5rem',
+                padding: '1.5rem',
+                backgroundColor: '#ffffff',
+                borderRadius: '0.5rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <h3
+                style={{
+                  margin: '0 0 1rem 0',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <span>🚀</span>
+                <span>Buduće mogućnosti</span>
+              </h3>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                  gap: '1rem',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '1rem',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '0.375rem',
+                    borderLeft: '3px solid #2563eb',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: '#111827',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
+                    Grupiranje tema
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.8125rem',
+                      color: '#6b7280',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Automatsko grupiranje sličnih pitanja i identifikacija glavnih tema koje građane zanimaju.
+                  </div>
+                </div>
+                
+                <div
+                  style={{
+                    padding: '1rem',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '0.375rem',
+                    borderLeft: '3px solid #10b981',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: '#111827',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
+                    Analiza trendova
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.8125rem',
+                      color: '#6b7280',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Praćenje promjena u interesima građana kroz vrijeme i identifikacija sezonskih obrazaca.
+                  </div>
+                </div>
+                
+                <div
+                  style={{
+                    padding: '1rem',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '0.375rem',
+                    borderLeft: '3px solid #f59e0b',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: '#111827',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
+                    Podrška odlukama
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.8125rem',
+                      color: '#6b7280',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Preporuke za prioritizaciju resursa i poboljšanja na temelju analize pitanja građana.
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -505,6 +917,13 @@ function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  
+  // Default city ID for Ploče
+  const cityId = 'ploce';
 
   const handleSend = async (messageOverride?: string) => {
     const messageText = messageOverride || input.trim();
@@ -520,6 +939,12 @@ function ChatPage() {
     if (!messageOverride) {
       setInput('');
     }
+    
+    // Immediately scroll to bottom after user message
+    requestAnimationFrame(() => {
+      scrollToBottomImmediate();
+    });
+
     setIsSending(true);
 
     const assistantMessage: Message = {
@@ -529,9 +954,15 @@ function ChatPage() {
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
+    
+    // Scroll again when typing indicator appears
+    requestAnimationFrame(() => {
+      scrollToBottomImmediate();
+    });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const chatUrl = `${API_BASE_URL}/grad/${cityId}/chat`;
+      const response = await fetch(chatUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -557,6 +988,10 @@ function ChatPage() {
                   : msg
               )
             );
+            // Scroll when response completes (only if near bottom)
+            requestAnimationFrame(() => {
+              scrollToBottomSmooth();
+            });
           } else if (data.error) {
             setIsSending(false);
             throw new Error(data.error);
@@ -602,11 +1037,25 @@ function ChatPage() {
               if (line.startsWith('data: ')) {
                 const data = line.slice(6);
 
+                // Handle completion signal
+                if (data.trim() === '[DONE]') {
+                  setIsSending(false);
+                  // Scroll when response completes (only if near bottom)
+                  requestAnimationFrame(() => {
+                    scrollToBottomSmooth();
+                  });
+                  return;
+                }
+
                 try {
                   const parsed = JSON.parse(data);
                   
                   if (parsed.done) {
                     setIsSending(false);
+                    // Scroll when response completes (only if near bottom)
+                    requestAnimationFrame(() => {
+                      scrollToBottomSmooth();
+                    });
                     return;
                   }
                   
@@ -618,6 +1067,10 @@ function ChatPage() {
                           : msg
                       )
                     );
+                    // Scroll on streaming updates (only if near bottom)
+                    requestAnimationFrame(() => {
+                      scrollToBottomSmooth();
+                    });
                   } else if (parsed.content) {
                     // Fallback for old format
                     setMessages((prev) =>
@@ -627,12 +1080,29 @@ function ChatPage() {
                           : msg
                       )
                     );
+                    // Scroll on streaming updates (only if near bottom)
+                    requestAnimationFrame(() => {
+                      scrollToBottomSmooth();
+                    });
                   } else if (parsed.error) {
                     setIsSending(false);
                     throw new Error(parsed.error);
                   }
                 } catch (e) {
-                  // Ignore JSON parse errors for incomplete chunks
+                  // If JSON parse fails, treat as raw token string (server sends raw tokens)
+                  if (data && data.trim() !== '') {
+                    setMessages((prev) =>
+                      prev.map((msg) =>
+                        msg.id === assistantMessage.id
+                          ? { ...msg, content: msg.content + data }
+                          : msg
+                      )
+                    );
+                    // Scroll on streaming updates (only if near bottom)
+                    requestAnimationFrame(() => {
+                      scrollToBottomSmooth();
+                    });
+                  }
                 }
               }
             }
@@ -672,6 +1142,64 @@ function ChatPage() {
     handleSend(question);
   };
 
+  // Check if user is near bottom of chat (within 150px threshold)
+  const checkIsNearBottom = () => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      isNearBottomRef.current = true;
+      return true;
+    }
+    const threshold = 150;
+    const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    isNearBottomRef.current = isNear;
+    return isNear;
+  };
+
+  // Immediate scroll to bottom (for send/typing indicator)
+  const scrollToBottomImmediate = () => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+    }
+  };
+
+  // Smooth scroll to bottom (for streaming updates, only if near bottom)
+  const scrollToBottomSmooth = () => {
+    if (isNearBottomRef.current && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
+  // Handle scroll events to track if user is near bottom
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      checkIsNearBottom();
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-scroll on message updates (streaming) - only if near bottom
+  useEffect(() => {
+    if (messages.length > 0) {
+      requestAnimationFrame(() => {
+        scrollToBottomSmooth();
+      });
+    }
+  }, [messages]);
+
+  // Auto-scroll when typing indicator appears
+  useEffect(() => {
+    if (isSending) {
+      requestAnimationFrame(() => {
+        scrollToBottomImmediate();
+      });
+    }
+  }, [isSending]);
+
   return (
     <div
       style={{
@@ -688,21 +1216,51 @@ function ChatPage() {
       <header
         style={{
           padding: '1.25rem 1rem',
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: '2px solid #00A6E6',
           backgroundColor: '#ffffff',
         }}
       >
-        <h1
+        <div
           style={{
-            margin: 0,
-            fontSize: 'clamp(1.25rem, 4vw, 1.5rem)',
-            fontWeight: 600,
-            color: '#111827',
-            lineHeight: 1.2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
           }}
         >
-          AI asistent — Grad Ploče
-        </h1>
+          {!logoError ? (
+            <img
+              src="/logo.svg"
+              alt="Grad Ploče logo"
+              style={{
+                height: '28px',
+                width: 'auto',
+                objectFit: 'contain',
+              }}
+              onError={() => setLogoError(true)}
+            />
+          ) : (
+            <img
+              src="/logo.png"
+              alt="Grad Ploče logo"
+              style={{
+                height: '28px',
+                width: 'auto',
+                objectFit: 'contain',
+              }}
+            />
+          )}
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 'clamp(1.25rem, 4vw, 1.5rem)',
+              fontWeight: 600,
+              color: '#111827',
+              lineHeight: 1.2,
+            }}
+          >
+            AI asistent — Grad Ploče
+          </h1>
+        </div>
         <p
           style={{
             margin: '0.5rem 0 0 0',
@@ -717,6 +1275,7 @@ function ChatPage() {
 
       {/* Messages area */}
       <div
+        ref={messagesContainerRef}
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -736,7 +1295,7 @@ function ChatPage() {
               padding: '2rem 1rem',
             }}
           >
-            Postavite pitanje o službenim dokumentima Grada Ploča
+            Kako ti mogu pomoći?
           </div>
         )}
         {messages.map((msg) => (
@@ -747,7 +1306,7 @@ function ChatPage() {
               maxWidth: 'min(85%, 600px)',
               padding: '0.875rem 1rem',
               borderRadius: '0.75rem',
-              backgroundColor: msg.role === 'user' ? '#2563eb' : '#ffffff',
+              backgroundColor: msg.role === 'user' ? '#00A6E6' : '#ffffff',
               color: msg.role === 'user' ? '#ffffff' : '#111827',
               boxShadow: msg.role === 'assistant' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
               lineHeight: 1.5,
@@ -771,6 +1330,8 @@ function ChatPage() {
             Odgovaram...
           </div>
         )}
+        {/* Bottom sentinel for auto-scroll */}
+        <div ref={bottomRef} />
       </div>
 
       {/* Suggested questions */}
@@ -801,82 +1362,94 @@ function ChatPage() {
             }}
           >
             <button
-              onClick={() => handleSuggestedQuestion('Koje su ključne stavke proračuna Grada Ploča za 2024.?')}
+              onClick={() => handleSuggestedQuestion('Kako mi možeš pomoći kao AI asistent Grada Ploča?')}
               disabled={isSending}
               style={{
                 padding: '0.625rem 1rem',
                 backgroundColor: '#f3f4f6',
                 color: '#111827',
                 border: '1px solid #e5e7eb',
-                borderRadius: '0.5rem',
+                borderRadius: '0.625rem',
                 cursor: isSending ? 'not-allowed' : 'pointer',
                 fontSize: '0.875rem',
                 textAlign: 'left',
-                transition: 'background-color 0.2s',
+                transition: 'all 0.2s ease',
                 opacity: isSending ? 0.6 : 1,
               }}
               onMouseEnter={(e) => {
                 if (!isSending) {
-                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                  e.currentTarget.style.backgroundColor = '#fef3c7';
+                  e.currentTarget.style.borderColor = '#FDDC00';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = '#f3f4f6';
+                e.currentTarget.style.borderColor = '#e5e7eb';
+                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Koje su ključne stavke proračuna Grada Ploča za 2024.?
+              Kako mi možeš pomoći kao AI asistent Grada Ploča?
             </button>
             <button
-              onClick={() => handleSuggestedQuestion('Što je navedeno u obrazloženju proračuna za 2024.?')}
+              onClick={() => handleSuggestedQuestion('Što sve trenutno možeš raditi za građane Grada Ploča?')}
               disabled={isSending}
               style={{
                 padding: '0.625rem 1rem',
                 backgroundColor: '#f3f4f6',
                 color: '#111827',
                 border: '1px solid #e5e7eb',
-                borderRadius: '0.5rem',
+                borderRadius: '0.625rem',
                 cursor: isSending ? 'not-allowed' : 'pointer',
                 fontSize: '0.875rem',
                 textAlign: 'left',
-                transition: 'background-color 0.2s',
+                transition: 'all 0.2s ease',
                 opacity: isSending ? 0.6 : 1,
               }}
               onMouseEnter={(e) => {
                 if (!isSending) {
-                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                  e.currentTarget.style.backgroundColor = '#fef3c7';
+                  e.currentTarget.style.borderColor = '#FDDC00';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = '#f3f4f6';
+                e.currentTarget.style.borderColor = '#e5e7eb';
+                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Što je navedeno u obrazloženju proračuna za 2024.?
+              Što sve trenutno možeš raditi za građane Grada Ploča?
             </button>
             <button
-              onClick={() => handleSuggestedQuestion('Kome se građani mogu obratiti vezano uz proračun i izvršenje?')}
+              onClick={() => handleSuggestedQuestion('Što ćeš moći raditi u budućnosti?')}
               disabled={isSending}
               style={{
                 padding: '0.625rem 1rem',
                 backgroundColor: '#f3f4f6',
                 color: '#111827',
                 border: '1px solid #e5e7eb',
-                borderRadius: '0.5rem',
+                borderRadius: '0.625rem',
                 cursor: isSending ? 'not-allowed' : 'pointer',
                 fontSize: '0.875rem',
                 textAlign: 'left',
-                transition: 'background-color 0.2s',
+                transition: 'all 0.2s ease',
                 opacity: isSending ? 0.6 : 1,
               }}
               onMouseEnter={(e) => {
                 if (!isSending) {
-                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                  e.currentTarget.style.backgroundColor = '#fef3c7';
+                  e.currentTarget.style.borderColor = '#FDDC00';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = '#f3f4f6';
+                e.currentTarget.style.borderColor = '#e5e7eb';
+                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Kome se građani mogu obratiti vezano uz proračun i izvršenje?
+              Što ćeš moći raditi u budućnosti?
             </button>
           </div>
         </div>
@@ -897,7 +1470,7 @@ function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Postavite pitanje..."
+          placeholder="Npr. Kako mogu kontaktirati gradsku upravu?"
           disabled={isSending}
           style={{
             flex: 1,
@@ -911,7 +1484,7 @@ function ChatPage() {
             minWidth: 0,
           }}
           onFocus={(e) => {
-            e.target.style.borderColor = '#2563eb';
+            e.target.style.borderColor = '#00A6E6';
           }}
           onBlur={(e) => {
             e.target.style.borderColor = '#d1d5db';
@@ -922,15 +1495,27 @@ function ChatPage() {
           disabled={isSending || !input.trim()}
           style={{
             padding: '0.75rem 1.25rem',
-            backgroundColor: isSending || !input.trim() ? '#9ca3af' : '#2563eb',
+            backgroundColor: isSending || !input.trim() ? '#9ca3af' : '#00A6E6',
             color: 'white',
             border: 'none',
             borderRadius: '0.5rem',
             cursor: isSending || !input.trim() ? 'not-allowed' : 'pointer',
             fontSize: '0.9375rem',
             fontWeight: 500,
-            transition: 'background-color 0.2s',
+            transition: 'background-color 0.2s, box-shadow 0.2s',
             whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => {
+            if (!isSending && input.trim()) {
+              e.currentTarget.style.backgroundColor = '#0099D1';
+              e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0, 166, 230, 0.2)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isSending && input.trim()) {
+              e.currentTarget.style.backgroundColor = '#00A6E6';
+              e.currentTarget.style.boxShadow = 'none';
+            }
           }}
         >
           Pošalji
@@ -941,14 +1526,14 @@ function ChatPage() {
 }
 
 function App() {
-  // Check pathname on each render
-  const pathname = window.location.pathname;
-
-  if (pathname === '/admin') {
-    return <AdminPage />;
-  }
-
-  return <ChatPage />;
+  return (
+    <Routes>
+      <Route path="/admin/:cityId" element={<AdminApp />} />
+      <Route path="/admin/login" element={<Navigate to="/admin/ploce" replace />} />
+      <Route path="/admin" element={<Navigate to="/admin/ploce" replace />} />
+      <Route path="/" element={<ChatPage />} />
+    </Routes>
+  );
 }
 
 export default App;

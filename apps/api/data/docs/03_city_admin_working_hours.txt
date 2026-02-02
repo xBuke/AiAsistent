@@ -1,0 +1,22 @@
+TITLE: Radno vrijeme gradske uprave i rad sa strankama
+TYPE: working_hours
+DATE: n/a
+SOURCE: https://ploce.hr/ustroj-kontakti/
+
+Službeno radno vrijeme gradske uprave:
+- Ponedjeljak, utorak, srijeda i petak: 07:30 – 15:30
+- Četvrtak: 11:00 – 19:00
+
+Rad sa strankama:
+- Utorak: 11:00 – 15:00
+- Četvrtak: 14:00 – 18:00
+
+Q&A HINTS:
+Q: Koje je radno vrijeme gradske uprave u Pločama?
+A: Pon/uto/sri/pet 07:30–15:30, čet 11:00–19:00.
+
+Q: Kad je rad sa strankama?
+A: Utorak 11:00–15:00 i četvrtak 14:00–18:00.
+
+Q: Radi li uprava četvrtkom popodne?
+A: Da, četvrtkom radi 11:00–19:00, a rad sa strankama je 14:00–18:00.

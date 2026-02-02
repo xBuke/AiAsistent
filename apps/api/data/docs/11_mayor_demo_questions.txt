@@ -1,0 +1,29 @@
+TITLE: Demo pitanja gradonačelnika – strateška i operativna
+TYPE: mayor_demo_questions
+DATE: 2026
+SOURCE: Interna priprema za demo Grada Ploča
+
+Ovaj dokument sadrži tipična pitanja koja gradonačelnik može postaviti tijekom demo prezentacije AI sustava te sažete, ali sadržajne odgovore temeljene na službenim dokumentima i strategijama Grada Ploča.
+
+Q&A HINTS:
+
+Q: Kako ovaj AI sustav doprinosi Strategiji pametnog grada Ploče?
+A: Sustav izravno doprinosi ciljevima Strategije pametnog grada Ploče (2021.–2027.) kroz digitalizaciju komunikacije s građanima, poboljšanje dostupnosti informacija 24/7, smanjenje administrativnog opterećenja gradske uprave te kroz prikupljanje analitike koja pomaže u donošenju odluka. Posebno podržava “interaktivni grad” i bolju komunikaciju uprave s građanima.
+
+Q: Kako sustav poboljšava svakodnevni život građana?
+A: Građani mogu u svakom trenutku dobiti informacije o radnom vremenu, kontaktima, projektima, obrascima, pravima i postupcima – bez čekanja, telefonskih poziva ili dolaska u gradsku upravu.
+
+Q: Kako ovo pomaže gradskoj upravi i zaposlenicima?
+A: Sustav preuzima najčešća ponavljajuća pitanja, smanjuje broj poziva i e-mailova te zaposlenicima ostavlja više vremena za složenije i važnije zadatke.
+
+Q: Može li sustav pomoći u transparentnosti rada grada?
+A: Da. Sustav građanima olakšava pristup proračunima, odlukama, projektima i službenim dokumentima te time povećava transparentnost i povjerenje u rad gradske uprave.
+
+Q: Može li se ovaj projekt financirati EU sredstvima?
+A: Da. Sustav je usklađen s prioritetima EU fondova (digitalna transformacija, pametni gradovi, transparentnost, e-uprava) i može poslužiti kao temelj ili dio šireg EU projekta.
+
+Q: Je li sustav siguran i usklađen s GDPR-om?
+A: Da. Sustav ne pohranjuje osobne podatke građana, koristi EU infrastrukturu i daje odgovore isključivo na temelju službenih, javno dostupnih dokumenata.
+
+Q: Što ako se promijene podaci ili strategije?
+A: Sustav je modularan i lako se ažurira. Novi dokumenti, odluke ili strategije mogu se dodati bez promjene same aplikacije.

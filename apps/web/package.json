@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:widget": "vite build -c vite.widget.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.12.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

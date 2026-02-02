@@ -1,0 +1,29 @@
+TITLE: Grad Ploče – opći kontakt podaci
+TYPE: city_general_contact
+DATE: n/a
+SOURCE: https://ploce.hr/ustroj-kontakti/
+
+Opći podaci:
+- Adresa: Trg kralja Tomislava 23, HR-20340 Ploče
+- OIB: 15429488788
+- Telefon: +385 (0)20 679 501
+
+E-mail adrese:
+- Službeni e-mail (ured gradonačelnika): ured.gradonacelnika@ploce.hr
+- Pisarnica (opća služba): pisarnica@ploce.hr
+
+Q&A HINTS:
+Q: Koja je adresa Grada Ploča?
+A: Trg kralja Tomislava 23, HR-20340 Ploče.
+
+Q: Koji je opći telefon Grada Ploča?
+A: +385 (0)20 679 501.
+
+Q: Koji je e-mail ureda gradonačelnika?
+A: ured.gradonacelnika@ploce.hr.
+
+Q: Koji je e-mail pisarnice?
+A: pisarnica@ploce.hr.
+
+Q: Koji je OIB Grada Ploča?
+A: 15429488788.

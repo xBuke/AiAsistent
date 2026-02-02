@@ -17,7 +17,8 @@ CREATE TABLE messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   role text,
   content text,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  metadata jsonb
 );
 
 -- Create ivfflat index on documents.embedding

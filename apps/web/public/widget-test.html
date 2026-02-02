@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Test Page</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    header {
+      background: #0b3a6e;
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+    h1 {
+      margin: 0;
+    }
+    .note {
+      background: #f0f0f0;
+      padding: 15px;
+      border-left: 4px solid #0b3a6e;
+      margin-bottom: 30px;
+    }
+    .note code {
+      background: #e0e0e0;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Grad Ploče - Testna Stranica</h1>
+  </header>
+
+  <div class="note">
+    <strong>Kako otvoriti:</strong> Pokrenite dev server (<code>npm run dev</code>) i otvorite:
+    <br><code>http://localhost:5173/widget-test.html</code>
+  </div>
+
+  <h2>Dobrodošli na službenu stranicu Grada Ploča</h2>
+  <p>
+    Ova stranica služi za testiranje widgeta. Widget bi se trebao pojaviti u donjem desnom kutu.
+  </p>
+
+  <h3>O gradu</h3>
+  <p>
+    Grad Ploče je grad u Hrvatskoj, smješten u Dubrovačko-neretvanskoj županiji.
+    Grad je poznat po svojoj ljepoti i bogatoj povijesti.
+  </p>
+
+  <h3>Kontakt</h3>
+  <p>
+    Za više informacija, molimo kontaktirajte gradsku upravu putem widgeta
+    koji se nalazi u donjem desnom kutu stranice.
+  </p>
+
+  <h3>Usluge</h3>
+  <p>
+    Grad Ploče nudi različite usluge svojim građanima, uključujući informacije
+    o gradskim službama, dokumentaciji i kontakt podacima.
+  </p>
+
+  <!-- Load widget in dev mode -->
+  <script type="module">
+    import('/src/widget/entry.ts').then(() => {
+      // Wait a bit for the module to execute and expose GradWidgetDevInit
+      const initWidget = () => {
+        if (window.GradWidgetDevInit) {
+          window.GradWidgetDevInit({
+            cityId: "ploce",
+            apiBaseUrl: "http://localhost:3000",
+            lang: "hr",
+            theme: { primary: "#0b3a6e", secondary: "#e3b341", logoUrl: "" }
+          });
+        } else {
+          // Retry after a short delay if not ready yet
+          setTimeout(initWidget, 50);
+        }
+      };
+      initWidget();
+    }).catch(err => {
+      console.error('Failed to load widget:', err);
+    });
+  </script>
+</body>
+</html>
