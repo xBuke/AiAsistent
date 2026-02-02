@@ -12,8 +12,7 @@
     "ingest": "tsx scripts/ingest.ts",
     "rename-docs": "tsx scripts/rename-docs.ts",
     "cleanup-docs": "tsx scripts/cleanup-docs.ts",
-    "gen:city-passwords": "tsx scripts/gen-city-passwords.ts",
-    "postinstall": "npm rebuild sharp --foreground-scripts || true"
+    "gen:city-passwords": "tsx scripts/gen-city-passwords.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9.2.0",
