@@ -8,10 +8,7 @@
   ],
   "functions": {
     "dist/index.js": {
-      "includeFiles": [
-        "node_modules/sharp/**/*",
-        "node_modules/@img/**/*"
-      ]
+      "includeFiles": "node_modules/{sharp,@img}/**/*"
     }
   },
   "routes": [
