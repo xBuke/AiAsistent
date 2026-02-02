@@ -913,11 +913,11 @@ function AdminPage() {
   );
 }
 
-function ChatPage() {
+// Floating Chat Component - reuses chat logic
+function FloatingChat({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [logoError, setLogoError] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -940,7 +940,6 @@ function ChatPage() {
       setInput('');
     }
     
-    // Immediately scroll to bottom after user message
     requestAnimationFrame(() => {
       scrollToBottomImmediate();
     });
@@ -955,7 +954,6 @@ function ChatPage() {
 
     setMessages((prev) => [...prev, assistantMessage]);
     
-    // Scroll again when typing indicator appears
     requestAnimationFrame(() => {
       scrollToBottomImmediate();
     });
@@ -972,7 +970,6 @@ function ChatPage() {
 
       const contentType = response.headers.get('content-type') || '';
 
-      // Handle JSON response (non-streaming mode)
       if (contentType.includes('application/json')) {
         try {
           const data = await response.json();
@@ -988,7 +985,6 @@ function ChatPage() {
                   : msg
               )
             );
-            // Scroll when response completes (only if near bottom)
             requestAnimationFrame(() => {
               scrollToBottomSmooth();
             });
@@ -1012,7 +1008,6 @@ function ChatPage() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Handle SSE streaming (default mode)
       if (contentType.includes('text/event-stream')) {
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
@@ -1037,10 +1032,8 @@ function ChatPage() {
               if (line.startsWith('data: ')) {
                 const data = line.slice(6);
 
-                // Handle completion signal
                 if (data.trim() === '[DONE]') {
                   setIsSending(false);
-                  // Scroll when response completes (only if near bottom)
                   requestAnimationFrame(() => {
                     scrollToBottomSmooth();
                   });
@@ -1052,7 +1045,6 @@ function ChatPage() {
                   
                   if (parsed.done) {
                     setIsSending(false);
-                    // Scroll when response completes (only if near bottom)
                     requestAnimationFrame(() => {
                       scrollToBottomSmooth();
                     });
@@ -1067,12 +1059,10 @@ function ChatPage() {
                           : msg
                       )
                     );
-                    // Scroll on streaming updates (only if near bottom)
                     requestAnimationFrame(() => {
                       scrollToBottomSmooth();
                     });
                   } else if (parsed.content) {
-                    // Fallback for old format
                     setMessages((prev) =>
                       prev.map((msg) =>
                         msg.id === assistantMessage.id
@@ -1080,7 +1070,6 @@ function ChatPage() {
                           : msg
                       )
                     );
-                    // Scroll on streaming updates (only if near bottom)
                     requestAnimationFrame(() => {
                       scrollToBottomSmooth();
                     });
@@ -1089,7 +1078,6 @@ function ChatPage() {
                     throw new Error(parsed.error);
                   }
                 } catch (e) {
-                  // If JSON parse fails, treat as raw token string (server sends raw tokens)
                   if (data && data.trim() !== '') {
                     setMessages((prev) =>
                       prev.map((msg) =>
@@ -1098,7 +1086,6 @@ function ChatPage() {
                           : msg
                       )
                     );
-                    // Scroll on streaming updates (only if near bottom)
                     requestAnimationFrame(() => {
                       scrollToBottomSmooth();
                     });
@@ -1116,7 +1103,6 @@ function ChatPage() {
         }
       }
 
-      // Unknown content type
       setIsSending(false);
       throw new Error(`Unexpected content type: ${contentType}`);
     } catch (error) {
@@ -1138,11 +1124,6 @@ function ChatPage() {
     }
   };
 
-  const handleSuggestedQuestion = (question: string) => {
-    handleSend(question);
-  };
-
-  // Check if user is near bottom of chat (within 150px threshold)
   const checkIsNearBottom = () => {
     const container = messagesContainerRef.current;
     if (!container) {
@@ -1155,21 +1136,18 @@ function ChatPage() {
     return isNear;
   };
 
-  // Immediate scroll to bottom (for send/typing indicator)
   const scrollToBottomImmediate = () => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
     }
   };
 
-  // Smooth scroll to bottom (for streaming updates, only if near bottom)
   const scrollToBottomSmooth = () => {
     if (isNearBottomRef.current && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   };
 
-  // Handle scroll events to track if user is near bottom
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -1182,7 +1160,6 @@ function ChatPage() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Auto-scroll on message updates (streaming) - only if near bottom
   useEffect(() => {
     if (messages.length > 0) {
       requestAnimationFrame(() => {
@@ -1191,7 +1168,6 @@ function ChatPage() {
     }
   }, [messages]);
 
-  // Auto-scroll when typing indicator appears
   useEffect(() => {
     if (isSending) {
       requestAnimationFrame(() => {
@@ -1200,327 +1176,617 @@ function ChatPage() {
     }
   }, [isSending]);
 
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        maxWidth: '800px',
-        margin: '0 auto',
-        backgroundColor: '#ffffff',
-      }}
-    >
-      {/* Header */}
-      <header
-        style={{
-          padding: '1.25rem 1rem',
-          borderBottom: '2px solid #00A6E6',
-          backgroundColor: '#ffffff',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-          }}
-        >
-          {!logoError ? (
-            <img
-              src="/logo.svg"
-              alt="Grad logo"
-              style={{
-                height: '28px',
-                width: 'auto',
-                objectFit: 'contain',
-              }}
-              onError={() => setLogoError(true)}
-            />
-          ) : (
-            <img
-              src="/logo.png"
-              alt="Grad logo"
-              style={{
-                height: '28px',
-                width: 'auto',
-                objectFit: 'contain',
-              }}
-            />
-          )}
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 'clamp(1.25rem, 4vw, 1.5rem)',
-              fontWeight: 600,
-              color: '#111827',
-              lineHeight: 1.2,
-            }}
-          >
-            Grad AI asistent
-          </h1>
-        </div>
-        <p
-          style={{
-            margin: '0.5rem 0 0 0',
-            fontSize: '0.875rem',
-            color: '#6b7280',
-            lineHeight: 1.4,
-          }}
-        >
-          Odgovori temeljeni na službenim dokumentima
-        </p>
-      </header>
+  if (!isOpen) return null;
 
-      {/* Messages area */}
+  return (
+    <>
+      {/* Backdrop overlay for mobile */}
       <div
-        ref={messagesContainerRef}
+        onClick={onClose}
         style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '1rem',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          zIndex: 998,
+        }}
+      />
+      
+      {/* Chat Panel */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '80px',
+          right: 'clamp(10px, 2vw, 20px)',
+          left: 'clamp(10px, 2vw, auto)',
+          width: 'min(380px, calc(100vw - 20px))',
+          height: 'min(600px, calc(100vh - 120px))',
+          maxHeight: 'calc(100vh - 120px)',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1rem',
-          backgroundColor: '#f9fafb',
+          overflow: 'hidden',
+          zIndex: 1000,
         }}
       >
-        {messages.length === 0 && (
-          <div
-            style={{
-              textAlign: 'center',
-              color: '#9ca3af',
-              fontSize: '0.875rem',
-              padding: '2rem 1rem',
-            }}
-          >
-            Kako ti mogu pomoći?
-          </div>
-        )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            style={{
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: 'min(85%, 600px)',
-              padding: '0.875rem 1rem',
-              borderRadius: '0.75rem',
-              backgroundColor: msg.role === 'user' ? '#00A6E6' : '#ffffff',
-              color: msg.role === 'user' ? '#ffffff' : '#111827',
-              boxShadow: msg.role === 'assistant' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
-              lineHeight: 1.5,
-              fontSize: '0.9375rem',
-              wordWrap: 'break-word',
-            }}
-          >
-            {msg.content || (msg.role === 'assistant' && isSending ? '...' : '')}
-          </div>
-        ))}
-        {isSending && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.content === '' && (
-          <div
-            style={{
-              alignSelf: 'flex-start',
-              padding: '0.5rem 1rem',
-              color: '#6b7280',
-              fontSize: '0.875rem',
-              fontStyle: 'italic',
-            }}
-          >
-            Odgovaram...
-          </div>
-        )}
-        {/* Bottom sentinel for auto-scroll */}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Suggested questions */}
-      {messages.length === 0 && (
+        {/* Header */}
         <div
           style={{
-            padding: '0 1rem 0.75rem 1rem',
+            padding: '16px',
+            borderBottom: '1px solid #e5e7eb',
+            backgroundColor: '#f9fafb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#111827',
+              }}
+            >
+              Demo AI asistent
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: '32px',
+              height: '32px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '4px',
+              color: '#6b7280',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#e5e7eb';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6L6 18M6 6L18 18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Messages area */}
+        <div
+          ref={messagesContainerRef}
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.5rem',
+            gap: '12px',
+            backgroundColor: '#f9fafb',
+          }}
+        >
+          {messages.length === 0 && (
+            <div
+              style={{
+                textAlign: 'center',
+                color: '#9ca3af',
+                fontSize: '0.875rem',
+                padding: '2rem 1rem',
+              }}
+            >
+              Kako ti mogu pomoći?
+            </div>
+          )}
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              style={{
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: 'min(85%, 300px)',
+                padding: '0.875rem 1rem',
+                borderRadius: '0.75rem',
+                backgroundColor: msg.role === 'user' ? '#2563eb' : '#ffffff',
+                color: msg.role === 'user' ? '#ffffff' : '#111827',
+                boxShadow: msg.role === 'assistant' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
+                lineHeight: 1.5,
+                fontSize: '0.875rem',
+                wordWrap: 'break-word',
+              }}
+            >
+              {msg.content || (msg.role === 'assistant' && isSending ? '...' : '')}
+            </div>
+          ))}
+          {isSending && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.content === '' && (
+            <div
+              style={{
+                alignSelf: 'flex-start',
+                padding: '0.5rem 1rem',
+                color: '#6b7280',
+                fontSize: '0.875rem',
+                fontStyle: 'italic',
+              }}
+            >
+              Odgovaram...
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input area */}
+        <div
+          style={{
+            padding: '16px',
+            borderTop: '1px solid #e5e7eb',
             backgroundColor: '#ffffff',
           }}
         >
-          <div
-            style={{
-              fontSize: '0.875rem',
-              color: '#6b7280',
-              marginBottom: '0.25rem',
-            }}
-          >
-            Predložena pitanja:
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem',
-            }}
-          >
-            <button
-              onClick={() => handleSuggestedQuestion('Kako mi možeš pomoći kao AI asistent?')}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Postavite pitanje..."
               disabled={isSending}
               style={{
-                padding: '0.625rem 1rem',
-                backgroundColor: '#f3f4f6',
-                color: '#111827',
-                border: '1px solid #e5e7eb',
-                borderRadius: '0.625rem',
-                cursor: isSending ? 'not-allowed' : 'pointer',
+                flex: 1,
+                padding: '0.75rem 1rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.5rem',
                 fontSize: '0.875rem',
-                textAlign: 'left',
-                transition: 'all 0.2s ease',
                 opacity: isSending ? 0.6 : 1,
+                outline: 'none',
+                transition: 'border-color 0.2s',
               }}
-              onMouseEnter={(e) => {
-                if (!isSending) {
-                  e.currentTarget.style.backgroundColor = '#fef3c7';
-                  e.currentTarget.style.borderColor = '#FDDC00';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }
+              onFocus={(e) => {
+                e.target.style.borderColor = '#2563eb';
               }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                e.currentTarget.style.borderColor = '#e5e7eb';
-                e.currentTarget.style.transform = 'translateY(0)';
+              onBlur={(e) => {
+                e.target.style.borderColor = '#d1d5db';
               }}
-            >
-              Kako mi možeš pomoći kao AI asistent?
-            </button>
+            />
             <button
-              onClick={() => handleSuggestedQuestion('Što sve trenutno možeš raditi za građane?')}
-              disabled={isSending}
+              onClick={() => handleSend()}
+              disabled={isSending || !input.trim()}
               style={{
-                padding: '0.625rem 1rem',
-                backgroundColor: '#f3f4f6',
-                color: '#111827',
-                border: '1px solid #e5e7eb',
-                borderRadius: '0.625rem',
-                cursor: isSending ? 'not-allowed' : 'pointer',
+                padding: '0.75rem 1.25rem',
+                backgroundColor: isSending || !input.trim() ? '#9ca3af' : '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: isSending || !input.trim() ? 'not-allowed' : 'pointer',
                 fontSize: '0.875rem',
-                textAlign: 'left',
-                transition: 'all 0.2s ease',
-                opacity: isSending ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!isSending) {
-                  e.currentTarget.style.backgroundColor = '#fef3c7';
-                  e.currentTarget.style.borderColor = '#FDDC00';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                e.currentTarget.style.borderColor = '#e5e7eb';
-                e.currentTarget.style.transform = 'translateY(0)';
+                fontWeight: 500,
+                transition: 'background-color 0.2s',
+                whiteSpace: 'nowrap',
               }}
             >
-              Što sve trenutno možeš raditi za građane?
-            </button>
-            <button
-              onClick={() => handleSuggestedQuestion('Što ćeš moći raditi u budućnosti?')}
-              disabled={isSending}
-              style={{
-                padding: '0.625rem 1rem',
-                backgroundColor: '#f3f4f6',
-                color: '#111827',
-                border: '1px solid #e5e7eb',
-                borderRadius: '0.625rem',
-                cursor: isSending ? 'not-allowed' : 'pointer',
-                fontSize: '0.875rem',
-                textAlign: 'left',
-                transition: 'all 0.2s ease',
-                opacity: isSending ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!isSending) {
-                  e.currentTarget.style.backgroundColor = '#fef3c7';
-                  e.currentTarget.style.borderColor = '#FDDC00';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                e.currentTarget.style.borderColor = '#e5e7eb';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              Što ćeš moći raditi u budućnosti?
+              Pošalji
             </button>
           </div>
         </div>
-      )}
-
-      {/* Input area */}
-      <div
+      </div>
+      
+      {/* Chat Bubble Button (Close) */}
+      <button
+        onClick={() => onClose()}
         style={{
+          position: 'fixed',
+          bottom: 'clamp(10px, 2vw, 20px)',
+          right: 'clamp(10px, 2vw, 20px)',
+          width: 'clamp(48px, 8vw, 56px)',
+          height: 'clamp(48px, 8vw, 56px)',
+          borderRadius: '50%',
+          border: 'none',
+          backgroundColor: '#2563eb',
+          color: 'white',
+          cursor: 'pointer',
           display: 'flex',
-          gap: '0.75rem',
-          padding: '1rem',
-          borderTop: '1px solid #e5e7eb',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          zIndex: 999,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.05)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+        }}
+        aria-label="Zatvori chat"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M18 6L6 18M6 6L18 18"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </>
+  );
+}
+
+// Landing Page Component
+function ChatPage() {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        backgroundColor: '#ffffff',
+        position: 'relative',
+      }}
+    >
+      {/* Hero Section */}
+      <section
+        style={{
+          padding: 'clamp(3rem, 8vw, 6rem) clamp(1rem, 4vw, 2rem)',
+          maxWidth: '1200px',
+          margin: '0 auto',
+          textAlign: 'center',
+        }}
+      >
+        <h1
+          style={{
+            fontSize: 'clamp(2rem, 6vw, 3.5rem)',
+            fontWeight: 700,
+            color: '#111827',
+            margin: '0 0 1.5rem 0',
+            lineHeight: 1.2,
+          }}
+        >
+          AI asistent za gradove
+        </h1>
+        <p
+          style={{
+            fontSize: 'clamp(1.125rem, 2.5vw, 1.5rem)',
+            color: '#4b5563',
+            margin: '0 0 1.5rem 0',
+            lineHeight: 1.6,
+            maxWidth: '800px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        >
+          Digitalni asistent koji komunicira s građanima koristeći službene dokumente grada.
+        </p>
+        <p
+          style={{
+            fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+            color: '#6b7280',
+            margin: '0 0 2.5rem 0',
+            lineHeight: 1.6,
+            maxWidth: '700px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        >
+          Ovaj asistent bit će implementiran direktno na službenoj web stranici grada kao chat bubble, omogućujući građanima brz i jednostavan pristup informacijama o gradu.
+        </p>
+        <button
+          onClick={() => setIsChatOpen(true)}
+          style={{
+            padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
+            fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+            fontWeight: 600,
+            color: '#ffffff',
+            backgroundColor: '#2563eb',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s, transform 0.2s',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#1d4ed8';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#2563eb';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          Iskusite kako izgleda AI asistent za građane
+        </button>
+      </section>
+
+      {/* How It Works Section */}
+      <section
+        style={{
+          padding: 'clamp(3rem, 6vw, 5rem) clamp(1rem, 4vw, 2rem)',
+          backgroundColor: '#f9fafb',
+        }}
+      >
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <h2
+            style={{
+              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+              fontWeight: 700,
+              color: '#111827',
+              textAlign: 'center',
+              margin: '0 0 clamp(2rem, 4vw, 3rem) 0',
+            }}
+          >
+            Kako funkcionira
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 'clamp(1.5rem, 3vw, 2rem)',
+              maxWidth: '1000px',
+              margin: '0 auto',
+            }}
+          >
+            {/* Step 1 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.5rem, 3vw, 2rem)',
+                borderRadius: '0.75rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: '#eff6ff',
+                  color: '#2563eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                  fontWeight: 600,
+                  marginBottom: '1rem',
+                }}
+              >
+                1
+              </div>
+              <h3
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  margin: '0 0 0.75rem 0',
+                }}
+              >
+                Građanin postavlja pitanje
+              </h3>
+              <p
+                style={{
+                  fontSize: '1rem',
+                  color: '#6b7280',
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}
+              >
+                Građanin postavlja pitanje putem chat bubble-a na web stranici grada, bilo kada i bilo gdje.
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.5rem, 3vw, 2rem)',
+                borderRadius: '0.75rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: '#eff6ff',
+                  color: '#2563eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                  fontWeight: 600,
+                  marginBottom: '1rem',
+                }}
+              >
+                2
+              </div>
+              <h3
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  margin: '0 0 0.75rem 0',
+                }}
+              >
+                AI asistent odgovara
+              </h3>
+              <p
+                style={{
+                  fontSize: '1rem',
+                  color: '#6b7280',
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}
+              >
+                AI asistent odgovara na temelju službenih dokumenata grada, osiguravajući točne i ažurne informacije.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.5rem, 3vw, 2rem)',
+                borderRadius: '0.75rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: '#eff6ff',
+                  color: '#2563eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                  fontWeight: 600,
+                  marginBottom: '1rem',
+                }}
+              >
+                3
+              </div>
+              <h3
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  margin: '0 0 0.75rem 0',
+                }}
+              >
+                Admin sučelje
+              </h3>
+              <p
+                style={{
+                  fontSize: '1rem',
+                  color: '#6b7280',
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}
+              >
+                Svi upiti i zahtjevi građana pojavljuju se u admin sučelju gradske uprave za praćenje i analizu.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Notice */}
+      <section
+        style={{
+          padding: 'clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem)',
           backgroundColor: '#ffffff',
         }}
       >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Npr. Kako mogu kontaktirati gradsku upravu?"
-          disabled={isSending}
+        <div
           style={{
-            flex: 1,
-            padding: '0.75rem 1rem',
-            border: '1px solid #d1d5db',
+            maxWidth: '800px',
+            margin: '0 auto',
+            padding: 'clamp(1.25rem, 3vw, 1.5rem)',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
             borderRadius: '0.5rem',
-            fontSize: '0.9375rem',
-            opacity: isSending ? 0.6 : 1,
-            outline: 'none',
-            transition: 'border-color 0.2s',
-            minWidth: 0,
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = '#00A6E6';
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = '#d1d5db';
-          }}
-        />
-        <button
-          onClick={handleSend}
-          disabled={isSending || !input.trim()}
-          style={{
-            padding: '0.75rem 1.25rem',
-            backgroundColor: isSending || !input.trim() ? '#9ca3af' : '#00A6E6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: isSending || !input.trim() ? 'not-allowed' : 'pointer',
-            fontSize: '0.9375rem',
-            fontWeight: 500,
-            transition: 'background-color 0.2s, box-shadow 0.2s',
-            whiteSpace: 'nowrap',
-          }}
-          onMouseEnter={(e) => {
-            if (!isSending && input.trim()) {
-              e.currentTarget.style.backgroundColor = '#0099D1';
-              e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0, 166, 230, 0.2)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isSending && input.trim()) {
-              e.currentTarget.style.backgroundColor = '#00A6E6';
-              e.currentTarget.style.boxShadow = 'none';
-            }
+            textAlign: 'center',
           }}
         >
-          Pošalji
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 2vw, 1rem)',
+              color: '#0369a1',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            <strong>Napomena:</strong> Ovo je demonstracijska verzija sustava. U stvarnoj implementaciji, asistent je dio službene web stranice grada.
+          </p>
+        </div>
+      </section>
+
+      {/* Floating Chat */}
+      {isChatOpen ? (
+        <FloatingChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      ) : (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: 'clamp(10px, 2vw, 20px)',
+            right: 'clamp(10px, 2vw, 20px)',
+            width: 'clamp(48px, 8vw, 56px)',
+            height: 'clamp(48px, 8vw, 56px)',
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: '#2563eb',
+            color: 'white',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            zIndex: 999,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+          }}
+          aria-label="Otvori chat"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
-      </div>
+      )}
     </div>
   );
 }
