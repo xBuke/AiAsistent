@@ -1,14 +1,14 @@
 {
   "version": 2,
   "functions": {
-    "dist/index.js": {
+    "api/index.js": {
       "includeFiles": "node_modules/{sharp,@img}/**/*"
     }
   },
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "dist/index.js"
+      "dest": "api/index.js"
     }
   ]
 }
