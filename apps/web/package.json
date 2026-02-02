@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node ./node_modules/typescript/bin/tsc && vite build",
+    "build": "vite build",
     "build:widget": "vite build -c vite.widget.config.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
     "react": "^18.2.0",
