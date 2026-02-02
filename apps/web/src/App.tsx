@@ -1529,8 +1529,8 @@ function App() {
   return (
     <Routes>
       <Route path="/admin/:cityId" element={<AdminApp />} />
-      <Route path="/admin/login" element={<Navigate to="/admin/ploce" replace />} />
-      <Route path="/admin" element={<Navigate to="/admin/ploce" replace />} />
+      <Route path="/admin/login" element={<Navigate to="/admin/demo" replace />} />
+      <Route path="/admin" element={<Navigate to="/admin/demo" replace />} />
       <Route path="/" element={<ChatPage />} />
     </Routes>
   );
