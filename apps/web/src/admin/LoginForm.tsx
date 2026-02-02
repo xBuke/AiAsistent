@@ -41,7 +41,7 @@ export function LoginForm({ onSubmit, error, warning, isLoading = false, cityId 
             color: '#374151',
           }}
         >
-          Admin Password ({cityId}):
+          Lozinka:
         </label>
         <input
           id="password"

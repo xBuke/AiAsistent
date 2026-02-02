@@ -161,7 +161,7 @@ export function AdminApp() {
     setIsLoggingIn(true);
 
     try {
-      const cityCode = cityId;
+      const cityCode = 'demo';
       const ok = await adminLogin({ cityCode, password, role: 'admin' });
       
       if (ok) {
@@ -207,7 +207,7 @@ export function AdminApp() {
               color: '#111827',
             }}
           >
-            Admin Panel — {cityId}
+            Admin login
           </h1>
         </header>
         <div style={{ flex: 1, padding: '2rem' }}>
