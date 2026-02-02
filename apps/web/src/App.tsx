@@ -499,7 +499,7 @@ function AdminPage() {
                   lineHeight: 1.6,
                 }}
               >
-                <strong>💡 Vrijednost za Grad:</strong> Ovdje Grad Ploče dobiva uvid u to što građane najčešće zanima i koje informacije traže. U budućnosti ovaj sustav omogućuje analizu trendova i prioriteta, što pomaže u donošenju informiranih odluka i poboljšanju komunikacije s građanima.
+                <strong>💡 Vrijednost za Grad:</strong> Ovdje Grad dobiva uvid u to što građane najčešće zanima i koje informacije traže. U budućnosti ovaj sustav omogućuje analizu trendova i prioriteta, što pomaže u donošenju informiranih odluka i poboljšanju komunikacije s građanima.
               </div>
             </div>
 
@@ -1230,7 +1230,7 @@ function ChatPage() {
           {!logoError ? (
             <img
               src="/logo.svg"
-              alt="Grad Ploče logo"
+              alt="Grad logo"
               style={{
                 height: '28px',
                 width: 'auto',
@@ -1241,7 +1241,7 @@ function ChatPage() {
           ) : (
             <img
               src="/logo.png"
-              alt="Grad Ploče logo"
+              alt="Grad logo"
               style={{
                 height: '28px',
                 width: 'auto',
@@ -1258,7 +1258,7 @@ function ChatPage() {
               lineHeight: 1.2,
             }}
           >
-            AI asistent — Grad Ploče
+            Grad AI asistent
           </h1>
         </div>
         <p
@@ -1362,7 +1362,7 @@ function ChatPage() {
             }}
           >
             <button
-              onClick={() => handleSuggestedQuestion('Kako mi možeš pomoći kao AI asistent Grada Ploča?')}
+              onClick={() => handleSuggestedQuestion('Kako mi možeš pomoći kao AI asistent?')}
               disabled={isSending}
               style={{
                 padding: '0.625rem 1rem',
@@ -1389,10 +1389,10 @@ function ChatPage() {
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Kako mi možeš pomoći kao AI asistent Grada Ploča?
+              Kako mi možeš pomoći kao AI asistent?
             </button>
             <button
-              onClick={() => handleSuggestedQuestion('Što sve trenutno možeš raditi za građane Grada Ploča?')}
+              onClick={() => handleSuggestedQuestion('Što sve trenutno možeš raditi za građane?')}
               disabled={isSending}
               style={{
                 padding: '0.625rem 1rem',
@@ -1419,7 +1419,7 @@ function ChatPage() {
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Što sve trenutno možeš raditi za građane Grada Ploča?
+              Što sve trenutno možeš raditi za građane?
             </button>
             <button
               onClick={() => handleSuggestedQuestion('Što ćeš moći raditi u budućnosti?')}

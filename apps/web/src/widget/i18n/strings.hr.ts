@@ -15,7 +15,7 @@ export const strings = {
   contactEmail: 'Email',
   contactNote: 'Napomena',
   contactOptional: 'opcionalno',
-  contactConsent: 'Slažem se da me Grad Ploče može kontaktirati u vezi ovog upita.',
+  contactConsent: 'Slažem se da me Grad može kontaktirati u vezi ovog upita.',
   contactSubmit: 'Pošalji',
   contactErrorPhoneOrEmail: 'Molimo unesite telefon ili email',
   contactErrorPhoneFormat: 'Neispravan format telefona',
