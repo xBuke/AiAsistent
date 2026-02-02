@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://asistent-api-nine.vercel.app/:path*"
+      "source": "/api/(.*)",
+      "destination": "https://asistent-api-nine.vercel.app/$1"
     },
     {
       "source": "/(.*)",
