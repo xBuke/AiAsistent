@@ -171,8 +171,12 @@ export async function chatHandler(request, reply) {
                 request.log.warn({ error, conversationUuid }, 'Failed to insert user message');
             }
         }
-        // Retrieve relevant documents
-        const documents = await retrieveDocuments(message);
+        // Retrieve relevant documents (scoped by city_id)
+        if (!cityUuid) {
+            request.log.error({ cityId }, 'City UUID not resolved, cannot retrieve documents');
+            return reply.status(500).send({ error: 'City resolution failed' });
+        }
+        const documents = await retrieveDocuments(message, cityUuid);
         const context = buildContext(documents);
         // Capture top 3 retrieved docs for trace
         retrievedDocs = documents.slice(0, 3).map(doc => ({

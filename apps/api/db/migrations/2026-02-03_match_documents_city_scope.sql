@@ -1,30 +1,6 @@
--- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Add city_id filtering to match_documents RPC function
+-- This ensures document retrieval is scoped by city_id
 
--- Create documents table
-CREATE TABLE documents (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text,
-  source_url text,
-  content text,
-  content_hash text UNIQUE,
-  embedding vector(384),
-  created_at timestamptz DEFAULT now()
-);
-
--- Create messages table
-CREATE TABLE messages (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  role text,
-  content text,
-  created_at timestamptz DEFAULT now(),
-  metadata jsonb
-);
-
--- Create ivfflat index on documents.embedding
-CREATE INDEX documents_embedding_idx ON documents USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-
--- Function for vector similarity search
 CREATE OR REPLACE FUNCTION match_documents(
   query_embedding vector(384),
   match_threshold float DEFAULT 0.5,
