@@ -6,6 +6,7 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerEventsRoutes } from './routes/events.js';
 import { registerAdminReadRoutes } from './routes/adminRead.js';
+import { registerAdminDashboardRoutes } from './routes/adminDashboard.js';
 export async function buildServer() {
     const server = Fastify({
         logger: true,
@@ -14,7 +15,7 @@ export async function buildServer() {
     // Register plugins
     await server.register(cors, {
         origin: (origin, callback) => {
-            // Always allow http://localhost:5173 for admin frontend
+            // Always allow http://localhost:5173 for admin frontend (required when credentials: true)
             if (origin === 'http://localhost:5173') {
                 callback(null, true);
                 return;
@@ -23,7 +24,7 @@ export async function buildServer() {
             callback(null, true);
         },
         credentials: true,
-        methods: ['GET', 'POST', 'OPTIONS'],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
     });
     await server.register(cookie);
@@ -40,5 +41,7 @@ export async function buildServer() {
     await registerEventsRoutes(server);
     // Register admin read routes
     await registerAdminReadRoutes(server);
+    // Register admin dashboard routes
+    await registerAdminDashboardRoutes(server);
     return server;
 }

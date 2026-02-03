@@ -87,3 +87,69 @@ export async function* streamChat({ messages, context }) {
         throw error;
     }
 }
+/**
+ * Generate conversation title and summary using LLM
+ * Returns { title: string, summary: string } or null on error
+ */
+export async function generateConversationTitleSummary(messages) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+        return null;
+    }
+    const groq = new Groq({ apiKey });
+    // Build conversation context from last ~6 messages
+    const recentMessages = messages.slice(-6);
+    const conversationText = recentMessages
+        .map(msg => `${msg.role === 'user' ? 'Korisnik' : 'Asistent'}: ${msg.content}`)
+        .join('\n\n');
+    const prompt = `Na temelju razgovora izradi:
+1) TITLE (3-7 riječi)
+2) SUMMARY (1-2 rečenice)
+Vrati kao JSON: {"title":"...","summary":"..."}
+Bez dodatnog teksta.
+
+Razgovor:
+${conversationText}`;
+    try {
+        const completion = await groq.chat.completions.create({
+            model: DEFAULT_MODEL,
+            messages: [
+                {
+                    role: 'system',
+                    content: 'Odgovaraj isključivo na hrvatskom jeziku. Vrati samo JSON objekt bez dodatnog teksta.',
+                },
+                {
+                    role: 'user',
+                    content: prompt,
+                },
+            ],
+            temperature: 0.3,
+            max_tokens: 200,
+        });
+        const response = completion.choices[0]?.message?.content?.trim();
+        if (!response) {
+            return null;
+        }
+        // Try to parse JSON response
+        // Handle cases where response might have markdown code blocks
+        let jsonStr = response;
+        if (jsonStr.startsWith('```')) {
+            const match = jsonStr.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+            if (match) {
+                jsonStr = match[1];
+            }
+        }
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.title && parsed.summary) {
+            return {
+                title: parsed.title.trim(),
+                summary: parsed.summary.trim(),
+            };
+        }
+        return null;
+    }
+    catch (error) {
+        console.warn('Failed to generate conversation title/summary:', error);
+        return null;
+    }
+}

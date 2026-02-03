@@ -87,6 +87,7 @@ export async function eventsHandler(request, reply) {
         request.log.info({ cityId, matchType, cityCode: city.code }, 'City resolved');
         const now = new Date().toISOString();
         const timestamp = body.timestamp ? new Date(body.timestamp).toISOString() : now;
+        let responseTicketRef = null;
         // B) Resolve or create conversation with external_id mapping
         const externalConversationId = body.conversationId || `conv_${randomUUID()}`;
         // A) Try to fetch existing conversation by external_id
@@ -135,13 +136,14 @@ export async function eventsHandler(request, reply) {
             }
             request.log.info({ conversationUuid, externalConversationId }, 'Created new conversation');
         }
-        // Update existing conversation if needed (fallback count, needs_human, updated_at).
+        // Update existing conversation if needed (fallback count, needs_human, updated_at, last_activity_at).
         // Category: only set via auto-classify when null; never overwrite existing or use body.category.
         if (existingConv) {
             const fallbackCount = existingConv.fallback_count || 0;
             const newFallbackCount = body.type === 'fallback' ? fallbackCount + 1 : fallbackCount;
             const updatePayload = {
                 updated_at: now,
+                last_activity_at: now, // Update last_activity_at on any conversation activity
                 needs_human: body.needsHuman ?? false,
                 fallback_count: newFallbackCount,
             };
@@ -174,77 +176,21 @@ export async function eventsHandler(request, reply) {
                 // Continue processing even if update fails
             }
         }
-        // C) Insert message when type == "message"
+        // C) Message persistence handled by /chat endpoint only to prevent duplicates
+        // Messages are persisted by /chat only to prevent duplicates; /events is telemetry-only.
+        // The /events endpoint receives message events for analytics/telemetry but does not insert into messages table.
         if (body.type === 'message' && body.role && body.content) {
-            const externalMessageId = body.messageId; // Treat as external_id (text like "assistant_...")
-            // Only store metadata for assistant messages
-            const messageMetadata = body.role === 'assistant' && body.metadata ? body.metadata : null;
-            // De-duplication: Check if message with same external_id already exists for this conversation
-            if (externalMessageId) {
-                const { data: existingMsg, error: lookupError } = await supabase
-                    .from('messages')
-                    .select('id')
-                    .eq('conversation_id', conversationUuid)
-                    .eq('external_id', externalMessageId)
-                    .limit(1)
-                    .maybeSingle();
-                // If lookup fails (e.g., column doesn't exist), log and continue with insert
-                if (lookupError) {
-                    request.log.warn(lookupError, 'Error looking up message by external_id, continuing with insert');
-                }
-                // If message already exists, skip insert
-                if (existingMsg) {
-                    request.log.info({ externalMessageId, conversationUuid }, 'Message already exists, skipping insert');
-                    // Continue processing (return ok at end)
-                }
-                else {
-                    // Insert new message with generated UUID and external_id
-                    const messageUuid = randomUUID();
-                    const insertPayload = {
-                        id: messageUuid,
-                        external_id: externalMessageId,
-                        conversation_id: conversationUuid,
-                        role: body.role,
-                        content_redacted: body.content,
-                        created_at: timestamp,
-                    };
-                    // Add metadata only for assistant messages
-                    if (messageMetadata) {
-                        insertPayload.metadata = messageMetadata;
-                    }
-                    const { error: msgError } = await supabase
-                        .from('messages')
-                        .insert(insertPayload);
-                    if (msgError) {
-                        request.log.error({ conversationUuid, external_id: externalMessageId }, 'Failed to insert message');
-                        return reply.status(500).send({ error: 'Failed to insert message' });
-                    }
-                    request.log.info({ messageUuid, externalMessageId, conversationUuid }, 'Inserted new message');
-                }
-            }
-            else {
-                // No externalMessageId provided, insert without external_id
-                const messageUuid = randomUUID();
-                const insertPayload = {
-                    id: messageUuid,
-                    conversation_id: conversationUuid,
-                    role: body.role,
-                    content_redacted: body.content,
-                    created_at: timestamp,
-                };
-                // Add metadata only for assistant messages
-                if (messageMetadata) {
-                    insertPayload.metadata = messageMetadata;
-                }
-                const { error: msgError } = await supabase
-                    .from('messages')
-                    .insert(insertPayload);
-                if (msgError) {
-                    request.log.error({ conversationUuid }, 'Failed to insert message');
-                    return reply.status(500).send({ error: 'Failed to insert message' });
-                }
-                request.log.info({ messageUuid, conversationUuid }, 'Inserted new message without external_id');
-            }
+            // Log event receipt for telemetry (no database insertion)
+            request.log.info({
+                conversationUuid,
+                role: body.role,
+                contentLength: body.content.length
+            }, 'Message event received (telemetry only, not persisted)');
+            // Update conversation last_activity_at for telemetry tracking
+            await supabase
+                .from('conversations')
+                .update({ last_activity_at: timestamp })
+                .eq('id', conversationUuid);
         }
         // D) Ticket upsert when type in ["ticket_update","contact_submit"] or body.ticket present
         const shouldUpsertTicket = body.type === 'ticket_update' ||
@@ -265,20 +211,34 @@ export async function eventsHandler(request, reply) {
                 ticketData.contact_phone = body.ticket.contact.phone || null;
                 ticketData.contact_email = body.ticket.contact.email || null;
                 ticketData.contact_location = body.ticket.contact.location || null;
+                ticketData.contact_note = body.ticket.contact.note ?? null;
                 if (body.ticket.contact.consentAt) {
                     ticketData.consent_at = new Date(body.ticket.contact.consentAt).toISOString();
                 }
             }
-            if (body.ticket.ticketRef) {
-                ticketData.ticket_ref = body.ticket.ticketRef;
-            }
-            // Get existing ticket to preserve created_at
+            // Get existing ticket to preserve created_at and ticket_ref
             const { data: existingTicket } = await supabase
                 .from('tickets')
-                .select('created_at')
+                .select('created_at, ticket_ref')
                 .eq('conversation_id', conversationUuid)
                 .single();
             ticketData.created_at = existingTicket?.created_at || now;
+            // Ensure ticket_ref: keep existing or generate via RPC
+            if (existingTicket?.ticket_ref) {
+                ticketData.ticket_ref = existingTicket.ticket_ref;
+            }
+            else {
+                const cityCode = city.code || 'PL';
+                const { data: nextRef, error: rpcError } = await supabase.rpc('next_ticket_ref', {
+                    p_city_id: city.id,
+                    p_city_code: cityCode,
+                });
+                if (rpcError) {
+                    request.log.error({ conversationUuid, error: rpcError }, 'next_ticket_ref RPC failed');
+                    return reply.status(500).send({ error: 'Failed to generate ticket ref' });
+                }
+                ticketData.ticket_ref = nextRef ?? null;
+            }
             const { error: ticketError } = await supabase
                 .from('tickets')
                 .upsert(ticketData, {
@@ -288,8 +248,94 @@ export async function eventsHandler(request, reply) {
                 request.log.error({ conversationUuid, external_id: externalConversationId }, 'Failed to upsert ticket');
                 return reply.status(500).send({ error: 'Failed to upsert ticket' });
             }
+            responseTicketRef = ticketData.ticket_ref ?? null;
+            // Update conversation last_activity_at when ticket status/department/urgent changes
+            await supabase
+                .from('conversations')
+                .update({ last_activity_at: now })
+                .eq('id', conversationUuid);
         }
-        return reply.status(200).send({ ok: true });
+        // E) Handle ticket_intake_submitted event
+        if (body.type === 'ticket_intake_submitted') {
+            const intakeData = (body.intake ?? body);
+            // Validate required fields (consent and at least one contact method)
+            if (!intakeData.name || !intakeData.description || !intakeData.consent_given) {
+                request.log.warn({ conversationUuid }, 'Invalid intake data: missing required fields');
+                return reply.status(400).send({ error: 'Missing required intake fields' });
+            }
+            // Validate at least one contact method
+            if (!intakeData.phone && !intakeData.email) {
+                request.log.warn({ conversationUuid }, 'Invalid intake data: missing contact method');
+                return reply.status(400).send({ error: 'Phone or email is required' });
+            }
+            const contactNote = intakeData.note
+                ?? intakeData.napomena
+                ?? intakeData.message
+                ?? intakeData.description
+                ?? null;
+            // Upsert into tickets (single source of truth; do not use ticket_intakes)
+            const { data: existingTicket } = await supabase
+                .from('tickets')
+                .select('created_at, ticket_ref')
+                .eq('conversation_id', conversationUuid)
+                .single();
+            const ticketData = {
+                conversation_id: conversationUuid,
+                city_id: city.id,
+                status: 'open',
+                contact_name: intakeData.name || null,
+                contact_phone: intakeData.phone || null,
+                contact_email: intakeData.email || null,
+                contact_location: intakeData.address || null,
+                contact_note: contactNote,
+                updated_at: now,
+                created_at: existingTicket?.created_at || now,
+            };
+            if (intakeData.consent_given && intakeData.consent_timestamp) {
+                ticketData.consent_at = new Date(intakeData.consent_timestamp).toISOString();
+            }
+            // Ensure ticket_ref: keep existing or generate via RPC
+            if (existingTicket?.ticket_ref) {
+                ticketData.ticket_ref = existingTicket.ticket_ref;
+            }
+            else {
+                const cityCode = city.code || 'PL';
+                const { data: nextRef, error: rpcError } = await supabase.rpc('next_ticket_ref', {
+                    p_city_id: city.id,
+                    p_city_code: cityCode,
+                });
+                if (rpcError) {
+                    request.log.error({ conversationUuid, error: rpcError }, 'next_ticket_ref RPC failed');
+                    return reply.status(500).send({ error: 'Failed to generate ticket ref' });
+                }
+                ticketData.ticket_ref = nextRef ?? null;
+            }
+            const { error: ticketError } = await supabase
+                .from('tickets')
+                .upsert(ticketData, { onConflict: 'conversation_id' });
+            if (ticketError) {
+                request.log.error({ conversationUuid, error: ticketError }, 'Failed to upsert ticket');
+                return reply.status(500).send({ error: 'Failed to upsert ticket' });
+            }
+            // Update conversation: set submitted_at, last_activity_at, needs_human=true and status='open'
+            const convUpdate = {
+                needs_human: true,
+                status: 'open',
+                updated_at: now,
+                last_activity_at: now,
+                submitted_at: now,
+            };
+            const { error: convUpdateError } = await supabase
+                .from('conversations')
+                .update(convUpdate)
+                .eq('id', conversationUuid);
+            if (convUpdateError) {
+                request.log.error({ conversationUuid, error: convUpdateError }, 'Failed to update conversation after intake');
+            }
+            responseTicketRef = ticketData.ticket_ref ?? null;
+            request.log.info({ conversationUuid }, 'Ticket intake submitted, ticket upserted and conversation updated');
+        }
+        return reply.status(200).send(responseTicketRef != null ? { ok: true, ticket_ref: responseTicketRef } : { ok: true });
     }
     catch (error) {
         request.log.error(error, 'Internal server error');

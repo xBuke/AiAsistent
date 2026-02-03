@@ -27,7 +27,7 @@ export async function registerRateLimit(server) {
             message: 'Rate limit exceeded. Please try again later.',
             retryAfter: Math.ceil(context.ttl / 1000),
         }),
-        onExceeding: (req, key) => {
+        onExceeded: (req, key) => {
             req.log.warn({ ip: key, path: req.url }, 'Rate limit exceeded');
         },
     });

@@ -577,19 +577,30 @@ export async function getConversationDetailHandler(
       return reply.status(500).send({ error: 'Internal server error' });
     }
 
-    // Get latest ticket intake (order by submitted_at desc, limit 1)
-    // Use nullsLast to ensure we get the most recent non-null submitted_at first
-    const { data: ticketIntake, error: intakeError } = await supabase
-      .from('ticket_intakes')
-      .select('*')
+    // Get ticket intake data from tickets table (single source of truth)
+    // Transform to match expected intake format for backward compatibility
+    const { data: ticketIntakeData, error: intakeError } = await supabase
+      .from('tickets')
+      .select('contact_name, contact_phone, contact_email, contact_location, contact_note, consent_at, created_at')
       .eq('conversation_id', conversationUuid)
-      .order('submitted_at', { ascending: false, nullsFirst: false })
-      .limit(1)
       .maybeSingle();
 
     if (intakeError) {
       request.log.warn(intakeError, 'Failed to fetch ticket intake (non-fatal)');
     }
+
+    // Transform tickets table data to match expected intake format
+    const ticketIntake = ticketIntakeData ? {
+      name: ticketIntakeData.contact_name,
+      phone: ticketIntakeData.contact_phone,
+      email: ticketIntakeData.contact_email,
+      address: ticketIntakeData.contact_location,
+      description: ticketIntakeData.contact_note,
+      consent_given: ticketIntakeData.consent_at !== null,
+      consent_text: null, // Not stored in tickets table
+      consent_timestamp: ticketIntakeData.consent_at,
+      created_at: ticketIntakeData.created_at,
+    } : null;
 
     return reply.send({
       conversation: {
@@ -1035,16 +1046,30 @@ export async function getTicketsHandler(
       request.log.warn(msgError, 'Failed to fetch user messages for contact extraction');
     }
 
-    // Get ticket intakes for these conversations
-    const { data: ticketIntakes, error: intakeError } = await supabase
-      .from('ticket_intakes')
-      .select('conversation_id, name, phone, email, address, description, consent_given, consent_text, consent_timestamp, created_at')
+    // Get ticket intake data from tickets table (single source of truth)
+    const { data: ticketsData, error: intakeError } = await supabase
+      .from('tickets')
+      .select('conversation_id, contact_name, contact_phone, contact_email, contact_location, contact_note, consent_at, created_at')
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: false });
 
     if (intakeError) {
-      request.log.warn(intakeError, 'Failed to fetch ticket intakes');
+      request.log.warn(intakeError, 'Failed to fetch ticket intake data');
     }
+
+    // Transform tickets table data to match expected intake format
+    const ticketIntakes = (ticketsData || []).map(t => ({
+      conversation_id: t.conversation_id,
+      name: t.contact_name,
+      phone: t.contact_phone,
+      email: t.contact_email,
+      address: t.contact_location,
+      description: t.contact_note,
+      consent_given: t.consent_at !== null,
+      consent_text: null, // Not stored in tickets table
+      consent_timestamp: t.consent_at,
+      created_at: t.created_at,
+    }));
 
     // Group messages by conversation_id
     const messagesByConv = new Map<string, any[]>();

@@ -14,28 +14,28 @@ export async function runRetentionCleanup() {
     const cutoffDateISO = cutoffDate.toISOString();
     console.log(`[Retention Cleanup] Starting cleanup for data older than ${cutoffDateISO}`);
     // Delete old messages (based on created_at)
-    const { data: messagesData, error: messagesError, count: messagesCount } = await supabase
+    const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .delete()
         .lt('created_at', cutoffDateISO)
-        .select('*', { count: 'exact', head: false });
+        .select('*');
     if (messagesError) {
         console.error(`[Retention Cleanup] Error deleting messages:`, messagesError);
         throw new Error(`Failed to delete messages: ${messagesError.message}`);
     }
-    const messagesDeleted = messagesCount ?? (messagesData?.length ?? 0);
+    const messagesDeleted = messagesData?.length ?? 0;
     console.log(`[Retention Cleanup] Deleted ${messagesDeleted} message(s)`);
     // Delete old tickets (based on updated_at)
-    const { data: ticketsData, error: ticketsError, count: ticketsCount } = await supabase
+    const { data: ticketsData, error: ticketsError } = await supabase
         .from('tickets')
         .delete()
         .lt('updated_at', cutoffDateISO)
-        .select('*', { count: 'exact', head: false });
+        .select('*');
     if (ticketsError) {
         console.error(`[Retention Cleanup] Error deleting tickets:`, ticketsError);
         throw new Error(`Failed to delete tickets: ${ticketsError.message}`);
     }
-    const ticketsDeleted = ticketsCount ?? (ticketsData?.length ?? 0);
+    const ticketsDeleted = ticketsData?.length ?? 0;
     console.log(`[Retention Cleanup] Deleted ${ticketsDeleted} ticket(s)`);
     console.log(`[Retention Cleanup] Cleanup completed. Total: ${messagesDeleted + ticketsDeleted} row(s) deleted`);
     return {

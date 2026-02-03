@@ -723,6 +723,17 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // #endregion
       }
 
+      // Attach metadata to assistant message for citations UI
+      if (traceMetadata) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, metadata: traceMetadata }
+              : msg
+          )
+        );
+      }
+
       // Emit message event for assistant response (ONE event at end of streaming)
       // Use finalAnswerContent which contains the complete response
       const latencyMs = Date.now() - startTime;
