@@ -201,7 +201,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         {
           id: `welcome-${Date.now()}`,
           role: 'assistant',
-          content: t(config.lang, 'welcome'),
+          content: t(config.lang, 'welcome').replace(/\u2013/g, '-'),
         },
       ]);
     }
@@ -292,9 +292,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setTicket(updatedTicket);
     }
 
-    const confirmationContent = ticketRefFromServer
+    const confirmationContent = (ticketRefFromServer
       ? `${t(config.lang, 'contactConfirmationPrefix')} ${ticketRefFromServer}. ${t(config.lang, 'contactConfirmationSuffix')}`
-      : t(config.lang, 'intakeConfirmation');
+      : t(config.lang, 'intakeConfirmation')).replace(/\u2013/g, '-');
     const confirmationMessage: Message = {
       id: `confirmation-${Date.now()}`,
       role: 'assistant',
@@ -356,9 +356,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           setIntakeSubmitted(true);
           const data = (await response.json().catch(() => ({}))) as { ticket_ref?: string };
           const ticketRefFromServer = data?.ticket_ref ?? null;
-          const confirmationContent = ticketRefFromServer
+          const confirmationContent = (ticketRefFromServer
             ? `${t(config.lang, 'contactConfirmationPrefix')} ${ticketRefFromServer}. ${t(config.lang, 'contactConfirmationSuffix')}`
-            : t(config.lang, 'intakeConfirmation');
+            : t(config.lang, 'intakeConfirmation')).replace(/\u2013/g, '-');
           const confirmationMessage: Message = {
             id: `intake-confirmation-${Date.now()}`,
             role: 'assistant',
@@ -381,7 +381,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       const confirmationMessage: Message = {
         id: `intake-confirmation-${Date.now()}`,
         role: 'assistant',
-        content: t(config.lang, 'intakeConfirmation'),
+        content: t(config.lang, 'intakeConfirmation').replace(/\u2013/g, '-'),
       };
       setMessages((prev) => [...prev, confirmationMessage]);
     }
@@ -459,7 +459,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           '[GradWidget] apiBaseUrl is missing in production. Chat unavailable. Set data-api-base on the script tag.'
         );
       }
-      const unavailContent = t(config.lang, 'serviceUnavailable');
+      const unavailContent = t(config.lang, 'serviceUnavailable').replace(/\u2013/g, '-');
       setMessages((prev) => [
         ...prev,
         {
@@ -493,7 +493,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     streamTimeoutRef.current = setTimeout(() => {
       if (!hasReceivedFirstTokenRef.current) {
         // No tokens received within 6 seconds – SSE/request failed
-        const errContent = t(config.lang, 'communicationError');
+        const errContent = t(config.lang, 'communicationError').replace(/\u2013/g, '-');
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -607,7 +607,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           }
           setIsStreaming(false);
           setHasReceivedFirstToken(false);
-          const errContent = t(config.lang, 'communicationError');
+          const errContent = t(config.lang, 'communicationError').replace(/\u2013/g, '-');
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId
@@ -631,14 +631,17 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // Skip empty tokens, but preserve whitespace in non-empty tokens
         if (token === '') continue;
 
+        // Normalize Unicode en-dash to hyphen for consistent rendering
+        const normalizedToken = token.replace(/\u2013/g, '-');
+
         // Append token to assistant message
-        finalAnswerContent += token;
+        finalAnswerContent += normalizedToken;
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
               ? {
                   ...msg,
-                  content: msg.content + token,
+                  content: msg.content + normalizedToken,
                 }
               : msg
           )
@@ -653,7 +656,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         }
         setIsStreaming(false);
         setHasReceivedFirstToken(false);
-        const errContent = t(config.lang, 'communicationError');
+        const errContent = t(config.lang, 'communicationError').replace(/\u2013/g, '-');
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -692,7 +695,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:640',message:'Stream completed with no content - showing fallback message',data:{finalAnswerContent,traceMetadata},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
         // #endregion
-        const fallbackMessage = t(config.lang, 'communicationError') || 'Izvinjavam se, trenutno ne mogu odgovoriti na ovo pitanje. Molimo pokušajte ponovno ili kontaktirajte nas direktno.';
+        const fallbackMessage = (t(config.lang, 'communicationError') || 'Izvinjavam se, trenutno ne mogu odgovoriti na ovo pitanje. Molimo pokušajte ponovno ili kontaktirajte nas direktno.').replace(/\u2013/g, '-');
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -762,7 +765,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setIsStreaming(false);
       setHasReceivedFirstToken(false);
 
-      const errContent = t(config.lang, 'communicationError');
+      const errContent = t(config.lang, 'communicationError').replace(/\u2013/g, '-');
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
