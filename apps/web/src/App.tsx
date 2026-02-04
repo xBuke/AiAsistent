@@ -1441,6 +1441,112 @@ function FloatingChat({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
   );
 }
 
+// Copyable Example Component
+function CopyableExample({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (e) {
+        // Ignore
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e7eb',
+        borderRadius: '0.5rem',
+        padding: '1rem',
+        marginBottom: '0.75rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '1rem',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: '0.8125rem',
+            color: '#6b7280',
+            marginBottom: '0.25rem',
+            fontWeight: 500,
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+            color: '#111827',
+            lineHeight: 1.5,
+            wordBreak: 'break-word',
+            cursor: 'text',
+            userSelect: 'text',
+          }}
+          onClick={(e) => {
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(e.currentTarget);
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+          }}
+        >
+          {text}
+        </div>
+      </div>
+      <button
+        onClick={handleCopy}
+        style={{
+          padding: '0.5rem 0.75rem',
+          fontSize: '0.8125rem',
+          fontWeight: 500,
+          color: copied ? '#10b981' : '#2563eb',
+          backgroundColor: copied ? '#d1fae5' : '#eff6ff',
+          border: '1px solid',
+          borderColor: copied ? '#10b981' : '#2563eb',
+          borderRadius: '0.375rem',
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+          transition: 'all 0.2s',
+          flexShrink: 0,
+        }}
+        onMouseEnter={(e) => {
+          if (!copied) {
+            e.currentTarget.style.backgroundColor = '#dbeafe';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!copied) {
+            e.currentTarget.style.backgroundColor = '#eff6ff';
+          }
+        }}
+      >
+        {copied ? '✓ Copied' : 'Copy'}
+      </button>
+    </div>
+  );
+}
+
 // English Landing Page Component
 function EnglishLandingPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -1602,6 +1708,52 @@ function EnglishLandingPage() {
             <li>Submit a request (it will create a ticket/reference)</li>
             <li>Open the admin dashboard to review tickets</li>
           </ul>
+        </div>
+
+        {/* What to Try Section */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1.5rem',
+            backgroundColor: '#f9fafb',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 'clamp(1.125rem, 2vw, 1.25rem)',
+              fontWeight: 600,
+              color: '#111827',
+              margin: '0 0 1rem 0',
+            }}
+          >
+            What to try
+          </h2>
+          <CopyableExample
+            text="How can the city help me as a citizen?"
+            label="Example 1 (general info)"
+          />
+          <CopyableExample
+            text="Who should I contact about a communal issue?"
+            label="Example 2 (service guidance)"
+          />
+          <CopyableExample
+            text="I have an issue with public lighting in my street."
+            label="Example 3 (ticket flow)"
+          />
+          <p
+            style={{
+              fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
+              color: '#6b7280',
+              margin: '1rem 0 0 0',
+              lineHeight: 1.6,
+              fontStyle: 'italic',
+            }}
+          >
+            These examples are in English for clarity. The assistant UI and responses are in Croatian.
+          </p>
         </div>
 
         {/* Important Note */}
