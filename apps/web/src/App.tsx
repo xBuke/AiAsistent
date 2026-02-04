@@ -1441,8 +1441,8 @@ function FloatingChat({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
   );
 }
 
-// Landing Page Component
-function ChatPage() {
+// English Landing Page Component
+function EnglishLandingPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
@@ -1454,6 +1454,37 @@ function ChatPage() {
         position: 'relative',
       }}
     >
+      {/* Language Switcher */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 'clamp(1rem, 2vw, 1.5rem)',
+          right: 'clamp(1rem, 2vw, 1.5rem)',
+        }}
+      >
+        <a
+          href="/"
+          style={{
+            padding: '0.5rem 1rem',
+            fontSize: '0.9375rem',
+            color: '#2563eb',
+            textDecoration: 'none',
+            fontWeight: 500,
+            border: '1px solid #2563eb',
+            borderRadius: '0.375rem',
+            transition: 'background-color 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#eff6ff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          HR
+        </a>
+      </div>
+
       {/* Hero Section */}
       <section
         style={{
@@ -1472,7 +1503,316 @@ function ChatPage() {
             lineHeight: 1.2,
           }}
         >
-          AI asistent za gradove
+          Civis
+        </h1>
+        <p
+          style={{
+            fontSize: 'clamp(1.125rem, 2.5vw, 1.5rem)',
+            color: '#4b5563',
+            margin: '0 0 1.5rem 0',
+            lineHeight: 1.6,
+            maxWidth: '800px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}
+        >
+          A citizen-facing AI assistant and an admin inbox for municipalities.
+        </p>
+
+        {/* Notice/Disclaimer */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1rem 1.5rem',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#0369a1',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            <strong>Notice:</strong> This demo reflects workflows shaped by Croatian public-sector standards and operating practices.
+          </p>
+        </div>
+
+        {/* Document Scope Note */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1rem 1.5rem',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#92400e',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            The assistant is grounded on a small set of demo/mock documents (not official documents).
+          </p>
+        </div>
+
+        {/* Testing Instructions */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1.5rem',
+            backgroundColor: '#f9fafb',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 'clamp(1.125rem, 2vw, 1.25rem)',
+              fontWeight: 600,
+              color: '#111827',
+              margin: '0 0 1rem 0',
+            }}
+          >
+            Testing Instructions
+          </h2>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: '1.5rem',
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#374151',
+              lineHeight: 1.8,
+            }}
+          >
+            <li>Open the chat bubble</li>
+            <li>Ask a question about city services</li>
+            <li>Submit a request (it will create a ticket/reference)</li>
+            <li>Open the admin dashboard to review tickets</li>
+          </ul>
+        </div>
+
+        {/* Important Note */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1rem 1.5rem',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fcd34d',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#92400e',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            <strong>Important:</strong> The chat and admin UI are currently in Croatian.
+          </p>
+        </div>
+
+        {/* Call-to-Action Buttons */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            justifyContent: 'center',
+            marginTop: '2.5rem',
+          }}
+        >
+          <a
+            href="https://gradai.mangai.hr/admin/demo"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
+              fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+              fontWeight: 600,
+              color: '#ffffff',
+              backgroundColor: '#2563eb',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s, transform 0.2s',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              textDecoration: 'none',
+              display: 'inline-block',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#1d4ed8';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#2563eb';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Open Admin Dashboard
+          </a>
+          <button
+            onClick={() => setIsChatOpen(true)}
+            style={{
+              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
+              fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+              fontWeight: 600,
+              color: '#2563eb',
+              backgroundColor: 'transparent',
+              border: '2px solid #2563eb',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s, transform 0.2s',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#eff6ff';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Try the Widget
+          </button>
+        </div>
+      </section>
+
+      {/* Floating Chat */}
+      {isChatOpen ? (
+        <FloatingChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      ) : (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: 'clamp(10px, 2vw, 20px)',
+            right: 'clamp(10px, 2vw, 20px)',
+            width: 'clamp(48px, 8vw, 56px)',
+            height: 'clamp(48px, 8vw, 56px)',
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: '#2563eb',
+            color: 'white',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            zIndex: 999,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+          }}
+          aria-label="Open chat"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Landing Page Component (Croatian)
+function ChatPage() {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        backgroundColor: '#ffffff',
+        position: 'relative',
+      }}
+    >
+      {/* Language Switcher */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 'clamp(1rem, 2vw, 1.5rem)',
+          right: 'clamp(1rem, 2vw, 1.5rem)',
+        }}
+      >
+        <a
+          href="/en"
+          style={{
+            padding: '0.5rem 1rem',
+            fontSize: '0.9375rem',
+            color: '#2563eb',
+            textDecoration: 'none',
+            fontWeight: 500,
+            border: '1px solid #2563eb',
+            borderRadius: '0.375rem',
+            transition: 'background-color 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#eff6ff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          EN
+        </a>
+      </div>
+
+      {/* Hero Section */}
+      <section
+        style={{
+          padding: 'clamp(3rem, 8vw, 6rem) clamp(1rem, 4vw, 2rem)',
+          maxWidth: '1200px',
+          margin: '0 auto',
+          textAlign: 'center',
+        }}
+      >
+        <h1
+          style={{
+            fontSize: 'clamp(2rem, 6vw, 3.5rem)',
+            fontWeight: 700,
+            color: '#111827',
+            margin: '0 0 1.5rem 0',
+            lineHeight: 1.2,
+          }}
+        >
+          Civis
         </h1>
         <p
           style={{
@@ -1500,31 +1840,69 @@ function ChatPage() {
         >
           Ovaj asistent bit će implementiran direktno na službenoj web stranici grada kao chat bubble, omogućujući građanima brz i jednostavan pristup informacijama o gradu.
         </p>
-        <button
-          onClick={() => setIsChatOpen(true)}
+        <div
           style={{
-            padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
-            fontSize: 'clamp(1rem, 2vw, 1.125rem)',
-            fontWeight: 600,
-            color: '#ffffff',
-            backgroundColor: '#2563eb',
-            border: 'none',
-            borderRadius: '0.5rem',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s, transform 0.2s',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#1d4ed8';
-            e.currentTarget.style.transform = 'translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#2563eb';
-            e.currentTarget.style.transform = 'translateY(0)';
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            justifyContent: 'center',
           }}
         >
-          Iskusite kako izgleda AI asistent za građane
-        </button>
+          <button
+            onClick={() => setIsChatOpen(true)}
+            style={{
+              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
+              fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+              fontWeight: 600,
+              color: '#ffffff',
+              backgroundColor: '#2563eb',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s, transform 0.2s',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#1d4ed8';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#2563eb';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Iskusite kako izgleda AI asistent za građane
+          </button>
+          <a
+            href="https://gradai.mangai.hr/admin/demo"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
+              fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+              fontWeight: 600,
+              color: '#2563eb',
+              backgroundColor: 'transparent',
+              border: '2px solid #2563eb',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s, transform 0.2s',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              textDecoration: 'none',
+              display: 'inline-block',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#eff6ff';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Admin Dashboard
+          </a>
+        </div>
       </section>
 
       {/* How It Works Section */}
@@ -1797,6 +2175,7 @@ function App() {
       <Route path="/admin/:cityId" element={<AdminApp />} />
       <Route path="/admin/login" element={<Navigate to="/admin/demo" replace />} />
       <Route path="/admin" element={<Navigate to="/admin/demo" replace />} />
+      <Route path="/en" element={<EnglishLandingPage />} />
       <Route path="/" element={<ChatPage />} />
     </Routes>
   );
