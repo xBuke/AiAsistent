@@ -105,12 +105,26 @@ export class ApiTransport implements ChatTransport {
                   continue;
                 }
                 
-                // Skip empty tokens, but preserve whitespace in non-empty tokens
-                if (payload === '') continue;
-                // Filter out control signals
-                if (payload !== '[DONE]' && !payload.startsWith('[ERROR]')) {
-                  yield payload;
+                // Handle message event (default event)
+                // Yield every payload exactly as received, except:
+                // - ignore the literal payload "[DONE]"
+                // - if payload starts with "[ERROR]" handle as error (existing behavior)
+                if (payload === '[DONE]') {
+                  currentEvent = '';
+                  continue;
                 }
+                if (payload.startsWith('[ERROR]')) {
+                  currentEvent = '';
+                  continue;
+                }
+                
+                // Debug logging (optional, controlled by localStorage)
+                if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
+                  console.log('[SSE token]', JSON.stringify(payload));
+                }
+                
+                // Yield message payload exactly as received (no trimming)
+                yield payload;
                 // Reset event type after processing data
                 currentEvent = '';
               }
@@ -120,12 +134,23 @@ export class ApiTransport implements ChatTransport {
           // Process remaining buffer
           if (buffer.startsWith('data: ')) {
             const payload = buffer.slice(6);
-            // Skip empty tokens, but preserve whitespace in non-empty tokens
-            if (payload === '') return;
-            // Filter out control signals
-            if (payload !== '[DONE]' && !payload.startsWith('[ERROR]')) {
-              yield payload;
+            // Yield every payload exactly as received, except:
+            // - ignore the literal payload "[DONE]"
+            // - if payload starts with "[ERROR]" handle as error (existing behavior)
+            if (payload === '[DONE]') {
+              return;
             }
+            if (payload.startsWith('[ERROR]')) {
+              return;
+            }
+            
+            // Debug logging (optional, controlled by localStorage)
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
+              console.log('[SSE token]', JSON.stringify(payload));
+            }
+            
+            // Yield message payload exactly as received (no trimming)
+            yield payload;
           }
         } finally {
           reader.releaseLock();
