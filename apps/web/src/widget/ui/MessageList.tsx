@@ -12,9 +12,10 @@ export interface Message {
 interface MessageListProps {
   messages: Message[];
   showTypingIndicator: boolean;
+  lastCitations?: Array<{title?: string|null; source?: string|null; score?: number}> | null;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator, lastCitations }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [openCitationsId, setOpenCitationsId] = useState<string | null>(null);
@@ -31,13 +32,19 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
     setOpenCitationsId(prev => prev === messageId ? null : messageId);
   };
 
-  const getCitations = (message: Message) => {
-    const retrievedDocs = message.metadata?.retrieved_docs_top3;
-    if (!Array.isArray(retrievedDocs) || retrievedDocs.length === 0) {
-      return null;
+  // Find the last assistant message ID
+  const lastAssistantMessageId = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        return messages[i].id;
+      }
     }
-    return retrievedDocs;
-  };
+    return null;
+  })();
+
+  // Check if citations should be shown (only for last assistant message)
+  const shouldShowCitations = lastCitations && Array.isArray(lastCitations) && lastCitations.length > 0 && lastAssistantMessageId !== null;
+  const isCitationsOpen = openCitationsId === lastAssistantMessageId;;
 
   return (
     <div
@@ -49,9 +56,8 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
       }}
     >
       {messages.map((message) => {
-        const citations = getCitations(message);
-        const showCitations = message.role === 'assistant' && citations;
-        const isCitationsOpen = openCitationsId === message.id;
+        const isLastAssistant = message.id === lastAssistantMessageId;
+        const showCitations = isLastAssistant && shouldShowCitations;
 
         return (
           <div
@@ -102,7 +108,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
                 })}
               </div>
             </div>
-            {showCitations && (
+            {showCitations && lastCitations && (
               <>
                 <button
                   onClick={() => toggleCitations(message.id)}
@@ -118,7 +124,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
                     alignSelf: 'flex-start',
                   }}
                 >
-                  Izvori ({citations.length})
+                  Izvori ({lastCitations.length})
                 </button>
                 {isCitationsOpen && (
                   <div
@@ -135,48 +141,61 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
                       gap: '12px',
                     }}
                   >
-                    {citations.map((doc: { title: string | null; source: string | null; score: number }, index: number) => (
-                      <div
-                        key={index}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '4px',
-                        }}
-                      >
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: '#666',
+                        fontStyle: 'italic',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Izvori su dokumenti iz baze projekta (službeni link ako postoji).
+                    </div>
+                    {lastCitations.map((doc, index) => {
+                      const isUrl = doc.source && typeof doc.source === 'string' && doc.source.startsWith('http');
+                      return (
                         <div
+                          key={index}
                           style={{
-                            fontWeight: '600',
-                            color: '#333',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
                           }}
                         >
-                          {doc.title || 'Izvor'}
-                        </div>
-                        {doc.source ? (
-                          <a
-                            href={doc.source}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              color: '#0b3a6e',
-                              textDecoration: 'underline',
-                              wordWrap: 'break-word',
-                            }}
-                          >
-                            {doc.source}
-                          </a>
-                        ) : (
                           <div
                             style={{
-                              color: '#666',
-                              wordWrap: 'break-word',
+                              fontWeight: '600',
+                              color: '#333',
                             }}
                           >
-                            Nepoznati izvor
+                            {doc.title || 'Izvor'}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {isUrl ? (
+                            <a
+                              href={doc.source!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: '#0b3a6e',
+                                textDecoration: 'underline',
+                                wordWrap: 'break-word',
+                              }}
+                            >
+                              {doc.source}
+                            </a>
+                          ) : (
+                            <div
+                              style={{
+                                color: '#666',
+                                wordWrap: 'break-word',
+                              }}
+                            >
+                              Interna dokumentacija projekta
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </>

@@ -37,6 +37,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [ticket, setTicket] = useState<Ticket | undefined>(undefined);
   const [showIntakeForm, setShowIntakeForm] = useState(false);
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
+  const [lastCitations, setLastCitations] = useState<Array<{title?: string|null; source?: string|null; score?: number}> | null>(null);
   
   // #region agent log
   // Instrumentation: Track when showIntakeForm state changes
@@ -429,6 +430,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     // Generate stable messageId for idempotent message insertion (reused on retries)
     const clientMessageId = crypto.randomUUID();
     
+    // Clear citations when a new user message is sent
+    setLastCitations(null);
+    
     // Add user message
     const userMessageId = `user-${Date.now()}`;
     const userMessage: Message = {
@@ -489,25 +493,21 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    // Set up meta callback to attach metadata immediately when meta event arrives
+    // Set up meta callback to store citations immediately when meta event arrives
     if (transport instanceof ApiTransport) {
       transport.onMeta = (meta) => {
         // Debug logging
         if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
           console.log('meta arrived', meta);
         }
-        // Attach to the latest assistant message (the one we just created)
-        setMessages(prev => {
-          // Find last assistant message in the list and attach metadata
-          for (let i = prev.length - 1; i >= 0; i--) {
-            if (prev[i].role === 'assistant') {
-              const copy = prev.slice();
-              copy[i] = { ...copy[i], metadata: meta };
-              return copy;
-            }
+        // Extract retrieved_docs_top3 and store in global citations state
+        const top3 = meta?.retrieved_docs_top3;
+        if (Array.isArray(top3)) {
+          if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+            console.log('lastCitations', top3);
           }
-          return prev;
-        });
+          setLastCitations(top3);
+        }
       };
     }
 
@@ -689,6 +689,15 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Get metadata from transport if available (for debug trace and citations)
       const meta = (transport instanceof ApiTransport) ? (transport.metadata || undefined) : undefined;
       
+      // Extract retrieved_docs_top3 and store in global citations state (safety net)
+      const top3 = meta?.retrieved_docs_top3;
+      if (Array.isArray(top3)) {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+          console.log('lastCitations', top3);
+        }
+        setLastCitations(top3);
+      }
+      
       // Debug logging for citations
       if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
         console.log('citations meta', meta);
@@ -721,17 +730,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
             : msg
         )
       );
-
-      // Attach metadata to assistant message for citations UI
-      if (meta) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, metadata: meta }
-              : msg
-          )
-        );
-      }
 
       // Check if backend explicitly indicates intake form should be shown
       // ONLY check needs_human from metadata (strict === true check)
@@ -888,6 +886,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           showIntakeForm={showIntakeForm && !intakeSubmitted}
           onIntakeSubmit={handleIntakeSubmit}
           intakeInitialDescription={userMessages.length > 0 ? userMessages[userMessages.length - 1] : ''}
+          lastCitations={lastCitations}
         />
       )}
       <div
