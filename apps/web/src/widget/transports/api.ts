@@ -3,6 +3,9 @@ import type { ChatTransport, ChatSendInput } from './types';
 export class ApiTransport implements ChatTransport {
   // Store metadata from meta SSE events
   private _metadata: Record<string, any> | null = null;
+  
+  // Optional callback for when meta event arrives
+  onMeta?: (meta: any) => void;
 
   get metadata(): Record<string, any> | null {
     return this._metadata;
@@ -97,7 +100,11 @@ export class ApiTransport implements ChatTransport {
                 // Handle meta event
                 if (currentEvent === 'meta') {
                   try {
-                    this._metadata = JSON.parse(payload);
+                    const parsed = JSON.parse(payload);
+                    this._metadata = parsed;
+                    if (this.onMeta) {
+                      this.onMeta(parsed);
+                    }
                   } catch {
                     // Ignore parse errors for metadata
                   }

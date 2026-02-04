@@ -489,6 +489,28 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
+    // Set up meta callback to attach metadata immediately when meta event arrives
+    if (transport instanceof ApiTransport) {
+      transport.onMeta = (meta) => {
+        // Debug logging
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+          console.log('meta arrived', meta);
+        }
+        // Attach to the latest assistant message (the one we just created)
+        setMessages(prev => {
+          // Find last assistant message in the list and attach metadata
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].role === 'assistant') {
+              const copy = prev.slice();
+              copy[i] = { ...copy[i], metadata: meta };
+              return copy;
+            }
+          }
+          return prev;
+        });
+      };
+    }
+
     // Set up timeout for fallback (6 seconds)
     streamTimeoutRef.current = setTimeout(() => {
       if (!hasReceivedFirstTokenRef.current) {
