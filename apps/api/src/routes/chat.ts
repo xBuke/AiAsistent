@@ -41,16 +41,35 @@ export async function chatHandler(
     return reply.status(400).send({ error: 'Missing cityId parameter' });
   }
 
-  // Set headers BEFORE hijacking (headers cannot be modified after hijack)
+  // Validate and set CORS headers BEFORE hijacking
   const origin = request.headers.origin;
-  if (origin) {
-    reply.header('Access-Control-Allow-Origin', origin);
+  const allowedOrigins = [
+    'https://gradai.mangai.hr',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ];
+  
+  // Determine allowed origin
+  let allowedOrigin: string;
+  if (origin && allowedOrigins.includes(origin)) {
+    allowedOrigin = origin;
+  } else if (!origin) {
+    // No origin header (e.g., same-origin request or non-browser client)
+    allowedOrigin = '*';
   } else {
-    reply.header('Access-Control-Allow-Origin', '*');
+    // Origin not in allowed list - still allow but log for security
+    request.log.warn({ origin }, 'Request from non-whitelisted origin');
+    allowedOrigin = origin; // Allow for now, but could be restricted
   }
+  
+  // Set headers using Fastify's reply methods (before hijack)
+  reply.header('Access-Control-Allow-Origin', allowedOrigin);
   reply.header('Access-Control-Allow-Credentials', 'true');
   reply.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
   reply.header('Access-Control-Allow-Headers', 'Content-Type');
+  reply.header('Vary', 'Origin');
   
   // Set SSE headers using Fastify's reply methods
   reply.type('text/event-stream');
@@ -60,6 +79,13 @@ export async function chatHandler(
 
   // Hijack the response to handle streaming manually (after headers are set)
   reply.hijack();
+  
+  // Explicitly set CORS headers on raw response to ensure they're sent
+  reply.raw.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
+  reply.raw.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  reply.raw.setHeader('Vary', 'Origin');
   
   // Send initial SSE comment to establish connection and flush headers
   reply.raw.write(': keep-alive\n\n');
@@ -779,14 +805,32 @@ export async function chatOptionsHandler(
   reply: FastifyReply
 ) {
   const origin = request.headers.origin;
-  if (origin) {
-    reply.header('Access-Control-Allow-Origin', origin);
+  const allowedOrigins = [
+    'https://gradai.mangai.hr',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ];
+  
+  // Determine allowed origin
+  let allowedOrigin: string;
+  if (origin && allowedOrigins.includes(origin)) {
+    allowedOrigin = origin;
+  } else if (!origin) {
+    // No origin header (e.g., same-origin request or non-browser client)
+    allowedOrigin = '*';
   } else {
-    reply.header('Access-Control-Allow-Origin', '*');
+    // Origin not in allowed list - still allow but log for security
+    request.log.warn({ origin }, 'OPTIONS request from non-whitelisted origin');
+    allowedOrigin = origin; // Allow for now, but could be restricted
   }
+  
+  reply.header('Access-Control-Allow-Origin', allowedOrigin);
   reply.header('Access-Control-Allow-Credentials', 'true');
   reply.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
   reply.header('Access-Control-Allow-Headers', 'Content-Type');
+  reply.header('Vary', 'Origin');
   return reply.status(204).send();
 }
 
