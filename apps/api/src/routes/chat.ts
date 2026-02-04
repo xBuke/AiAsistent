@@ -217,7 +217,27 @@ export async function chatHandler(
       request.log.error({ cityId }, 'City UUID not resolved, cannot retrieve documents');
       return reply.status(500).send({ error: 'City resolution failed' });
     }
-    const documents = await retrieveDocuments(message, cityUuid);
+    
+    let documents: Array<{ id: string; title: string | null; source_url: string | null; content: string | null; similarity: number }> = [];
+    try {
+      documents = await retrieveDocuments(message, cityUuid);
+    } catch (error) {
+      // Log embedding/retrieval errors loudly - this is a critical failure
+      request.log.error({
+        error,
+        message,
+        cityUuid,
+        cityId,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      }, 'CRITICAL: Document retrieval failed - embedding generation or database query error');
+      // Return HTTP 500 - do NOT silently return empty array
+      return reply.status(500).send({ 
+        error: 'Embedding or retrieval service unavailable',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+    
     const context = buildContext(documents);
 
     // Capture top 3 retrieved docs for trace

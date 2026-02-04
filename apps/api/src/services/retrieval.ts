@@ -24,54 +24,52 @@ interface RetrievedDocument {
  * @param cityId - The city UUID to scope the search (required)
  */
 export async function retrieveDocuments(query: string, cityId: string): Promise<RetrievedDocument[]> {
-  try {
-    // Generate embedding for the query
-    const queryEmbedding = await embed(query);
+  // Generate embedding for the query
+  // If this fails, let it throw - chat handler will return 500
+  const queryEmbedding = await embed(query);
 
-    // Retrieve documents using match_documents RPC, scoped by city_id
-    const { data: documents, error } = await supabase.rpc('match_documents', {
-      query_embedding: queryEmbedding,
-      match_threshold: SIMILARITY_THRESHOLD,
-      match_count: TOP_K,
-      p_city_id: cityId,
-    });
+  // Retrieve documents using match_documents RPC, scoped by city_id
+  const { data: documents, error } = await supabase.rpc('match_documents', {
+    query_embedding: queryEmbedding,
+    match_threshold: SIMILARITY_THRESHOLD,
+    match_count: TOP_K,
+    p_city_id: cityId,
+  });
 
-    if (error) {
-      console.error('Error retrieving documents:', error);
-      return [];
-    }
+  if (error) {
+    console.error('[RETRIEVAL ERROR] Supabase RPC error:', error);
+    console.error('[RETRIEVAL ERROR] Query:', query);
+    console.error('[RETRIEVAL ERROR] City ID:', cityId);
+    throw new Error(`Database retrieval failed: ${error.message}`);
+  }
 
-    if (!documents || documents.length === 0) {
-      return [];
-    }
-
-    // Filter out documents with similarity below threshold and return
-    const filteredDocs = documents
-      .filter((doc: any) => doc.similarity >= SIMILARITY_THRESHOLD)
-      .map((doc: any) => ({
-        id: doc.id,
-        title: doc.title,
-        source_url: doc.source_url,
-        content: doc.content,
-        similarity: doc.similarity,
-      }));
-
-    // DEMO_MODE debug logging
-    if (process.env.DEMO_MODE === 'true') {
-      console.log(`[DEMO_MODE] Retrieval debug for city_id=${cityId}:`);
-      console.log(`  - topK requested: ${TOP_K}`);
-      console.log(`  - retrieved_sources_count: ${filteredDocs.length}`);
-      console.log(`  - retrieved_docs_top3:`);
-      filteredDocs.slice(0, 3).forEach((doc: RetrievedDocument, idx: number) => {
-        console.log(`    ${idx + 1}. "${doc.title || 'Untitled'}" (source: ${doc.source_url || 'N/A'}, score: ${doc.similarity.toFixed(3)})`);
-      });
-    }
-
-    return filteredDocs;
-  } catch (error) {
-    console.error('Error in retrieveDocuments:', error);
+  if (!documents || documents.length === 0) {
     return [];
   }
+
+  // Filter out documents with similarity below threshold and return
+  const filteredDocs = documents
+    .filter((doc: any) => doc.similarity >= SIMILARITY_THRESHOLD)
+    .map((doc: any) => ({
+      id: doc.id,
+      title: doc.title,
+      source_url: doc.source_url,
+      content: doc.content,
+      similarity: doc.similarity,
+    }));
+
+  // DEMO_MODE debug logging
+  if (process.env.DEMO_MODE === 'true') {
+    console.log(`[DEMO_MODE] Retrieval debug for city_id=${cityId}:`);
+    console.log(`  - topK requested: ${TOP_K}`);
+    console.log(`  - retrieved_sources_count: ${filteredDocs.length}`);
+    console.log(`  - retrieved_docs_top3:`);
+    filteredDocs.slice(0, 3).forEach((doc: RetrievedDocument, idx: number) => {
+      console.log(`    ${idx + 1}. "${doc.title || 'Untitled'}" (source: ${doc.source_url || 'N/A'}, score: ${doc.similarity.toFixed(3)})`);
+    });
+  }
+
+  return filteredDocs;
 }
 
 /**
