@@ -6,6 +6,7 @@ export type ChatSendInput = {
   conversationId?: string;
   messageId?: string;
   onAction?: (action: { type: string; data?: any }) => void;
+  onMeta?: (meta: Record<string, any>) => void;
 };
 
 export interface ChatTransport {

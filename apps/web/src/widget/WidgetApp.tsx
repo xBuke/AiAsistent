@@ -37,7 +37,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [ticket, setTicket] = useState<Ticket | undefined>(undefined);
   const [showIntakeForm, setShowIntakeForm] = useState(false);
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
-  const [lastCitations, setLastCitations] = useState<Array<{title?: string|null; source?: string|null; score?: number}> | null>(null);
   
   // #region agent log
   // Instrumentation: Track when showIntakeForm state changes
@@ -430,9 +429,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     // Generate stable messageId for idempotent message insertion (reused on retries)
     const clientMessageId = crypto.randomUUID();
     
-    // Clear citations when a new user message is sent
-    setLastCitations(null);
-    
     // Add user message
     const userMessageId = `user-${Date.now()}`;
     const userMessage: Message = {
@@ -492,24 +488,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     // Create new AbortController for this request
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-
-    // Set up meta callback to store citations immediately when meta event arrives
-    if (transport instanceof ApiTransport) {
-      transport.onMeta = (meta) => {
-        // Debug logging
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-          console.log('meta arrived', meta);
-        }
-        // Extract retrieved_docs_top3 and store in global citations state
-        const top3 = meta?.retrieved_docs_top3;
-        if (Array.isArray(top3)) {
-          if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-            console.log('lastCitations', top3);
-          }
-          setLastCitations(top3);
-        }
-      };
-    }
 
     // Set up timeout for fallback (6 seconds)
     streamTimeoutRef.current = setTimeout(() => {
@@ -620,6 +598,14 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // We will ONLY show form when needs_human === true in response metadata (after streaming completes)
           // This ensures form only appears when backend explicitly determines human is needed
         },
+        onMeta: (metaObj) => {
+          // Attach metadata to the current assistant message
+          setMessages(prev => prev.map(m => 
+            m.id === assistantMessageId 
+              ? { ...m, metadata: metaObj }
+              : m
+          ));
+        },
       })) {
         // Check if aborted – stop typing, show error, re-enable send
         if (abortController.signal.aborted) {
@@ -686,17 +672,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         streamTimeoutRef.current = null;
       }
 
-      // Get metadata from transport if available (for debug trace and citations)
+      // Get metadata from transport if available (for debug trace)
       const meta = (transport instanceof ApiTransport) ? (transport.metadata || undefined) : undefined;
-      
-      // Extract retrieved_docs_top3 and store in global citations state (safety net)
-      const top3 = meta?.retrieved_docs_top3;
-      if (Array.isArray(top3)) {
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-          console.log('lastCitations', top3);
-        }
-        setLastCitations(top3);
-      }
       
       // Debug logging for citations
       if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
@@ -886,7 +863,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           showIntakeForm={showIntakeForm && !intakeSubmitted}
           onIntakeSubmit={handleIntakeSubmit}
           intakeInitialDescription={userMessages.length > 0 ? userMessages[userMessages.length - 1] : ''}
-          lastCitations={lastCitations}
         />
       )}
       <div

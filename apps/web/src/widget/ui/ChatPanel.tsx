@@ -21,7 +21,6 @@ interface ChatPanelProps {
   showIntakeForm?: boolean;
   onIntakeSubmit?: (data: TicketIntakeData) => void;
   intakeInitialDescription?: string;
-  lastCitations?: Array<{title?: string|null; source?: string|null; score?: number}> | null;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -40,7 +39,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   showIntakeForm = false,
   onIntakeSubmit,
   intakeInitialDescription = '',
-  lastCitations = null,
 }) => {
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
@@ -208,7 +206,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           gap: '12px',
         }}
       >
-        <MessageList messages={messages} showTypingIndicator={showTypingIndicator} lastCitations={lastCitations} />
+        <MessageList messages={messages} showTypingIndicator={showTypingIndicator} />
         
         {/* Ticket Intake Form - shown on fallback escalation */}
         {showIntakeForm && onIntakeSubmit && (

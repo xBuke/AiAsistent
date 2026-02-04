@@ -12,7 +12,7 @@ export class ApiTransport implements ChatTransport {
   }
 
   async *sendMessage(input: ChatSendInput): AsyncGenerator<string, void, unknown> {
-    const { cityId, apiBaseUrl, message, signal, conversationId, messageId, onAction } = input;
+    const { cityId, apiBaseUrl, message, signal, conversationId, messageId, onAction, onMeta } = input;
     
     // Reset metadata for new request
     this._metadata = null;
@@ -102,6 +102,11 @@ export class ApiTransport implements ChatTransport {
                   try {
                     const parsed = JSON.parse(payload);
                     this._metadata = parsed;
+                    // Call onMeta callback from input if provided
+                    if (onMeta) {
+                      onMeta(parsed);
+                    }
+                    // Also call instance onMeta if set (for backward compatibility)
                     if (this.onMeta) {
                       this.onMeta(parsed);
                     }
