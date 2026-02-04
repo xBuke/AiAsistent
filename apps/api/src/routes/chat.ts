@@ -41,25 +41,28 @@ export async function chatHandler(
     return reply.status(400).send({ error: 'Missing cityId parameter' });
   }
 
-  // Hijack the response to handle streaming manually
-  reply.hijack();
-
-  // Set CORS headers (required when hijacking response - bypasses Fastify CORS plugin)
+  // Set headers BEFORE hijacking (headers cannot be modified after hijack)
   const origin = request.headers.origin;
   if (origin) {
-    reply.raw.setHeader('Access-Control-Allow-Origin', origin);
+    reply.header('Access-Control-Allow-Origin', origin);
   } else {
-    reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+    reply.header('Access-Control-Allow-Origin', '*');
   }
-  reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
-  reply.raw.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  reply.header('Access-Control-Allow-Credentials', 'true');
+  reply.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  reply.header('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Set SSE headers using Fastify's reply methods
+  reply.type('text/event-stream');
+  reply.header('Cache-Control', 'no-cache');
+  reply.header('Connection', 'keep-alive');
+  reply.header('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
-  // Set SSE headers
-  reply.raw.setHeader('Content-Type', 'text/event-stream');
-  reply.raw.setHeader('Cache-Control', 'no-cache');
-  reply.raw.setHeader('Connection', 'keep-alive');
-  reply.raw.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  // Hijack the response to handle streaming manually (after headers are set)
+  reply.hijack();
+  
+  // Send initial SSE comment to establish connection and flush headers
+  reply.raw.write(': keep-alive\n\n');
 
   const { conversationId } = request.body || {};
 
