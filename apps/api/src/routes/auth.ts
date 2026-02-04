@@ -116,12 +116,13 @@ export async function loginHandler(
     };
 
     // Set httpOnly cookie
-    // DEMO_MODE: Use stricter cookie settings (secure: true, sameSite: strict, maxAge: 2 hours)
+    // DEMO_MODE: Use cross-site cookie settings (secure: true, sameSite: none, maxAge: 2 hours)
+    // Note: sameSite: 'none' is required for cross-site cookies (gradai.mangai.hr -> asistent-api-nine.vercel.app)
     const cookieOptions = isDemoMode
       ? {
           httpOnly: true,
           secure: true,
-          sameSite: 'strict' as const,
+          sameSite: 'none' as const,
           path: '/',
           maxAge: 60 * 60 * 2, // 2 hours
         }
@@ -150,10 +151,11 @@ export async function logoutHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  const isDemoMode = process.env.DEMO_MODE === 'true';
   reply.clearCookie('session', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isDemoMode ? true : process.env.NODE_ENV === 'production',
+    sameSite: isDemoMode ? ('none' as const) : ('lax' as const),
     path: '/',
   });
 

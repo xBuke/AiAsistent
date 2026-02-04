@@ -22,6 +22,11 @@ export async function buildServer() {
         callback(null, true);
         return;
       }
+      // DEMO_MODE: Explicitly allow production admin frontend origin
+      if (process.env.DEMO_MODE === 'true' && origin === 'https://gradai.mangai.hr') {
+        callback(null, true);
+        return;
+      }
       // Allow all other origins for widget endpoints (maintains existing behavior)
       callback(null, true);
     },
