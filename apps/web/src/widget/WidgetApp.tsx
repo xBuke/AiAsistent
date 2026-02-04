@@ -679,32 +679,24 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         full_metadata: traceMetadata,
       });
 
-      // Set assistant message content once after streaming completes
-      // (finalAnswerContent already has normalized content with – -> -)
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: finalAnswerContent }
-            : msg
-        )
-      );
-
       // Handle case where backend sent [DONE] immediately with no content (fallback case)
       // If no content was streamed, show a fallback message so user gets a response
       if (finalAnswerContent.trim() === '') {
         // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:640',message:'Stream completed with no content - showing fallback message',data:{finalAnswerContent,traceMetadata},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
         // #endregion
-        const fallbackMessage = (t(config.lang, 'communicationError') || 'Izvinjavam se, trenutno ne mogu odgovoriti na ovo pitanje. Molimo pokušajte ponovno ili kontaktirajte nas direktno.').replace(/\u2013/g, '-');
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, content: fallbackMessage }
-              : msg
-          )
-        );
-        finalAnswerContent = fallbackMessage;
+        finalAnswerContent = (t(config.lang, 'communicationError') || 'Izvinjavam se, trenutno ne mogu odgovoriti na ovo pitanje. Molimo pokušajte ponovno ili kontaktirajte nas direktno.').replace(/\u2013/g, '-');
       }
+
+      // Set assistant message content and attach metadata once after streaming completes
+      // (finalAnswerContent already has normalized content with – -> -)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: finalAnswerContent, metadata: traceMetadata }
+            : msg
+        )
+      );
 
       // Check if backend explicitly indicates intake form should be shown
       // ONLY check needs_human from metadata (strict === true check)
@@ -724,17 +716,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:656',message:'NOT showing form - needs_human is false/undefined',data:{needsHuman,traceMetadataNeedsHuman:traceMetadata?.needs_human},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
-      }
-
-      // Attach metadata to assistant message for citations UI
-      if (traceMetadata) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? { ...msg, metadata: traceMetadata }
-              : msg
-          )
-        );
       }
 
       // Emit message event for assistant response (ONE event at end of streaming)

@@ -150,16 +150,31 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
                             color: '#333',
                           }}
                         >
-                          {doc.title || 'Bez naslova'}
+                          {doc.title || 'Izvor'}
                         </div>
-                        <div
-                          style={{
-                            color: '#666',
-                            wordWrap: 'break-word',
-                          }}
-                        >
-                          {doc.source || 'Nepoznati izvor'}
-                        </div>
+                        {doc.source ? (
+                          <a
+                            href={doc.source}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: '#0b3a6e',
+                              textDecoration: 'underline',
+                              wordWrap: 'break-word',
+                            }}
+                          >
+                            {doc.source}
+                          </a>
+                        ) : (
+                          <div
+                            style={{
+                              color: '#666',
+                              wordWrap: 'break-word',
+                            }}
+                          >
+                            Nepoznati izvor
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
