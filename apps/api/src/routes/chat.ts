@@ -19,6 +19,19 @@ interface ChatParams {
 }
 
 /**
+ * Write SSE event with proper multiline support
+ * Each line of the data must be prefixed with "data: "
+ */
+function writeSseEvent(res: NodeJS.WritableStream, eventName: string, dataString: string): void {
+  res.write(`event: ${eventName}\n`);
+  const lines = String(dataString).split(/\r?\n/);
+  for (const line of lines) {
+    res.write(`data: ${line}\n`);
+  }
+  res.write(`\n`);
+}
+
+/**
  * POST /grad/:cityId/chat
  * Stream chat responses using Server-Sent Events (SSE)
  */
@@ -313,12 +326,10 @@ export async function chatHandler(
       
       // In DEMO_MODE: send as single message event, otherwise stream as data
       if (isDemoMode) {
-        reply.raw.write(`event: message\n`);
-        reply.raw.write(`data: ${fallbackMessage}\n\n`);
+        writeSseEvent(reply.raw, 'message', fallbackMessage);
       } else {
         // Stream message token by token to match success response format
-        reply.raw.write(`event: message\n`);
-        reply.raw.write(`data: ${fallbackMessage}\n\n`);
+        writeSseEvent(reply.raw, 'message', fallbackMessage);
       }
       
       // Emit meta event with trace data (include needs_human explicitly)
@@ -331,8 +342,7 @@ export async function chatHandler(
         used_fallback: true,
         needs_human: false, // Explicitly set to false - never infer from fallback
       };
-      reply.raw.write(`event: meta\n`);
-      reply.raw.write(`data: ${JSON.stringify(traceData)}\n\n`);
+      writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
       
       // Send completion signal
       reply.raw.write('data: [DONE]\n\n');
@@ -574,16 +584,19 @@ export async function chatHandler(
       // In DEMO_MODE: buffer tokens, don't stream to client
       // In normal mode: stream tokens immediately
       if (!isDemoMode) {
-        // Format as SSE: event: message\ndata: token\n\n
+        // Format as SSE: handle multiline tokens by prefixing each line with "data: "
         reply.raw.write(`event: message\n`);
-        reply.raw.write(`data: ${token}\n\n`);
+        const lines = String(token).split(/\r?\n/);
+        for (const line of lines) {
+          reply.raw.write(`data: ${line}\n`);
+        }
+        reply.raw.write(`\n`);
       }
     }
 
     // In DEMO_MODE: send full answer as single message event
     if (isDemoMode) {
-      reply.raw.write(`event: message\n`);
-      reply.raw.write(`data: ${assistantResponse}\n\n`);
+      writeSseEvent(reply.raw, 'message', assistantResponse);
     }
     
     // Emit meta event with trace data (include needs_human explicitly)
@@ -596,8 +609,7 @@ export async function chatHandler(
       used_fallback: false,
       needs_human: false, // Explicitly set to false
     };
-    reply.raw.write(`event: meta\n`);
-    reply.raw.write(`data: ${JSON.stringify(traceData)}\n\n`);
+    writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
 
     // Send completion signal
     reply.raw.write('data: [DONE]\n\n');
@@ -749,11 +761,9 @@ export async function chatHandler(
     
     // In DEMO_MODE: send as single message event, otherwise stream as data
     if (isDemoMode) {
-      reply.raw.write(`event: message\n`);
-      reply.raw.write(`data: ${errorMessage}\n\n`);
+      writeSseEvent(reply.raw, 'message', errorMessage);
     } else {
-      reply.raw.write(`event: message\n`);
-      reply.raw.write(`data: ${errorMessage}\n\n`);
+      writeSseEvent(reply.raw, 'message', errorMessage);
     }
     
     // Emit meta event with trace data (include needs_human explicitly)
@@ -766,8 +776,7 @@ export async function chatHandler(
       used_fallback: false,
       needs_human: false, // Explicitly set to false - never set on errors
     };
-    reply.raw.write(`event: meta\n`);
-    reply.raw.write(`data: ${JSON.stringify(traceData)}\n\n`);
+    writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
     
     // Send completion signal
     reply.raw.write('data: [DONE]\n\n');
