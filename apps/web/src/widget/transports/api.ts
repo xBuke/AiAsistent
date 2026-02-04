@@ -58,6 +58,7 @@ export class ApiTransport implements ChatTransport {
         const decoder = new TextDecoder();
         let buffer = '';
         let currentEvent = '';
+        let currentDataLines: string[] = []; // Accumulate data lines for current event
 
         try {
           while (true) {
@@ -74,76 +75,158 @@ export class ApiTransport implements ChatTransport {
             buffer = lines.pop() || '';
 
             for (const line of lines) {
-              // Handle event type (e.g., "event: meta", "event: action")
-              if (line.startsWith('event: ')) {
-                currentEvent = line.slice(7).trim();
+              // Handle empty line (end of event) - process accumulated data
+              if (line === '') {
+                if (currentDataLines.length > 0) {
+                  // Join all data lines with newlines (SSE spec)
+                  const payload = currentDataLines.join('\n');
+                  currentDataLines = [];
+                  
+                  // Handle action event
+                  if (currentEvent === 'action') {
+                    try {
+                      const actionData = JSON.parse(payload);
+                      if (onAction && actionData.type) {
+                        onAction(actionData);
+                      }
+                    } catch {
+                      // Ignore parse errors for action
+                    }
+                    currentEvent = '';
+                    continue;
+                  }
+                  
+                  // Handle meta event
+                  if (currentEvent === 'meta') {
+                    try {
+                      const parsed = JSON.parse(payload);
+                      this._metadata = parsed;
+                      
+                      // Always log meta event receipt (helpful for debugging citations)
+                      console.log('[ApiTransport] Meta event received:', {
+                        retrieved_docs_top3: parsed?.retrieved_docs_top3,
+                        retrieved_docs_top3_length: Array.isArray(parsed?.retrieved_docs_top3) ? parsed.retrieved_docs_top3.length : 'not array',
+                        hasOnMetaCallback: !!onMeta,
+                      });
+                      
+                      // DEBUG: Detailed log meta event parsing
+                      if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+                        const payloadPreview = JSON.stringify(payload).substring(0, 80);
+                        console.log('[ApiTransport] Meta event parsed (detailed):', {
+                          event: 'meta',
+                          payloadPreview,
+                          retrieved_docs_top3: parsed?.retrieved_docs_top3,
+                          retrieved_docs_top3_length: Array.isArray(parsed?.retrieved_docs_top3) ? parsed.retrieved_docs_top3.length : 'not array',
+                          fullMeta: parsed,
+                        });
+                      }
+                      
+                      // Call onMeta callback from input if provided
+                      if (onMeta) {
+                        onMeta(parsed);
+                      }
+                      // Also call instance onMeta if set (for backward compatibility)
+                      if (this.onMeta) {
+                        this.onMeta(parsed);
+                      }
+                    } catch (e) {
+                      // Log parse errors for debugging
+                      console.error('[ApiTransport] Failed to parse meta event:', e, 'Payload:', payload.substring(0, 200));
+                    }
+                    currentEvent = '';
+                    continue;
+                  }
+                  
+                  // Handle message event (default event)
+                  // Yield every payload exactly as received, except:
+                  // - ignore the literal payload "[DONE]"
+                  // - if payload starts with "[ERROR]" handle as error (existing behavior)
+                  if (payload === '[DONE]') {
+                    currentEvent = '';
+                    continue;
+                  }
+                  if (payload.startsWith('[ERROR]')) {
+                    currentEvent = '';
+                    continue;
+                  }
+                  
+                  // Debug logging (optional, controlled by localStorage)
+                  if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
+                    console.log('[SSE token]', JSON.stringify(payload));
+                  }
+                  
+                  // Yield message payload exactly as received (no trimming)
+                  yield payload;
+                }
+                currentEvent = '';
                 continue;
               }
               
+              // Handle event type (e.g., "event: meta", "event: action")
+              if (line.startsWith('event: ')) {
+                // Process any accumulated data from previous event before switching
+                if (currentDataLines.length > 0 && currentEvent) {
+                  const payload = currentDataLines.join('\n');
+                  currentDataLines = [];
+                  
+                  if (currentEvent === 'meta') {
+                    try {
+                      const parsed = JSON.parse(payload);
+                      this._metadata = parsed;
+                      if (onMeta) onMeta(parsed);
+                      if (this.onMeta) this.onMeta(parsed);
+                    } catch {}
+                  } else if (currentEvent === 'action') {
+                    try {
+                      const actionData = JSON.parse(payload);
+                      if (onAction && actionData.type) onAction(actionData);
+                    } catch {}
+                  } else if (payload !== '[DONE]' && !payload.startsWith('[ERROR]')) {
+                    yield payload;
+                  }
+                }
+                currentEvent = line.slice(7).trim();
+                currentDataLines = [];
+                continue;
+              }
+              
+              // Accumulate data lines
               if (line.startsWith('data: ')) {
-                const payload = line.slice(6);
-                
-                // Handle action event
-                if (currentEvent === 'action') {
-                  try {
-                    const actionData = JSON.parse(payload);
-                    if (onAction && actionData.type) {
-                      onAction(actionData);
-                    }
-                  } catch {
-                    // Ignore parse errors for action
-                  }
-                  currentEvent = ''; // Reset event type
-                  continue;
-                }
-                
-                // Handle meta event
-                if (currentEvent === 'meta') {
-                  try {
-                    const parsed = JSON.parse(payload);
-                    this._metadata = parsed;
-                    // Call onMeta callback from input if provided
-                    if (onMeta) {
-                      onMeta(parsed);
-                    }
-                    // Also call instance onMeta if set (for backward compatibility)
-                    if (this.onMeta) {
-                      this.onMeta(parsed);
-                    }
-                  } catch {
-                    // Ignore parse errors for metadata
-                  }
-                  currentEvent = ''; // Reset event type
-                  continue;
-                }
-                
-                // Handle message event (default event)
-                // Yield every payload exactly as received, except:
-                // - ignore the literal payload "[DONE]"
-                // - if payload starts with "[ERROR]" handle as error (existing behavior)
-                if (payload === '[DONE]') {
-                  currentEvent = '';
-                  continue;
-                }
-                if (payload.startsWith('[ERROR]')) {
-                  currentEvent = '';
-                  continue;
-                }
-                
-                // Debug logging (optional, controlled by localStorage)
-                if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
-                  console.log('[SSE token]', JSON.stringify(payload));
-                }
-                
-                // Yield message payload exactly as received (no trimming)
-                yield payload;
-                // Reset event type after processing data
-                currentEvent = '';
+                currentDataLines.push(line.slice(6));
+                continue;
               }
             }
           }
 
-          // Process remaining buffer
+          // Process any remaining accumulated data before checking buffer
+          if (currentDataLines.length > 0 && currentEvent) {
+            const payload = currentDataLines.join('\n');
+            
+            if (currentEvent === 'meta') {
+              try {
+                const parsed = JSON.parse(payload);
+                this._metadata = parsed;
+                if (onMeta) onMeta(parsed);
+                if (this.onMeta) this.onMeta(parsed);
+              } catch (e) {
+                if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+                  console.error('[ApiTransport] Failed to parse meta event (end of stream):', e, 'Payload:', payload);
+                }
+              }
+            } else if (currentEvent === 'action') {
+              try {
+                const actionData = JSON.parse(payload);
+                if (onAction && actionData.type) onAction(actionData);
+              } catch {}
+            } else if (payload !== '[DONE]' && !payload.startsWith('[ERROR]')) {
+              if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
+                console.log('[SSE token]', JSON.stringify(payload));
+              }
+              yield payload;
+            }
+          }
+
+          // Process remaining buffer (legacy single-line handling)
           if (buffer.startsWith('data: ')) {
             const payload = buffer.slice(6);
             // Yield every payload exactly as received, except:

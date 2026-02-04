@@ -45,6 +45,32 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
         const docs = message.role === 'assistant' ? message.metadata?.retrieved_docs_top3 : null;
         const hasCitations = Array.isArray(docs) && docs.length > 0;
         const isCitationsOpen = openCitationsId === message.id;
+        
+        // Always log rendering check for assistant messages (helpful for debugging citations)
+        if (message.role === 'assistant') {
+          console.log('[MessageList] Rendering assistant message:', {
+            messageId: message.id,
+            hasMetadata: !!message.metadata,
+            retrieved_docs_top3: message.metadata?.retrieved_docs_top3,
+            retrieved_docs_top3_length: Array.isArray(message.metadata?.retrieved_docs_top3) ? message.metadata.retrieved_docs_top3.length : 'not array',
+            hasCitations,
+            contentLength: message.content?.length || 0,
+          });
+        }
+        
+        // DEBUG: Detailed log rendering check for assistant messages
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1' && message.role === 'assistant') {
+          console.log('[MessageList] Rendering assistant message (detailed):', {
+            messageId: message.id,
+            hasMetadata: !!message.metadata,
+            metadata: message.metadata,
+            retrieved_docs_top3: message.metadata?.retrieved_docs_top3,
+            retrieved_docs_top3_length: Array.isArray(message.metadata?.retrieved_docs_top3) ? message.metadata.retrieved_docs_top3.length : 'not array',
+            docs,
+            hasCitations,
+            contentLength: message.content?.length || 0,
+          });
+        }
 
         return (
           <div

@@ -599,12 +599,55 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // This ensures form only appears when backend explicitly determines human is needed
         },
         onMeta: (metaObj) => {
+          // Always log onMeta invocation (helpful for debugging citations)
+          console.log('[WidgetApp] onMeta invoked:', {
+            assistantMessageId,
+            retrieved_docs_top3: metaObj?.retrieved_docs_top3,
+            retrieved_docs_top3_length: Array.isArray(metaObj?.retrieved_docs_top3) ? metaObj.retrieved_docs_top3.length : 'not array',
+          });
+          
+          // DEBUG: Detailed log onMeta invocation
+          if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+            console.log('[WidgetApp] onMeta invoked (detailed):', {
+              assistantMessageId,
+              retrieved_docs_top3: metaObj?.retrieved_docs_top3,
+              retrieved_docs_top3_length: Array.isArray(metaObj?.retrieved_docs_top3) ? metaObj.retrieved_docs_top3.length : 'not array',
+              fullMeta: metaObj,
+            });
+          }
+          
           // Attach metadata to the current assistant message
-          setMessages(prev => prev.map(m => 
-            m.id === assistantMessageId 
-              ? { ...m, metadata: metaObj }
-              : m
-          ));
+          setMessages(prev => {
+            // DEBUG: Log state before update
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+              const targetMsgBefore = prev.find(m => m.id === assistantMessageId);
+              console.log('[WidgetApp] Before setMessages attach:', {
+                targetMsgExists: !!targetMsgBefore,
+                targetMsgHasMetadata: !!targetMsgBefore?.metadata,
+                targetMsgMetadata: targetMsgBefore?.metadata,
+              });
+            }
+            
+            const updated = prev.map(m => 
+              m.id === assistantMessageId 
+                ? { ...m, metadata: metaObj }
+                : m
+            );
+            
+            // DEBUG: Log state after update
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+              const targetMsgAfter = updated.find(m => m.id === assistantMessageId);
+              console.log('[WidgetApp] After setMessages attach:', {
+                targetMsgExists: !!targetMsgAfter,
+                targetMsgHasMetadata: !!targetMsgAfter?.metadata,
+                targetMsgMetadata: targetMsgAfter?.metadata,
+                retrieved_docs_top3: targetMsgAfter?.metadata?.retrieved_docs_top3,
+                retrieved_docs_top3_length: Array.isArray(targetMsgAfter?.metadata?.retrieved_docs_top3) ? targetMsgAfter.metadata.retrieved_docs_top3.length : 'not array',
+              });
+            }
+            
+            return updated;
+          });
         },
       })) {
         // Check if aborted – stop typing, show error, re-enable send
@@ -700,13 +743,38 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
       // Set assistant message content once after streaming completes
       // (finalAnswerContent already has normalized content with – -> -)
-      setMessages((prev) =>
-        prev.map((msg) =>
+      setMessages((prev) => {
+        // DEBUG: Log state before final content update
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+          const targetMsgBefore = prev.find(m => m.id === assistantMessageId);
+          console.log('[WidgetApp] Before final content update:', {
+            targetMsgExists: !!targetMsgBefore,
+            targetMsgHasMetadata: !!targetMsgBefore?.metadata,
+            retrieved_docs_top3: targetMsgBefore?.metadata?.retrieved_docs_top3,
+            retrieved_docs_top3_length: Array.isArray(targetMsgBefore?.metadata?.retrieved_docs_top3) ? targetMsgBefore.metadata.retrieved_docs_top3.length : 'not array',
+          });
+        }
+        
+        const updated = prev.map((msg) =>
           msg.id === assistantMessageId
             ? { ...msg, content: finalAnswerContent }
             : msg
-        )
-      );
+        );
+        
+        // DEBUG: Log state after final content update
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+          const targetMsgAfter = updated.find(m => m.id === assistantMessageId);
+          console.log('[WidgetApp] After final content update:', {
+            targetMsgExists: !!targetMsgAfter,
+            targetMsgHasMetadata: !!targetMsgAfter?.metadata,
+            retrieved_docs_top3: targetMsgAfter?.metadata?.retrieved_docs_top3,
+            retrieved_docs_top3_length: Array.isArray(targetMsgAfter?.metadata?.retrieved_docs_top3) ? targetMsgAfter.metadata.retrieved_docs_top3.length : 'not array',
+            messageContentLength: targetMsgAfter?.content?.length || 0,
+          });
+        }
+        
+        return updated;
+      });
 
       // Check if backend explicitly indicates intake form should be shown
       // ONLY check needs_human from metadata (strict === true check)
