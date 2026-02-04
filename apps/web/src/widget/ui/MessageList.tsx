@@ -6,7 +6,7 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: any;
 }
 
 interface MessageListProps {

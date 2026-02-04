@@ -664,47 +664,60 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         streamTimeoutRef.current = null;
       }
 
-      // Get metadata from transport if available (for debug trace)
-      let traceMetadata: Record<string, any> | undefined = undefined;
-      if (config.apiBaseUrl && transport instanceof ApiTransport) {
-        traceMetadata = transport.metadata || undefined;
+      // Get metadata from transport if available (for debug trace and citations)
+      const meta = (transport instanceof ApiTransport) ? (transport.metadata || undefined) : undefined;
+      
+      // Debug logging for citations
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
+        console.log('citations meta', meta);
       }
 
       // Log response fields for debugging (as requested)
       console.log('CHAT_RESPONSE', {
-        needs_human: traceMetadata?.needs_human,
-        type: traceMetadata?.type,
-        action: traceMetadata?.action,
-        fallback: traceMetadata?.used_fallback,
-        full_metadata: traceMetadata,
+        needs_human: meta?.needs_human,
+        type: meta?.type,
+        action: meta?.action,
+        fallback: meta?.used_fallback,
+        full_metadata: meta,
       });
 
       // Handle case where backend sent [DONE] immediately with no content (fallback case)
       // If no content was streamed, show a fallback message so user gets a response
       if (finalAnswerContent.trim() === '') {
         // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:640',message:'Stream completed with no content - showing fallback message',data:{finalAnswerContent,traceMetadata},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:640',message:'Stream completed with no content - showing fallback message',data:{finalAnswerContent,meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
         // #endregion
         finalAnswerContent = (t(config.lang, 'communicationError') || 'Izvinjavam se, trenutno ne mogu odgovoriti na ovo pitanje. Molimo pokušajte ponovno ili kontaktirajte nas direktno.').replace(/\u2013/g, '-');
       }
 
-      // Set assistant message content and attach metadata once after streaming completes
+      // Set assistant message content once after streaming completes
       // (finalAnswerContent already has normalized content with – -> -)
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
-            ? { ...msg, content: finalAnswerContent, metadata: traceMetadata }
+            ? { ...msg, content: finalAnswerContent }
             : msg
         )
       );
+
+      // Attach metadata to assistant message for citations UI
+      if (meta) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, metadata: meta }
+              : msg
+          )
+        );
+      }
 
       // Check if backend explicitly indicates intake form should be shown
       // ONLY check needs_human from metadata (strict === true check)
       // If needs_human is undefined/null/missing => treat as false (do not show form)
       // This is the ONLY source of truth for showing the intake form
-      const needsHuman = traceMetadata?.needs_human === true;
+      const needsHuman = meta?.needs_human === true;
       // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from metadata - ONLY source of truth',data:{needsHuman,traceMetadataNeedsHuman:traceMetadata?.needs_human,intakeSubmitted,fullMetadata:traceMetadata},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from metadata - ONLY source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
       if (needsHuman && !intakeSubmitted) {
         console.log('[WidgetApp] needs_human=true detected in metadata, showing intake form');
@@ -714,7 +727,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // #endregion
       } else {
         // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:656',message:'NOT showing form - needs_human is false/undefined',data:{needsHuman,traceMetadataNeedsHuman:traceMetadata?.needs_human},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:656',message:'NOT showing form - needs_human is false/undefined',data:{needsHuman,metaNeedsHuman:meta?.needs_human},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
       }
 
@@ -730,7 +743,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         currentTurnIndex + 1,
         config.apiBaseUrl,
         latencyMs,
-        traceMetadata
+        meta
       );
 
       // Note: Question event was already emitted on send.
