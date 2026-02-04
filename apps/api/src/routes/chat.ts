@@ -286,12 +286,18 @@ export async function chatHandler(
       
       // Deterministic fallback message (no LLM call, no generic answers)
       const fallbackMessage = 'Nemam dovoljno službenih informacija u dokumentima Grada Ploča da bih pouzdano odgovorio na to pitanje. Možete li ga malo precizirati ili pitati nešto drugo?';
-      // Stream message token by token to match success response format
-      reply.raw.write(`data: ${fallbackMessage}\n\n`);
       assistantResponse = fallbackMessage;
       
-      // Send completion signal
-      reply.raw.write('data: [DONE]\n\n');
+      // Check if DEMO_MODE is enabled
+      const isDemoMode = process.env.DEMO_MODE === 'true';
+      
+      // In DEMO_MODE: send as single message event, otherwise stream as data
+      if (isDemoMode) {
+        reply.raw.write(`event: message\ndata: ${fallbackMessage}\n\n`);
+      } else {
+        // Stream message token by token to match success response format
+        reply.raw.write(`data: ${fallbackMessage}\n\n`);
+      }
       
       // Emit meta event with trace data (include needs_human explicitly)
       const latencyMs = Date.now() - traceStartTime;
@@ -304,6 +310,9 @@ export async function chatHandler(
         needs_human: false, // Explicitly set to false - never infer from fallback
       };
       reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+      
+      // Send completion signal
+      reply.raw.write('data: [DONE]\n\n');
       
       // Log before responding
       request.log.info({
@@ -533,15 +542,24 @@ export async function chatHandler(
       },
     ];
 
+    // Check if DEMO_MODE is enabled
+    const isDemoMode = process.env.DEMO_MODE === 'true';
+
     // Stream tokens from LLM with context and collect response
     for await (const token of streamChat({ messages, context })) {
-      // Format as SSE: data: token\n\n
-      reply.raw.write(`data: ${token}\n\n`);
       assistantResponse += token;
+      // In DEMO_MODE: buffer tokens, don't stream to client
+      // In normal mode: stream tokens immediately
+      if (!isDemoMode) {
+        // Format as SSE: data: token\n\n
+        reply.raw.write(`data: ${token}\n\n`);
+      }
     }
 
-    // Send completion signal
-    reply.raw.write('data: [DONE]\n\n');
+    // In DEMO_MODE: send full answer as single message event
+    if (isDemoMode) {
+      reply.raw.write(`event: message\ndata: ${assistantResponse}\n\n`);
+    }
     
     // Emit meta event with trace data (include needs_human explicitly)
     const latencyMs = Date.now() - traceStartTime;
@@ -554,6 +572,9 @@ export async function chatHandler(
       needs_human: false, // Explicitly set to false
     };
     reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+
+    // Send completion signal
+    reply.raw.write('data: [DONE]\n\n');
     
     // Log before responding
     request.log.info({
@@ -696,10 +717,16 @@ export async function chatHandler(
     
     // Stream error message (widget expects answer/text field, so stream it as tokens)
     const errorMessage = 'Došlo je do pogreške. Pokušajte ponovno.';
-    reply.raw.write(`data: ${errorMessage}\n\n`);
     
-    // Send completion signal
-    reply.raw.write('data: [DONE]\n\n');
+    // Check if DEMO_MODE is enabled
+    const isDemoMode = process.env.DEMO_MODE === 'true';
+    
+    // In DEMO_MODE: send as single message event, otherwise stream as data
+    if (isDemoMode) {
+      reply.raw.write(`event: message\ndata: ${errorMessage}\n\n`);
+    } else {
+      reply.raw.write(`data: ${errorMessage}\n\n`);
+    }
     
     // Emit meta event with trace data (include needs_human explicitly)
     const latencyMs = Date.now() - traceStartTime;
@@ -712,6 +739,9 @@ export async function chatHandler(
       needs_human: false, // Explicitly set to false - never set on errors
     };
     reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+    
+    // Send completion signal
+    reply.raw.write('data: [DONE]\n\n');
     
     // Log before responding (error case)
     request.log.info({
