@@ -218,6 +218,14 @@ export async function chatHandler(
       return reply.status(500).send({ error: 'City resolution failed' });
     }
     
+    // DEMO_MODE: Log city resolution
+    if (process.env.DEMO_MODE === 'true') {
+      request.log.info({
+        cityId,
+        cityUuid,
+      }, '[DEMO_MODE] City resolution: resolved cityUuid and cityId slug');
+    }
+    
     let documents: Array<{ id: string; title: string | null; source_url: string | null; content: string | null; similarity: number }> = [];
     try {
       documents = await retrieveDocuments(message, cityUuid);
@@ -247,104 +255,32 @@ export async function chatHandler(
       score: doc.similarity,
     }));
 
+    // DEMO_MODE: Log retrieval results and context length
+    if (process.env.DEMO_MODE === 'true') {
+      request.log.info({
+        retrieval_count: documents.length,
+        top3_docs: retrievedDocs.map((doc, idx) => ({
+          rank: idx + 1,
+          title: doc.title,
+          source_url: doc.source,
+          score: doc.score,
+        })),
+        context_length_chars: context.length,
+      }, '[DEMO_MODE] Retrieval results and context length');
+    }
+
     // Fallback: if no documents retrieved or all have low similarity
     if (documents.length === 0) {
       usedFallback = true;
       
-      // Check if DEMO_MODE is enabled
-      const demoMode = process.env.DEMO_MODE === 'true';
+      // Deterministic fallback message (no LLM call, no generic answers)
+      const fallbackMessage = 'Nemam dovoljno službenih informacija u dokumentima Grada Ploča da bih pouzdano odgovorio na to pitanje. Možete li ga malo precizirati ili pitati nešto drugo?';
+      // Stream message token by token to match success response format
+      reply.raw.write(`data: ${fallbackMessage}\n\n`);
+      assistantResponse = fallbackMessage;
       
-      if (demoMode) {
-        // Demo mode: Use general assistant LLM call instead of fallback message
-        try {
-          const apiKey = process.env.GROQ_API_KEY;
-          if (!apiKey) {
-            throw new Error('GROQ_API_KEY environment variable is not set');
-          }
-          
-          const groq = new Groq({ apiKey });
-          const demoModel = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
-          
-          // General assistant system prompt for demo mode
-          const demoSystemPrompt = `Ti si AI asistent gradskih usluga.
-
-PRAVILA IDENTITETA (KRITIČNO):
-- NIKADA se ne referiraj na sebe kao "chatbot".
-- UVJEK se referiraj na sebe kao "AI asistent" ili "AI pomoćnik".
-- Ne spominji da si demo osim ako nije eksplicitno pitano.
-- Govori kao razvojni, adaptivni sustav koji uči iz potreba građana.
-- Ton: profesionalan, smiren, ljudski, pouzdan.
-- Drži uvod kratko (maksimalno 3 rečenice).
-
-Ako te pitaju tko si ili što radiš:
-- Daj kratko, samopouzdano objašnjenje.
-- Završi jednim jednostavnim potpitanjem.
-
-PRAVILA STILA ODGOVORA (KRITIČNO):
-- Drži odgovore kratke i razgovorne (2–4 rečenice maksimalno).
-- NIKADA ne koristi duga nabrajanja osim ako nije eksplicitno traženo.
-- Preferiraj jedan kratak odlomak umjesto bullet pointova.
-- Ako nabrajaš mogućnosti, sažmi ih u jednu ili dvije rečenice.
-- UVJEK pozovi korisnika da postavi sljedeće pitanje.
-- Zvuči ljudski, korisno i smireno — ne kao dokumentacija.
-
-Ako korisnik pita općenito što možeš:
-- Daj kratak sažetak mogućnosti.
-- Završi mekim pitanjem poput:
-  "Što vas konkretno zanima?" ili
-  "Možete mi malo pojasniti situaciju?"
-
-OPĆENITO:
-- Ako je službeni kontekst dostupan, koristi ga.
-- Ako kontekst nije dostupan, odgovori općenito i praktično (kako gradovi obično funkcioniraju).
-- Izbjegavaj izmišljanje specifičnih brojeva/datuma/pravnih tvrdnji.`;
-          
-          const groqMessages = [
-            {
-              role: 'system' as const,
-              content: demoSystemPrompt,
-            },
-            {
-              role: 'user' as const,
-              content: message,
-            },
-          ];
-          
-          // Stream tokens from LLM
-          const stream = await groq.chat.completions.create({
-            model: demoModel,
-            messages: groqMessages,
-            stream: true,
-          });
-          
-          for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content;
-            if (content && content.length > 0) {
-              reply.raw.write(`data: ${content}\n\n`);
-              assistantResponse += content;
-            }
-          }
-          
-          // Send completion signal
-          reply.raw.write('data: [DONE]\n\n');
-        } catch (error) {
-          // If LLM call fails in demo mode, fall back to original message
-          request.log.warn({ error }, 'Demo mode LLM call failed, using fallback message');
-          const fallbackMessage = 'Ne mogu pouzdano odgovoriti iz dostupnih dokumenata. Pokušajte preformulirati pitanje.';
-          reply.raw.write(`data: ${fallbackMessage}\n\n`);
-          assistantResponse = fallbackMessage;
-          reply.raw.write('data: [DONE]\n\n');
-        }
-      } else {
-        // Original behavior: Stream fallback message (widget expects answer/text field, so stream it as tokens)
-        const fallbackMessage = 'Ne mogu pouzdano odgovoriti iz dostupnih dokumenata. Pokušajte preformulirati pitanje.';
-        // Stream message token by token to match success response format
-        reply.raw.write(`data: ${fallbackMessage}\n\n`);
-        assistantResponse = fallbackMessage;
-        
-        // Send completion signal
-        reply.raw.write('data: [DONE]\n\n');
-      }
+      // Send completion signal
+      reply.raw.write('data: [DONE]\n\n');
       
       // Emit meta event with trace data (include needs_human explicitly)
       const latencyMs = Date.now() - traceStartTime;

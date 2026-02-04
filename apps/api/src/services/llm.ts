@@ -65,6 +65,11 @@ KADA INFORMACIJA NIJE U CONTEXT-u:
 - NIKADA ne koristi generičke fraze poput "Pokušajte preformulirati pitanje" kada CONTEXT postoji - samo kada je retrieval potpuno prazan.
 - Preferiraj specifično potpitanje umjesto općenitih odgovora.
 
+DEMO MODE - STROGA PRAVILA (KRITIČNO):
+- Ako CONTEXT sadrži odgovor, izvadi i odgovori TOČNO. Ne generaliziraj.
+- Ako CONTEXT je prazan, postavi JEDNO kratko potpitanje za pojašnjenje.
+- NIKADA ne izlazi placeholdere poput "od do sati" ili slične generičke fraze.
+
 ODGOVORI:
 - Drži odgovore kratke (1–4 rečenice).
 - Ne spominji izvore, linkove ili "Sources:" u tekstu odgovora.
@@ -87,6 +92,17 @@ export async function* streamChat({ messages, context }: StreamChatOptions): Asy
   if (context && context.length > 0) {
     systemPrompt += GROUNDING_INSTRUCTIONS;
     systemPrompt += `\n\nCONTEXT:\n${context}`;
+    
+    // DEMO_MODE: Log context injection
+    if (process.env.DEMO_MODE === 'true') {
+      console.log(`[DEMO_MODE] LLM: Context injected into system prompt, context length: ${context.length} chars`);
+      console.log(`[DEMO_MODE] LLM: Full system prompt length: ${systemPrompt.length} chars`);
+    }
+  } else {
+    // DEMO_MODE: Log when context is empty
+    if (process.env.DEMO_MODE === 'true') {
+      console.log(`[DEMO_MODE] LLM: No context provided (context length: 0)`);
+    }
   }
 
   // Build messages array with system prompt + user messages
