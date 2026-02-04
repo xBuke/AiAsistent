@@ -77,6 +77,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
                   color: message.role === 'user' ? 'white' : '#333',
                   wordWrap: 'break-word',
                   whiteSpace: 'pre-wrap',
+                  fontVariantNumeric: 'tabular-nums',
                 }}
               >
                 {linkifyText(message.content).map((token, index) => {

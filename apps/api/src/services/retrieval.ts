@@ -32,6 +32,12 @@ export async function retrieveDocuments(query: string, cityId: string): Promise<
 
   // First pass: threshold 0.5
   let matchThreshold = SIMILARITY_THRESHOLD_FIRST_PASS;
+  
+  // DEMO_MODE or DEBUG_RETRIEVAL: Log retrieval attempt
+  if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+    console.log(`[DEBUG] Retrieval: starting first pass with city_id=${cityId}, threshold=${matchThreshold}, topK=${TOP_K}`);
+  }
+  
   let { data: documents, error } = await supabase.rpc('match_documents', {
     query_embedding: queryEmbedding,
     match_threshold: matchThreshold,
@@ -46,9 +52,20 @@ export async function retrieveDocuments(query: string, cityId: string): Promise<
     throw new Error(`Database retrieval failed: ${error.message}`);
   }
 
+  // DEMO_MODE or DEBUG_RETRIEVAL: Log first pass results
+  if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+    console.log(`[DEBUG] Retrieval: first pass returned ${documents?.length || 0} documents`);
+  }
+
   // Second pass: if no results, try with lower threshold 0.35
   if (!documents || documents.length === 0) {
     matchThreshold = SIMILARITY_THRESHOLD_SECOND_PASS;
+    
+    // DEMO_MODE or DEBUG_RETRIEVAL: Log second pass attempt
+    if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+      console.log(`[DEBUG] Retrieval: first pass (threshold=${SIMILARITY_THRESHOLD_FIRST_PASS}) returned 0 docs, trying second pass (threshold=${SIMILARITY_THRESHOLD_SECOND_PASS})`);
+    }
+    
     const secondPassResult = await supabase.rpc('match_documents', {
       query_embedding: queryEmbedding,
       match_threshold: matchThreshold,
@@ -63,14 +80,14 @@ export async function retrieveDocuments(query: string, cityId: string): Promise<
 
     documents = secondPassResult.data;
     
-    // DEMO_MODE: Log that second pass was used
-    if (process.env.DEMO_MODE === 'true') {
-      console.log(`[DEMO_MODE] Retrieval: first pass (threshold=${SIMILARITY_THRESHOLD_FIRST_PASS}) returned 0 docs, using second pass (threshold=${SIMILARITY_THRESHOLD_SECOND_PASS})`);
+    // DEMO_MODE or DEBUG_RETRIEVAL: Log second pass results
+    if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+      console.log(`[DEBUG] Retrieval: second pass returned ${documents?.length || 0} documents`);
     }
   } else {
-    // DEMO_MODE: Log that first pass was used
-    if (process.env.DEMO_MODE === 'true') {
-      console.log(`[DEMO_MODE] Retrieval: using first pass threshold=${SIMILARITY_THRESHOLD_FIRST_PASS}`);
+    // DEMO_MODE or DEBUG_RETRIEVAL: Log that first pass was used
+    if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+      console.log(`[DEBUG] Retrieval: using first pass threshold=${SIMILARITY_THRESHOLD_FIRST_PASS}`);
     }
   }
 
@@ -89,9 +106,9 @@ export async function retrieveDocuments(query: string, cityId: string): Promise<
       similarity: doc.similarity,
     }));
 
-  // DEMO_MODE debug logging
-  if (process.env.DEMO_MODE === 'true') {
-    console.log(`[DEMO_MODE] Retrieval debug for city_id=${cityId}:`);
+  // DEMO_MODE or DEBUG_RETRIEVAL debug logging
+  if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+    console.log(`[DEBUG] Retrieval debug for city_id=${cityId}:`);
     console.log(`  - threshold used: ${matchThreshold}`);
     console.log(`  - topK requested: ${TOP_K}`);
     console.log(`  - retrieved_sources_count: ${filteredDocs.length}`);

@@ -218,12 +218,12 @@ export async function chatHandler(
       return reply.status(500).send({ error: 'City resolution failed' });
     }
     
-    // DEMO_MODE: Log city resolution
-    if (process.env.DEMO_MODE === 'true') {
+    // DEMO_MODE or DEBUG_RETRIEVAL: Log city resolution
+    if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
       request.log.info({
         cityId,
         cityUuid,
-      }, '[DEMO_MODE] City resolution: resolved cityUuid and cityId slug');
+      }, '[DEBUG] City resolution: resolved cityUuid and cityId slug');
     }
     
     let documents: Array<{ id: string; title: string | null; source_url: string | null; content: string | null; similarity: number }> = [];
@@ -255,8 +255,8 @@ export async function chatHandler(
       score: doc.similarity,
     }));
 
-    // DEMO_MODE: Log retrieval results and context length
-    if (process.env.DEMO_MODE === 'true') {
+    // DEMO_MODE or DEBUG_RETRIEVAL: Log retrieval results and context length
+    if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
       request.log.info({
         retrieval_count: documents.length,
         top3_docs: retrievedDocs.map((doc, idx) => ({
@@ -266,12 +266,23 @@ export async function chatHandler(
           score: doc.score,
         })),
         context_length_chars: context.length,
-      }, '[DEMO_MODE] Retrieval results and context length');
+      }, '[DEBUG] Retrieval results and context length');
     }
 
     // Fallback: if no documents retrieved or all have low similarity
     if (documents.length === 0) {
       usedFallback = true;
+      
+      // DEMO_MODE or DEBUG_RETRIEVAL: Log fallback reason
+      if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+        request.log.warn({
+          cityId,
+          cityUuid,
+          message,
+          reason: 'retrieved_docs_count_equals_zero',
+          retrieval_count: documents.length,
+        }, '[DEBUG] Fallback triggered: no documents retrieved');
+      }
       
       // Deterministic fallback message (no LLM call, no generic answers)
       const fallbackMessage = 'Nemam dovoljno službenih informacija u dokumentima Grada Ploča da bih pouzdano odgovorio na to pitanje. Možete li ga malo precizirati ili pitati nešto drugo?';
