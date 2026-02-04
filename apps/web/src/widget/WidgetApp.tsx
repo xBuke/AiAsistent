@@ -599,16 +599,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // This ensures form only appears when backend explicitly determines human is needed
         },
         onMeta: (metaObj) => {
-          // Always log onMeta invocation (helpful for debugging citations)
-          console.log('[WidgetApp] onMeta invoked:', {
-            assistantMessageId,
-            retrieved_docs_top3: metaObj?.retrieved_docs_top3,
-            retrieved_docs_top3_length: Array.isArray(metaObj?.retrieved_docs_top3) ? metaObj.retrieved_docs_top3.length : 'not array',
-          });
-          
-          // DEBUG: Detailed log onMeta invocation
+          // DEBUG: Log onMeta invocation
           if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-            console.log('[WidgetApp] onMeta invoked (detailed):', {
+            console.log('[WidgetApp] onMeta invoked:', {
               assistantMessageId,
               retrieved_docs_top3: metaObj?.retrieved_docs_top3,
               retrieved_docs_top3_length: Array.isArray(metaObj?.retrieved_docs_top3) ? metaObj.retrieved_docs_top3.length : 'not array',
@@ -743,6 +736,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
       // Set assistant message content once after streaming completes
       // (finalAnswerContent already has normalized content with – -> -)
+      // Also ensure metadata is attached from transport.metadata (in case onMeta callback didn't fire or fired late)
       setMessages((prev) => {
         // DEBUG: Log state before final content update
         if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
@@ -752,12 +746,13 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
             targetMsgHasMetadata: !!targetMsgBefore?.metadata,
             retrieved_docs_top3: targetMsgBefore?.metadata?.retrieved_docs_top3,
             retrieved_docs_top3_length: Array.isArray(targetMsgBefore?.metadata?.retrieved_docs_top3) ? targetMsgBefore.metadata.retrieved_docs_top3.length : 'not array',
+            transportMeta: meta,
           });
         }
         
         const updated = prev.map((msg) =>
           msg.id === assistantMessageId
-            ? { ...msg, content: finalAnswerContent }
+            ? { ...msg, content: finalAnswerContent, metadata: meta || msg.metadata }
             : msg
         );
         
