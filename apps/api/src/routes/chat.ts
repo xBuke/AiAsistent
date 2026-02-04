@@ -63,29 +63,20 @@ export async function chatHandler(
     request.log.warn({ origin }, 'Request from non-whitelisted origin');
     allowedOrigin = origin; // Allow for now, but could be restricted
   }
-  
-  // Set headers using Fastify's reply methods (before hijack)
-  reply.header('Access-Control-Allow-Origin', allowedOrigin);
-  reply.header('Access-Control-Allow-Credentials', 'true');
-  reply.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  reply.header('Access-Control-Allow-Headers', 'Content-Type');
-  reply.header('Vary', 'Origin');
-  
-  // Set SSE headers using Fastify's reply methods
-  reply.type('text/event-stream');
-  reply.header('Cache-Control', 'no-cache');
-  reply.header('Connection', 'keep-alive');
-  reply.header('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
-  // Hijack the response to handle streaming manually (after headers are set)
+  // Hijack the response to handle streaming manually
   reply.hijack();
   
-  // Explicitly set CORS headers on raw response to ensure they're sent
+  // Set SSE headers explicitly on raw response BEFORE any writes
+  reply.raw.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  reply.raw.setHeader('Cache-Control', 'no-cache, no-transform');
+  reply.raw.setHeader('Connection', 'keep-alive');
   reply.raw.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
   reply.raw.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   reply.raw.setHeader('Vary', 'Origin');
+  reply.raw.setHeader('X-Accel-Buffering', 'no');
   
   // Send initial SSE comment to establish connection and flush headers
   reply.raw.write(': keep-alive\n\n');
@@ -322,9 +313,11 @@ export async function chatHandler(
       
       // In DEMO_MODE: send as single message event, otherwise stream as data
       if (isDemoMode) {
-        reply.raw.write(`event: message\ndata: ${fallbackMessage}\n\n`);
+        reply.raw.write(`event: message\n`);
+        reply.raw.write(`data: ${fallbackMessage}\n\n`);
       } else {
         // Stream message token by token to match success response format
+        reply.raw.write(`event: message\n`);
         reply.raw.write(`data: ${fallbackMessage}\n\n`);
       }
       
@@ -338,7 +331,8 @@ export async function chatHandler(
         used_fallback: true,
         needs_human: false, // Explicitly set to false - never infer from fallback
       };
-      reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+      reply.raw.write(`event: meta\n`);
+      reply.raw.write(`data: ${JSON.stringify(traceData)}\n\n`);
       
       // Send completion signal
       reply.raw.write('data: [DONE]\n\n');
@@ -580,14 +574,16 @@ export async function chatHandler(
       // In DEMO_MODE: buffer tokens, don't stream to client
       // In normal mode: stream tokens immediately
       if (!isDemoMode) {
-        // Format as SSE: data: token\n\n
+        // Format as SSE: event: message\ndata: token\n\n
+        reply.raw.write(`event: message\n`);
         reply.raw.write(`data: ${token}\n\n`);
       }
     }
 
     // In DEMO_MODE: send full answer as single message event
     if (isDemoMode) {
-      reply.raw.write(`event: message\ndata: ${assistantResponse}\n\n`);
+      reply.raw.write(`event: message\n`);
+      reply.raw.write(`data: ${assistantResponse}\n\n`);
     }
     
     // Emit meta event with trace data (include needs_human explicitly)
@@ -600,7 +596,8 @@ export async function chatHandler(
       used_fallback: false,
       needs_human: false, // Explicitly set to false
     };
-    reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+    reply.raw.write(`event: meta\n`);
+    reply.raw.write(`data: ${JSON.stringify(traceData)}\n\n`);
 
     // Send completion signal
     reply.raw.write('data: [DONE]\n\n');
@@ -752,8 +749,10 @@ export async function chatHandler(
     
     // In DEMO_MODE: send as single message event, otherwise stream as data
     if (isDemoMode) {
-      reply.raw.write(`event: message\ndata: ${errorMessage}\n\n`);
+      reply.raw.write(`event: message\n`);
+      reply.raw.write(`data: ${errorMessage}\n\n`);
     } else {
+      reply.raw.write(`event: message\n`);
       reply.raw.write(`data: ${errorMessage}\n\n`);
     }
     
@@ -767,7 +766,8 @@ export async function chatHandler(
       used_fallback: false,
       needs_human: false, // Explicitly set to false - never set on errors
     };
-    reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+    reply.raw.write(`event: meta\n`);
+    reply.raw.write(`data: ${JSON.stringify(traceData)}\n\n`);
     
     // Send completion signal
     reply.raw.write('data: [DONE]\n\n');
