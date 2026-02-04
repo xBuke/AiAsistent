@@ -634,18 +634,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // Normalize Unicode en-dash to hyphen for consistent rendering
         const normalizedToken = token.replace(/\u2013/g, '-');
 
-        // Append token to assistant message
+        // Accumulate token in finalAnswerContent (do not update UI per token)
         finalAnswerContent += normalizedToken;
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? {
-                  ...msg,
-                  content: msg.content + normalizedToken,
-                }
-              : msg
-          )
-        );
       }
 
       // Stream ended – check for abort (e.g. generator returned without throw)
@@ -688,6 +678,16 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         fallback: traceMetadata?.used_fallback,
         full_metadata: traceMetadata,
       });
+
+      // Set assistant message content once after streaming completes
+      // (finalAnswerContent already has normalized content with – -> -)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: finalAnswerContent }
+            : msg
+        )
+      );
 
       // Handle case where backend sent [DONE] immediately with no content (fallback case)
       // If no content was streamed, show a fallback message so user gets a response
