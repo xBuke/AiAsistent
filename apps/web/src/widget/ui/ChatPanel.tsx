@@ -42,8 +42,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   intakeInitialDescription = '',
   onOpenIntakeForm,
 }) => {
-  // TEMPORARY: Debug instrumentation
-  const DEBUG_INTAKE = true;
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -57,17 +55,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     conversationId !== null &&
     !showIntakeForm; // Don't show handoff if intake form is showing
   
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:48',message:'shouldShowHandoff computed',data:{shouldShowHandoff,ticketNeedsHuman:ticket?.needsHuman,showIntakeForm,hasContact:!!ticket?.contact},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  }, [shouldShowHandoff, ticket?.needsHuman, showIntakeForm]);
-  
-  useEffect(() => {
-    if (showIntakeForm) {
-      fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:184',message:'TicketIntakeForm rendering',data:{showIntakeForm,hasOnIntakeSubmit:!!onIntakeSubmit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-    }
-  }, [showIntakeForm, onIntakeSubmit]);
-  // #endregion
 
   // Helper to normalize Croatian text for matching (lowercase, trim, strip diacritics)
   const normalizeCroatianText = (text: string): string => {
@@ -257,16 +244,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         <MessageList messages={messages} showTypingIndicator={showTypingIndicator} />
         
         {/* Ticket Intake Form - shown on fallback escalation */}
-        {(() => {
-          // TEMPORARY: Debug instrumentation
-          if (DEBUG_INTAKE) {
-            console.info('[INTAKE][CHATPANEL]', {
-              showIntakeForm,
-              hasOnIntakeSubmit: !!onIntakeSubmit,
-              willRender: showIntakeForm && !!onIntakeSubmit,
-            });
-          }
-          return showIntakeForm && onIntakeSubmit ? (
+        {showIntakeForm && onIntakeSubmit ? (
             <TicketIntakeForm
               onSubmit={(data) => {
                 onIntakeSubmit(data);

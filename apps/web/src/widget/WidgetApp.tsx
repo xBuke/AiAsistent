@@ -26,9 +26,6 @@ interface WidgetAppProps {
 }
 
 const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
-  // TEMPORARY: Debug instrumentation for intake form
-  const DEBUG_INTAKE = true;
-  
   // Runtime override: force 'demo' cityId on gradai.mangai.hr hostname
   const cityId = (typeof window !== 'undefined' && window.location.hostname === 'gradai.mangai.hr') 
     ? 'demo' 
@@ -45,7 +42,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [ticket, setTicket] = useState<Ticket | undefined>(undefined);
   const [showIntakeForm, setShowIntakeForm] = useState(false);
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
-  const [lastMeta, setLastMeta] = useState<Record<string, any> | null>(null);
   
   // Expose global API for controlling widget (for CTA buttons)
   useEffect(() => {
@@ -62,14 +58,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     };
   }, []);
   
-  // #region agent log
-  // Instrumentation: Track when showIntakeForm state changes
-  useEffect(() => {
-    if (showIntakeForm !== undefined) {
-      fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:38',message:'showIntakeForm state changed',data:{showIntakeForm,intakeSubmitted},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    }
-  }, [showIntakeForm, intakeSubmitted]);
-  // #endregion
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamTimeoutRef = useRef<number | null>(null);
   const hasReceivedFirstTokenRef = useRef<boolean>(false);
@@ -138,14 +126,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   // Compute needsHuman and create/update ticket after each user message
   useEffect(() => {
     if (conversationId && userMessages.length > 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:76',message:'useEffect triggered - userMessages changed',data:{userMessagesCount:userMessages.length,lastMessage:userMessages[userMessages.length-1],conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const existingTicket = getTicket(cityId, conversationId);
       const categorization = categorizeConversation(userMessages);
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:79',message:'Categorization result',data:{needsHuman:categorization.needsHuman,category:categorization.category,existingTicketNeedsHuman:existingTicket?.needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       
       // If ticket is closed and new message arrives, reopen it
       if (existingTicket && existingTicket.status === 'closed') {
@@ -209,9 +191,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         });
         
         setTicket(updatedTicket);
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:142',message:'Ticket updated with needsHuman from categorization',data:{needsHuman:updatedTicket.needsHuman,status:updatedTicket.status,showIntakeForm},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         
         // Send ticket_update event to backend
         if (config.apiBaseUrl) {
@@ -445,16 +424,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const handleSend = async (text: string) => {
     // Deterministic frontend trigger: if message matches ticket intent, open form and return early (do not send to backend)
     if (matchesTicketIntent(text)) {
-      // TEMPORARY DEBUG: Frontend gate check
-      console.log('[DEBUG][FRONTEND_GATE] Matched ticket intent, opening form', { 
-        text, 
-        normalized: normalizeCroatianText(text),
-        timestamp: Date.now()
-      });
-      
-      if (DEBUG_INTAKE) {
-        console.info('[INTAKE][TRIGGER] Message matches ticket intent, opening form immediately (skipping backend call)');
-      }
       
       // Ensure conversationId exists
       let currentConversationId = conversationId;
@@ -482,41 +451,12 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       return; // Do not send message to backend/LLM
     }
     
-    // TEMPORARY: Debug instrumentation
-    if (DEBUG_INTAKE) {
-      console.info('[INTAKE][SEND]', {
-        userMessage: text,
-        conversationId,
-        cityId,
-        intakeSubmitted_BEFORE: intakeSubmitted,
-        showIntakeForm_BEFORE: showIntakeForm,
-      });
-    }
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:349',message:'handleSend called',data:{text,currentShowIntakeForm:showIntakeForm,currentTicketNeedsHuman:ticket?.needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     // CRITICAL: Reset intake form state at the start of each message send
     // The form must ONLY be shown when backend explicitly requests it via response
-    // TEMPORARY DEBUG: Log state before reset
-    console.log('[DEBUG][RESET] Resetting showIntakeForm to false', { 
-      beforeReset: showIntakeForm, 
-      currentMeta: metaRef.current,
-      transportMeta: transport instanceof ApiTransport ? transport.metadata : null,
-      timestamp: Date.now()
-    });
     setShowIntakeForm(false);
     setIntakeSubmitted(false);
-    
-    // TEMPORARY: Debug instrumentation
-    if (DEBUG_INTAKE) {
-      console.info('[INTAKE][SEND] Resets applied: setShowIntakeForm(false), setIntakeSubmitted(false)');
-    }
     // Reset metadata ref for new message
     metaRef.current = null;
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:352',message:'showIntakeForm reset to false',data:{showIntakeForm:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     
     // Track start time for latency measurement
     const startTime = Date.now();
@@ -707,12 +647,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         messageId: clientMessageId,
         onAction: (action) => {
           // Handle action events from backend
-          // Log action for debugging
-          console.log('[WidgetApp] Action received:', action);
-          // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:537',message:'Action event received - IGNORING (only using needs_human from metadata)',data:{actionType:action.type,actionData:action},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
-          
           // REMOVED: Do NOT show intake form based on action events
           // The backend is incorrectly sending ticket_intake_required for all messages
           // We will ONLY show form when needs_human === true in response metadata (after streaming completes)
@@ -722,83 +656,14 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // Store metadata in ref immediately when meta event arrives
           metaRef.current = metaObj;
           
-          // [DIAGNOSTIC_PROBE] WidgetApp: onMeta callback invoked
-          console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_ONMETA_CALLBACK]', {
-            location: 'WidgetApp.tsx:705',
-            metaObj,
-            needs_human: metaObj?.needs_human,
-            needsHuman: metaObj?.needsHuman,
-            stored_in_metaRef: true,
-            timestamp: Date.now()
-          });
-          
-          // Store lastMeta for UI debug display
-          setLastMeta(metaObj);
-          
-          // TEMPORARY DEBUG: Enhanced meta logging
-          console.log('[DEBUG][META_RECEIVED] Meta event received', {
-            needs_human: metaObj?.needs_human,
-            needsHuman: metaObj?.needsHuman,
-            model: metaObj?.model,
-            retrieved_docs_count: metaObj?.retrieved_docs_count,
-            used_fallback: metaObj?.used_fallback,
-            fullMeta: metaObj,
-            timestamp: Date.now(),
-            showIntakeFormCurrent: showIntakeForm
-          });
-          
-          // TEMPORARY: Debug instrumentation
-          if (DEBUG_INTAKE) {
-            console.info('[INTAKE][META]', {
-              needs_human: metaObj?.needs_human,
-              needsHuman: metaObj?.needsHuman,
-              top3: metaObj?.retrieved_docs_top3?.length,
-              fullMeta: metaObj,
-            });
-          }
-          
-          // DEBUG: Log onMeta invocation
-          if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-            console.log('[WidgetApp] onMeta invoked:', {
-              assistantMessageId,
-              retrieved_docs_top3: metaObj?.retrieved_docs_top3,
-              retrieved_docs_top3_length: Array.isArray(metaObj?.retrieved_docs_top3) ? metaObj.retrieved_docs_top3.length : 'not array',
-              fullMeta: metaObj,
-            });
-          }
-          
           // Attach metadata to the current assistant message
-          setMessages(prev => {
-            // DEBUG: Log state before update
-            if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-              const targetMsgBefore = prev.find(m => m.id === assistantMessageId);
-              console.log('[WidgetApp] Before setMessages attach:', {
-                targetMsgExists: !!targetMsgBefore,
-                targetMsgHasMetadata: !!targetMsgBefore?.metadata,
-                targetMsgMetadata: targetMsgBefore?.metadata,
-              });
-            }
-            
-            const updated = prev.map(m => 
+          setMessages(prev => 
+            prev.map(m => 
               m.id === assistantMessageId 
                 ? { ...m, metadata: metaObj }
                 : m
-            );
-            
-            // DEBUG: Log state after update
-            if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-              const targetMsgAfter = updated.find(m => m.id === assistantMessageId);
-              console.log('[WidgetApp] After setMessages attach:', {
-                targetMsgExists: !!targetMsgAfter,
-                targetMsgHasMetadata: !!targetMsgAfter?.metadata,
-                targetMsgMetadata: targetMsgAfter?.metadata,
-                retrieved_docs_top3: targetMsgAfter?.metadata?.retrieved_docs_top3,
-                retrieved_docs_top3_length: Array.isArray(targetMsgAfter?.metadata?.retrieved_docs_top3) ? targetMsgAfter.metadata.retrieved_docs_top3.length : 'not array',
-              });
-            }
-            
-            return updated;
-          });
+            )
+          );
         },
       })) {
         // Check if aborted – stop typing, show error, re-enable send
@@ -868,93 +733,23 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
       // Resolve metadata from multiple sources (single source of truth)
       const meta = resolveMeta(transport);
-      
-      // [DIAGNOSTIC_PROBE] WidgetApp: Metadata resolution after stream completes
-      console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_META_RESOLVED]', {
-        location: 'WidgetApp.tsx:841',
-        metaRef_current: metaRef.current,
-        transportMeta: transport instanceof ApiTransport ? transport.metadata : null,
-        resolved_meta: meta,
-        needs_human: meta?.needs_human,
-        needsHuman: meta?.needsHuman,
-        needs_human_type: typeof meta?.needs_human,
-        needsHuman_type: typeof meta?.needsHuman,
-        finalAnswerContent_length: finalAnswerContent.length,
-        timestamp: Date.now()
-      });
-      
-      // TEMPORARY DEBUG: Enhanced metadata resolution logging
-      console.log('[DEBUG][RESOLVE_META] Resolved metadata', {
-        metaRef: metaRef.current,
-        transportMeta: transport instanceof ApiTransport ? transport.metadata : null,
-        resolved: meta,
-        needs_human: meta?.needs_human,
-        needsHuman: meta?.needsHuman,
-        model: meta?.model,
-        retrieved_docs_count: meta?.retrieved_docs_count,
-        timestamp: Date.now()
-      });
-      
-      // Debug logging for citations
-      if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-        console.log('citations meta', meta);
-      }
-
-      // Log response fields for debugging (as requested)
-      console.log('CHAT_RESPONSE', {
-        needs_human: meta?.needs_human,
-        type: meta?.type,
-        action: meta?.action,
-        fallback: meta?.used_fallback,
-        full_metadata: meta,
-      });
 
       // Handle case where backend sent [DONE] immediately with no content (fallback case)
       // If no content was streamed, show a fallback message so user gets a response
       if (finalAnswerContent.trim() === '') {
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:640',message:'Stream completed with no content - showing fallback message',data:{finalAnswerContent,meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
         finalAnswerContent = (t(config.lang, 'communicationError') || 'Izvinjavam se, trenutno ne mogu odgovoriti na ovo pitanje. Molimo pokušajte ponovno ili kontaktirajte nas direktno.').replace(/\u2013/g, '-');
       }
 
       // Set assistant message content once after streaming completes
       // (finalAnswerContent already has normalized content with – -> -)
       // Attach resolved metadata to message for stable access (single source of truth)
-      setMessages((prev) => {
-        // DEBUG: Log state before final content update
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-          const targetMsgBefore = prev.find(m => m.id === assistantMessageId);
-          console.log('[WidgetApp] Before final content update:', {
-            targetMsgExists: !!targetMsgBefore,
-            targetMsgHasMetadata: !!targetMsgBefore?.metadata,
-            retrieved_docs_top3: targetMsgBefore?.metadata?.retrieved_docs_top3,
-            retrieved_docs_top3_length: Array.isArray(targetMsgBefore?.metadata?.retrieved_docs_top3) ? targetMsgBefore.metadata.retrieved_docs_top3.length : 'not array',
-            resolvedMeta: meta,
-          });
-        }
-        
-        // Use resolved meta if available, otherwise preserve existing metadata
-        const updated = prev.map((msg) =>
+      setMessages((prev) =>
+        prev.map((msg) =>
           msg.id === assistantMessageId
             ? { ...msg, content: finalAnswerContent, metadata: meta || msg.metadata }
             : msg
-        );
-        
-        // DEBUG: Log state after final content update
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-          const targetMsgAfter = updated.find(m => m.id === assistantMessageId);
-          console.log('[WidgetApp] After final content update:', {
-            targetMsgExists: !!targetMsgAfter,
-            targetMsgHasMetadata: !!targetMsgAfter?.metadata,
-            retrieved_docs_top3: targetMsgAfter?.metadata?.retrieved_docs_top3,
-            retrieved_docs_top3_length: Array.isArray(targetMsgAfter?.metadata?.retrieved_docs_top3) ? targetMsgAfter.metadata.retrieved_docs_top3.length : 'not array',
-            messageContentLength: targetMsgAfter?.content?.length || 0,
-          });
-        }
-        
-        return updated;
-      });
+        )
+      );
 
       // Check if backend explicitly indicates intake form should be shown
       // Use resolved meta (single source of truth) for deterministic access
@@ -962,104 +757,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // If both are undefined/null/missing => treat as false (do not show form)
       const needsHuman = meta?.needs_human === true || meta?.needsHuman === true;
       
-      // [DIAGNOSTIC_PROBE] WidgetApp: Needs human check and form open decision
-      console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_NEEDS_HUMAN_CHECK]', {
-        location: 'WidgetApp.tsx:920',
-        meta_needs_human_snake: meta?.needs_human,
-        meta_needs_human_camel: meta?.needsHuman,
-        meta_needs_human_snake_type: typeof meta?.needs_human,
-        meta_needs_human_camel_type: typeof meta?.needsHuman,
-        computed_needsHuman: needsHuman,
-        intakeSubmitted,
-        willOpenForm: needsHuman && !intakeSubmitted,
-        showIntakeForm_before: showIntakeForm,
-        fullMeta: meta,
-        timestamp: Date.now()
-      });
-      
-      // TEMPORARY DEBUG: Enhanced needs human check logging
-      console.log('[DEBUG][NEEDS_HUMAN_CHECK]', {
-        metaNeedsHuman_snake: meta?.needs_human,
-        metaNeedsHuman_camel: meta?.needsHuman,
-        metaNeedsHuman_snake_type: typeof meta?.needs_human,
-        metaNeedsHuman_camel_type: typeof meta?.needsHuman,
-        computedNeedsHuman: needsHuman,
-        intakeSubmitted,
-        willOpenForm: needsHuman && !intakeSubmitted,
-        showIntakeFormBefore: showIntakeForm,
-        fullMeta: meta,
-        timestamp: Date.now()
-      });
-      
-      // TEMPORARY: Debug instrumentation
-      if (DEBUG_INTAKE) {
-        console.info('[INTAKE][CHECK]', {
-          meta: {
-            needs_human: meta?.needs_human,
-            needsHuman: meta?.needsHuman,
-          },
-          computedNeedsHuman: needsHuman,
-          intakeSubmitted,
-        });
-      }
-      
-      // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from resolved metadata - single source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       if (needsHuman && !intakeSubmitted) {
-        // [DIAGNOSTIC_PROBE] WidgetApp: Opening intake form
-        console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_FORM_OPEN]', {
-          location: 'WidgetApp.tsx:951',
-          action: 'setShowIntakeForm(true)',
-          needsHuman,
-          intakeSubmitted,
-          meta,
-          showIntakeForm_before: showIntakeForm,
-          timestamp: Date.now()
-        });
-        
-        // TEMPORARY DEBUG: Form open call logging
-        console.log('[DEBUG][FORM_OPEN] Calling setShowIntakeForm(true)', {
-          needsHuman,
-          intakeSubmitted,
-          meta,
-          showIntakeFormBefore: showIntakeForm,
-          timestamp: Date.now()
-        });
-        
-        // TEMPORARY: Debug instrumentation
-        if (DEBUG_INTAKE) {
-          console.info('[INTAKE][OPEN] calling setShowIntakeForm(true)');
-        }
-        
-        console.log('[WidgetApp] needs_human=true detected in resolved metadata, showing intake form');
         setShowIntakeForm(true);
-        
-        // TEMPORARY: Debug instrumentation
-        if (DEBUG_INTAKE) {
-          setTimeout(() => {
-            console.info('[INTAKE][OPEN] requested open (state update pending)');
-          }, 0);
-        }
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:654',message:'setShowIntakeForm(true) called from resolved needs_human metadata',data:{needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-      } else {
-        // [DIAGNOSTIC_PROBE] WidgetApp: NOT opening intake form
-        console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_FORM_NOT_OPEN]', {
-          location: 'WidgetApp.tsx:979',
-          reason: needsHuman ? 'intakeSubmitted=true' : 'needsHuman=false/undefined',
-          needsHuman,
-          intakeSubmitted,
-          meta_needs_human: meta?.needs_human,
-          meta_needsHuman: meta?.needsHuman,
-          timestamp: Date.now()
-        });
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:656',message:'NOT showing form - needs_human is false/undefined',data:{needsHuman,metaNeedsHuman:meta?.needs_human},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
       }
 
       // Emit message event for assistant response (ONE event at end of streaming)
@@ -1172,15 +871,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     }
   };
 
-  // TEMPORARY: Debug instrumentation
-  if (DEBUG_INTAKE && isOpen) {
-    console.info('[INTAKE][RENDER]', {
-      showIntakeForm,
-      intakeSubmitted,
-      showIntakeFormProp: showIntakeForm && !intakeSubmitted,
-    });
-  }
-
   return (
     <div
       style={{
@@ -1225,30 +915,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           primaryColor={config.theme?.primary}
         />
       </div>
-      {/* [DIAGNOSTIC_PROBE] UI Debug Display - only shown when ?debugMeta=1 query param is present */}
-      {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugMeta') === '1' && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '10px',
-            left: '10px',
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            color: '#fff',
-            padding: '8px 12px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            maxWidth: '400px',
-            zIndex: 10000,
-            pointerEvents: 'none',
-          }}
-        >
-          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>[DIAGNOSTIC_PROBE] lastMeta:</div>
-          <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-            {lastMeta ? JSON.stringify(lastMeta, null, 2) : 'null'}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

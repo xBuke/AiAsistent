@@ -103,54 +103,8 @@ export class ApiTransport implements ChatTransport {
                     const parsed = JSON.parse(payload);
                     this._metadata = parsed;
                     
-                    // [DIAGNOSTIC_PROBE] Transport: Meta event received and parsed
-                    console.log('[DIAGNOSTIC_PROBE][TRANSPORT_META_RECEIVED]', {
-                      location: 'api.ts:103',
-                      parsed,
-                      needs_human: parsed?.needs_human,
-                      needsHuman: parsed?.needsHuman,
-                      stored_in_transport: !!this._metadata,
-                      has_onMeta_callback: !!onMeta,
-                      timestamp: Date.now()
-                    });
-                    
-                    // TEMPORARY DEBUG: Enhanced meta event logging
-                    console.log('[DEBUG][TRANSPORT] Meta event detected', {
-                      payload: payload.substring(0, 200),
-                      parsed,
-                      needs_human: parsed?.needs_human,
-                      needsHuman: parsed?.needsHuman,
-                      model: parsed?.model,
-                      timestamp: Date.now()
-                    });
-                    
-                    // DEBUG: Log meta event parsing
-                    if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
-                      const payloadPreview = JSON.stringify(payload).substring(0, 80);
-                      console.log('[ApiTransport] Meta event parsed:', {
-                        event: 'meta',
-                        payloadPreview,
-                        retrieved_docs_top3: parsed?.retrieved_docs_top3,
-                        retrieved_docs_top3_length: Array.isArray(parsed?.retrieved_docs_top3) ? parsed.retrieved_docs_top3.length : 'not array',
-                      });
-                    }
-                    
                     // Call onMeta callback from input if provided
                     if (onMeta) {
-                      console.log('[DIAGNOSTIC_PROBE][TRANSPORT_CALLING_ONMETA]', {
-                        location: 'api.ts:136',
-                        parsed,
-                        needs_human: parsed?.needs_human,
-                        needsHuman: parsed?.needsHuman,
-                        timestamp: Date.now()
-                      });
-                      console.log('[DEBUG][TRANSPORT] Calling onMeta callback', {
-                        parsed,
-                        needs_human: parsed?.needs_human,
-                        needsHuman: parsed?.needsHuman,
-                        hasCallback: !!onMeta,
-                        timestamp: Date.now()
-                      });
                       onMeta(parsed);
                     }
                     // Also call instance onMeta if set (for backward compatibility)
@@ -158,13 +112,6 @@ export class ApiTransport implements ChatTransport {
                       this.onMeta(parsed);
                     }
                   } catch (error) {
-                    // [DIAGNOSTIC_PROBE] Transport: Meta parse error
-                    console.error('[DIAGNOSTIC_PROBE][TRANSPORT_META_PARSE_ERROR]', {
-                      location: 'api.ts:143',
-                      error: error instanceof Error ? error.message : String(error),
-                      payload: payload.substring(0, 200),
-                      timestamp: Date.now()
-                    });
                     // Ignore parse errors for metadata
                   }
                   currentEvent = ''; // Reset event type
