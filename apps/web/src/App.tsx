@@ -2017,6 +2017,31 @@ function ChatPage() {
         >
           Ovaj asistent bit će implementiran direktno na službenoj web stranici grada kao chat bubble, omogućujući građanima brz i jednostavan pristup informacijama o gradu.
         </p>
+
+        {/* Notice/Disclaimer */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1rem 1.5rem',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#92400e',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            Napomena: AI asistent trenutno koristi ograničen skup demo / testnih dokumenata i ne predstavlja službene dokumente Grada.
+          </p>
+        </div>
+
         <div
           style={{
             display: 'flex',
