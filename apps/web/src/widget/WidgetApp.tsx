@@ -56,6 +56,12 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const hasReceivedFirstTokenRef = useRef<boolean>(false);
   const metaRef = useRef<Record<string, any> | null>(null);
 
+  // Helper to resolve metadata from multiple sources in priority order
+  function resolveMeta(transport: ChatTransport, traceMetadata?: Record<string, any>): Record<string, any> | undefined {
+    const tmeta = transport instanceof ApiTransport ? (transport.metadata || undefined) : undefined;
+    return metaRef.current || tmeta || traceMetadata;
+  }
+
   // Choose transport based on config. Never use MockTransport in production.
   const isProd = import.meta.env.PROD;
   const apiUnavailableInProd = isProd && !config.apiBaseUrl;
@@ -721,9 +727,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         streamTimeoutRef.current = null;
       }
 
-      // Read metadata from ref (stored in onMeta callback) instead of transport.metadata
-      // This ensures metadata is captured deterministically even if transport.metadata is cleared
-      const meta = metaRef.current || undefined;
+      // Resolve metadata from multiple sources (single source of truth)
+      const meta = resolveMeta(transport);
       
       // Debug logging for citations
       if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
@@ -750,7 +755,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
       // Set assistant message content once after streaming completes
       // (finalAnswerContent already has normalized content with – -> -)
-      // Also ensure metadata is attached from transport.metadata (in case onMeta callback didn't fire or fired late)
+      // Attach resolved metadata to message for stable access (single source of truth)
       setMessages((prev) => {
         // DEBUG: Log state before final content update
         if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
@@ -760,10 +765,11 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
             targetMsgHasMetadata: !!targetMsgBefore?.metadata,
             retrieved_docs_top3: targetMsgBefore?.metadata?.retrieved_docs_top3,
             retrieved_docs_top3_length: Array.isArray(targetMsgBefore?.metadata?.retrieved_docs_top3) ? targetMsgBefore.metadata.retrieved_docs_top3.length : 'not array',
-            transportMeta: meta,
+            resolvedMeta: meta,
           });
         }
         
+        // Use resolved meta if available, otherwise preserve existing metadata
         const updated = prev.map((msg) =>
           msg.id === assistantMessageId
             ? { ...msg, content: finalAnswerContent, metadata: meta || msg.metadata }
@@ -786,19 +792,18 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       });
 
       // Check if backend explicitly indicates intake form should be shown
+      // Use resolved meta (single source of truth) for deterministic access
       // Check BOTH needs_human (snake_case) and needsHuman (camelCase) from metadata (strict === true check)
       // If both are undefined/null/missing => treat as false (do not show form)
-      // This is the ONLY source of truth for showing the intake form
-      // Read from ref to ensure deterministic access to metadata
-      const needsHuman = metaRef.current?.needs_human === true || metaRef.current?.needsHuman === true;
+      const needsHuman = meta?.needs_human === true || meta?.needsHuman === true;
       // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from metadata - ONLY source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from resolved metadata - single source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
       if (needsHuman && !intakeSubmitted) {
-        console.log('[WidgetApp] needs_human=true detected in metadata, showing intake form');
+        console.log('[WidgetApp] needs_human=true detected in resolved metadata, showing intake form');
         setShowIntakeForm(true);
         // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:654',message:'setShowIntakeForm(true) called from needs_human metadata',data:{needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:654',message:'setShowIntakeForm(true) called from resolved needs_human metadata',data:{needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
       } else {
         // #region agent log
