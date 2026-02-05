@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { getConversations, getConversationTranscript, type ConversationSummary, type TranscriptMessage } from '../analytics/store';
 import type { Category } from '../analytics/categorize';
 import { getEventsByCity } from '../analytics/store';
@@ -142,10 +142,17 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
   const [toDate, setToDate] = useState<string>('');
   const [hideSpam, setHideSpam] = useState<boolean>(true);
   
-  // Collapsible filters state
+  // Collapsible filters state - collapsed by default on mobile, expanded on desktop
   const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(() => {
-    const stored = localStorage.getItem('admin.conversations.filtersCollapsed');
-    return stored !== null ? stored === 'true' : true; // Default to collapsed
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('admin.conversations.filtersCollapsed');
+      if (stored !== null) {
+        return stored === 'true';
+      }
+      // Default: collapsed on mobile, expanded on desktop
+      return window.innerWidth < 768;
+    }
+    return false;
   });
 
   const [apiConversations, setApiConversations] = useState<ApiConversation[] | null>(null);
@@ -154,6 +161,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
   const [selectedMessages, setSelectedMessages] = useState<TranscriptMessage[] | null>(null);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const cityCode = cityId;
   const useMock = (import.meta as { env?: { VITE_ADMIN_USE_MOCK?: string } }).env?.VITE_ADMIN_USE_MOCK === 'true';
@@ -191,10 +199,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
     fetchConversations();
   }, [cityCode, fetchConversations, useMock]);
 
-  // Poll conversations every 10s when Live is enabled
+  // Poll conversations every 4s when Live is enabled
   usePolling({
     callback: fetchConversations,
-    intervalMs: 10000,
+    intervalMs: 4000,
     enabled: liveEnabled,
   });
 
@@ -223,16 +231,30 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
 
   const useBackend = !useMock && apiConversations !== null && conversationsError === null;
 
-  // Fetch messages function (reusable for polling)
+  // Fetch messages function (reusable for polling) with smart scroll handling
   const fetchMessages = useCallback(async () => {
     if (!selectedConversationId || !useBackend) {
       return;
     }
+    
+    // Check if user is scrolled to bottom (within 50px threshold)
+    const container = messagesContainerRef.current;
+    const wasAtBottom = container ? container.scrollHeight - container.scrollTop - container.clientHeight < 50 : false;
+    
     try {
       const list = await fetchMessagesApi(cityCode, selectedConversationId);
       setSelectedMessages(list.map(mapApiMessage));
       setMessagesLoading(false);
       setMessagesError(null);
+      
+      // Only auto-scroll if user was at bottom
+      if (wasAtBottom && container) {
+        setTimeout(() => {
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
+        }, 0);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
       setSelectedMessages(null);
@@ -253,10 +275,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
     fetchMessages();
   }, [cityCode, selectedConversationId, useBackend, fetchMessages]);
 
-  // Poll messages every 5s when Live is enabled and conversation is selected
+  // Poll messages every 4s when Live is enabled and conversation is selected
   usePolling({
     callback: fetchMessages,
-    intervalMs: 5000,
+    intervalMs: 4000,
     enabled: liveEnabled && !!selectedConversationId && useBackend,
   });
 
@@ -606,11 +628,30 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
     );
   }
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Auto-collapse filters on mobile, expand on desktop
+      if (mobile && !filtersCollapsed) {
+        setFiltersCollapsed(true);
+      } else if (!mobile && filtersCollapsed) {
+        setFiltersCollapsed(false);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [filtersCollapsed]);
+
   return (
     <div
       style={{
         display: 'flex',
-        height: 'calc(100vh - 200px)',
+        flexDirection: isMobile ? 'column' : 'row',
+        height: isMobile ? 'auto' : 'calc(100vh - 200px)',
         gap: '1rem',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
@@ -618,7 +659,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
       {/* Left sidebar - Conversation list */}
       <div
         style={{
-          width: '320px',
+          width: isMobile ? '100%' : '320px',
+          minWidth: isMobile ? 'auto' : '320px',
+          maxWidth: isMobile ? '100%' : '320px',
+          height: isMobile ? '50vh' : 'auto',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
@@ -1020,6 +1064,8 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
       <div
         style={{
           flex: 1,
+          minWidth: 0,
+          height: isMobile ? '50vh' : 'auto',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
@@ -1107,6 +1153,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
 
             {/* Messages - chat bubbles, calm spacing */}
             <div
+              ref={messagesContainerRef}
               style={{
                 flex: 1,
                 overflowY: 'auto',

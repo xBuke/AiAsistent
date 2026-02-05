@@ -67,6 +67,13 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(() => {
+    // Collapsed by default on mobile, expanded on desktop
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
 
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>('open');
   const [workflowDepartment, setWorkflowDepartment] = useState<string>('');
@@ -143,10 +150,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     loadConversations();
   }, [loadConversations]);
 
-  // Poll conversations every 10s when Live is enabled
+  // Poll conversations every 4s when Live is enabled
   usePolling({
     callback: loadConversations,
-    intervalMs: 10000,
+    intervalMs: 4000,
     enabled: liveEnabled,
   });
 
@@ -181,8 +188,40 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     }
   }, [cityId, selectedConversationId]);
 
-  // NOTE: Polling for conversation detail is DISABLED per user requirement.
-  // Conversation detail is only fetched when conversationId changes or user manually refreshes.
+  // Poll conversation detail every 4s when Live is enabled and conversation is selected
+  // Smart scroll: only auto-scroll if user is at bottom
+  const loadConversationDetailWithScroll = useCallback(async (conversationUuid: string) => {
+    if (!transcriptRef.current) {
+      await loadConversationDetail(conversationUuid);
+      return;
+    }
+    
+    // Check if user is scrolled to bottom (within 50px threshold)
+    const container = transcriptRef.current;
+    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+    
+    await loadConversationDetail(conversationUuid);
+    
+    // Only auto-scroll if user was at bottom
+    if (wasAtBottom && container) {
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }, 0);
+    }
+  }, [loadConversationDetail]);
+
+  usePolling({
+    callback: () => {
+      if (selectedConversationId) {
+        loadConversationDetailWithScroll(selectedConversationId);
+      }
+    },
+    intervalMs: 4000,
+    enabled: liveEnabled && !!selectedConversationId,
+  });
 
   // Full title (contact + phone/email) — for detail view only
   const getConversationTitleFull = useCallback((conv: ApiInboxItem): string => {
@@ -507,9 +546,14 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   }, [conversationDetail]);
 
   // Auto-scroll transcript to bottom when new messages/notes arrive
+  // Only auto-scroll if user is already at bottom (within 50px threshold)
   useEffect(() => {
     if (timelineItems.length > 0 && transcriptRef.current) {
-      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+      const container = transcriptRef.current;
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+      if (isAtBottom) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
   }, [timelineItems.length]);
 
@@ -540,11 +584,30 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     }
   };
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Auto-collapse filters on mobile, expand on desktop
+      if (mobile && !filtersCollapsed) {
+        setFiltersCollapsed(true);
+      } else if (!mobile && filtersCollapsed) {
+        setFiltersCollapsed(false);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [filtersCollapsed]);
+
   return (
     <div
       style={{
         display: 'flex',
-        height: 'calc(100vh - 200px)',
+        flexDirection: isMobile ? 'column' : 'row',
+        height: isMobile ? 'auto' : 'calc(100vh - 200px)',
         gap: '1rem',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
@@ -552,7 +615,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       {/* Left sidebar - Conversation list */}
       <div
         style={{
-          width: '400px',
+          width: isMobile ? '100%' : '400px',
+          minWidth: isMobile ? 'auto' : '400px',
+          maxWidth: isMobile ? '100%' : '400px',
+          height: isMobile ? '50vh' : 'auto',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
@@ -563,7 +629,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       >
         {/* Filters */}
         <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
-          {/* Search */}
+          {/* Search - always visible */}
           <input
             type="text"
             placeholder="Pretraži po ID-u ili pitanju..."
@@ -575,12 +641,75 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               border: '1px solid #d1d5db',
               borderRadius: '0.375rem',
               fontSize: '0.875rem',
-              marginBottom: '0.5rem',
+              marginBottom: '0.75rem',
             }}
           />
 
-          {/* Status + Hitno chips */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.75rem' }}>
+          {/* Filters toggle button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+                color: '#374151',
+                fontWeight: 500,
+                transition: 'background-color 0.2s, border-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f9fafb';
+                e.currentTarget.style.borderColor = '#9ca3af';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.borderColor = '#d1d5db';
+              }}
+            >
+              <span>Filtri</span>
+              {(statusChip !== 'all' || urgentFilterOnly || selectedTags.length > 0) && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '1.25rem',
+                    height: '1.25rem',
+                    padding: '0 0.375rem',
+                    backgroundColor: '#3b82f6',
+                    color: '#ffffff',
+                    borderRadius: '0.75rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {[statusChip !== 'all' ? 1 : 0, urgentFilterOnly ? 1 : 0, selectedTags.length].reduce((a, b) => a + b, 0)}
+                </span>
+              )}
+              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                {filtersCollapsed ? '▼' : '▲'}
+              </span>
+            </button>
+          </div>
+
+          {/* Collapsible filters section */}
+          <div
+            style={{
+              maxHeight: filtersCollapsed ? '0' : '1000px',
+              overflow: 'hidden',
+              opacity: filtersCollapsed ? 0 : 1,
+              transition: 'max-height 0.3s ease-in-out, opacity 0.3s ease-in-out',
+            }}
+          >
+            {/* Status + Hitno chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.75rem' }}>
             <button
               type="button"
               onClick={() => setStatusChip('all')}
@@ -647,54 +776,55 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             </button>
           </div>
 
-          {/* Legacy status dropdown - hidden, kept for compatibility */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            disabled
-            style={{
-              width: '100%',
-              padding: '0.5rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.375rem',
-              fontSize: '0.875rem',
-              backgroundColor: '#f3f4f6',
-              marginBottom: '0.75rem',
-              cursor: 'not-allowed',
-              opacity: 0.6,
-              display: 'none',
-            }}
-            title="Status filter is display-only. All tickets are shown."
-          >
-            <option value="all">Sve (prikazuje se sve)</option>
-          </select>
-
-          {/* Tag filter */}
-          {allTags.length > 0 && (
+            {/* Legacy status dropdown - hidden, kept for compatibility */}
             <select
-              multiple
-              value={selectedTags}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                setSelectedTags(selected);
-              }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              disabled
               style={{
                 width: '100%',
                 padding: '0.5rem',
                 border: '1px solid #d1d5db',
                 borderRadius: '0.375rem',
                 fontSize: '0.875rem',
-                backgroundColor: '#ffffff',
-                minHeight: '80px',
+                backgroundColor: '#f3f4f6',
+                marginBottom: '0.75rem',
+                cursor: 'not-allowed',
+                opacity: 0.6,
+                display: 'none',
               }}
+              title="Status filter is display-only. All tickets are shown."
             >
-              {allTags.map((tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              ))}
+              <option value="all">Sve (prikazuje se sve)</option>
             </select>
-          )}
+
+            {/* Tag filter */}
+            {allTags.length > 0 && (
+              <select
+                multiple
+                value={selectedTags}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                  setSelectedTags(selected);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  backgroundColor: '#ffffff',
+                  minHeight: '80px',
+                }}
+              >
+                {allTags.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
 
         {/* Conversation list */}
@@ -884,6 +1014,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       <div
         style={{
           flex: 1,
+          minWidth: 0,
+          height: isMobile ? '50vh' : 'auto',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',

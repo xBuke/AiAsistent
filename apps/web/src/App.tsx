@@ -1793,6 +1793,7 @@ function EnglishLandingPage() {
             gap: '1rem',
             justifyContent: 'center',
             marginTop: '2.5rem',
+            padding: '0 1rem',
           }}
         >
           <a
@@ -1800,8 +1801,8 @@ function EnglishLandingPage() {
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
-              fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(1.5rem, 4vw, 2.5rem)',
+              fontSize: 'clamp(0.9375rem, 2vw, 1.125rem)',
               fontWeight: 600,
               color: '#ffffff',
               backgroundColor: '#2563eb',
@@ -1812,6 +1813,8 @@ function EnglishLandingPage() {
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               textDecoration: 'none',
               display: 'inline-block',
+              minWidth: 'min(200px, calc(100% - 1rem))',
+              textAlign: 'center',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = '#1d4ed8';
@@ -1834,8 +1837,8 @@ function EnglishLandingPage() {
               }
             }}
             style={{
-              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
-              fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(1.5rem, 4vw, 2.5rem)',
+              fontSize: 'clamp(0.9375rem, 2vw, 1.125rem)',
               fontWeight: 600,
               color: '#2563eb',
               backgroundColor: 'transparent',
@@ -1844,6 +1847,8 @@ function EnglishLandingPage() {
               cursor: 'pointer',
               transition: 'background-color 0.2s, transform 0.2s',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              minWidth: 'min(200px, calc(100% - 1rem))',
+              textAlign: 'center',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = '#eff6ff';

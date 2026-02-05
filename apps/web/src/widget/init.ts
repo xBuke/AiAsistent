@@ -111,18 +111,127 @@ function mountWidget(config: WidgetConfig): void {
     return;
   }
 
+  // Check if we're on an admin route
+  const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+
+  // Create wrapper container for widget and label
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'fixed';
+  wrapper.style.bottom = '16px';
+  wrapper.style.right = '16px';
+  wrapper.style.zIndex = '2147483647';
+  wrapper.style.display = 'flex';
+  wrapper.style.flexDirection = 'column';
+  wrapper.style.alignItems = 'flex-end';
+  wrapper.style.gap = '0.5rem';
+  wrapper.style.pointerEvents = 'none'; // So only widget itself handles clicks
+  wrapper.style.maxWidth = 'calc(100vw - 32px)'; // Prevent overflow on mobile
+
   // Create host div
   const host = document.createElement('div');
   host.id = 'grad-widget-host';
-  host.style.position = 'fixed';
-  host.style.bottom = '16px';
-  host.style.right = '16px';
-  host.style.zIndex = '2147483647';
   host.style.pointerEvents = 'none'; // So only widget itself handles clicks
   host.style.width = 'auto';
   host.style.height = 'auto';
 
-  document.body.appendChild(host);
+  wrapper.appendChild(host);
+
+  // Add admin label if on admin route
+  if (isAdminRoute) {
+    const label = document.createElement('div');
+    label.id = 'grad-widget-admin-label';
+    label.textContent = 'Widget građanina (demo)';
+    label.style.cssText = `
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 0.75rem;
+      color: #6b7280;
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      pointer-events: none;
+      white-space: nowrap;
+      user-select: none;
+    `;
+    wrapper.insertBefore(label, host);
+  }
+
+  document.body.appendChild(wrapper);
+
+  // Update label visibility when route changes (for SPA navigation)
+  if (typeof window !== 'undefined') {
+    let lastPathname = window.location.pathname;
+    
+    const updateLabelVisibility = () => {
+      const currentPathname = window.location.pathname;
+      // Only update if pathname actually changed
+      if (currentPathname === lastPathname) return;
+      lastPathname = currentPathname;
+      
+      const currentIsAdmin = currentPathname.startsWith('/admin');
+      const existingLabel = document.getElementById('grad-widget-admin-label');
+      
+      if (currentIsAdmin && !existingLabel && wrapper) {
+        // Add label
+        const label = document.createElement('div');
+        label.id = 'grad-widget-admin-label';
+        label.textContent = 'Widget građanina (demo)';
+        label.style.cssText = `
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          font-size: clamp(0.625rem, 2vw, 0.75rem);
+          color: #6b7280;
+          background-color: rgba(255, 255, 255, 0.9);
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.375rem;
+          border: 1px solid #e5e7eb;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          pointer-events: none;
+          white-space: nowrap;
+          user-select: none;
+          max-width: calc(100vw - 80px);
+          overflow: hidden;
+          text-overflow: ellipsis;
+        `;
+        wrapper.insertBefore(label, host);
+      } else if (!currentIsAdmin && existingLabel) {
+        // Remove label
+        existingLabel.remove();
+      }
+    };
+
+    // Listen for popstate (back/forward navigation)
+    window.addEventListener('popstate', updateLabelVisibility);
+
+    // Listen for pushstate/replacestate (programmatic navigation, including React Router)
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+    window.history.pushState = function(...args) {
+      originalPushState.apply(window.history, args);
+      setTimeout(updateLabelVisibility, 0);
+    };
+    window.history.replaceState = function(...args) {
+      originalReplaceState.apply(window.history, args);
+      setTimeout(updateLabelVisibility, 0);
+    };
+
+    // Fallback: check periodically (every 1s) in case React Router uses other methods
+    // This is lightweight and only runs when widget is mounted
+    const checkInterval = setInterval(() => {
+      if (window.location.pathname !== lastPathname) {
+        updateLabelVisibility();
+      }
+    }, 1000);
+
+    // Cleanup interval when widget is unmounted (if host is removed)
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById('grad-widget-host')) {
+        clearInterval(checkInterval);
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
 
   // Attach Shadow DOM
   const shadowRoot = host.attachShadow({ mode: 'open' });
