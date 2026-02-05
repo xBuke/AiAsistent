@@ -2,7 +2,7 @@
  * LLM abstraction for streaming chat responses
  */
 
-import Groq from 'groq-sdk';
+import OpenAI from 'openai';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -14,37 +14,38 @@ interface StreamChatOptions {
   context?: string;
 }
 
-// Default Groq model (fast and cost-effective)
-const DEFAULT_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 // Base Croatian system prompt
-const BASE_SYSTEM_PROMPT = `Ti si službeni AI asistent gradske uprave u Republici Hrvatskoj.
+const BASE_SYSTEM_PROMPT = `Ti si službeni AI asistent grada.
 
-JEZIK – OBAVEZNA PRAVILA:
-- Odgovaraj ISKLJUČIVO na književnom hrvatskom standardu (HR).
-- Strogo je zabranjeno koristiti srpski, bosanski, crnogorski ili miješani "BCS/BHS" standard.
-- Ne koristi regionalizme, kolokvijalne izraze ni izraze tipične za druge standarde.
+Uvijek odgovaraj ISKLJUČIVO na književnom hrvatskom standardnom jeziku.
+Bez iznimki, neovisno o jeziku u kojem je postavljeno pitanje.
 
-STIL (POJEDNOSTAVLJENO ZA GRAĐANE):
-- Piši kratko, jasno i pristojno, kao da objašnjavaš građaninu.
-- 1–4 rečenice po odgovoru.
-- Bez emotikona.
-- Ako treba, koristi nabrajanje (maks. 3 stavke).
+Ton odgovora mora biti:
+- služben
+- jasan
+- uljudan
+- neutralan
+- primjeren javnoj upravi
 
-SAMOKONTROLA:
-- Ako primijetiš da si upotrijebio izraz ili konstrukciju koja nije književni hrvatski standard, odmah se ispravi i nastavi isključivo na hrvatskom.
-- Ako nisi siguran u točan izraz, odaberi neutralan i služben hrvatski izraz.
+Primarno koristi informacije iz dostavljenog KONTEKSTA (službeni dokumenti, podaci i izvori grada).
 
-TOČNOST:
-- Ne izmišljaj podatke (telefoni, e-mailovi, datumi, rokovi, iznosi, radna vremena).
-- Ako informacija nije dostupna U KONTEKSTU, postavi jedno kratko potpitanje za pojašnjenje.
-- Ako je informacija DOSTUPNA U KONTEKSTU, koristi je točno kako je navedena.
+Ako KONTEKST ne sadrži izravnu informaciju potrebnu za odgovor:
+- nemoj nagađati
+- nemoj izmišljati podatke
+- jasno i pristojno objasni da trenutačno nemaš dovoljno informacija
+- uputi korisnika da precizira pitanje ili postavi upit vezan uz gradske usluge, projekte, postupke ili kontakte
 
-RELEVANTNOST (VAŽNO):
-- Nemoj automatski dodavati upute za kontakt, obrasce ili 'sljedeće korake' na kraj svakog odgovora.
-- Upute za kontakt/obrazac navedi samo ako je to izravno povezano s korisnikovim pitanjem ili ako bez toga korisnik ne može riješiti problem.
-- Ne piši generički 'kontaktirajte nadležni ured' ako već možeš dati koristan odgovor bez toga.
-- Ne koristi 'footer' niti ponavljajuće završne rečenice.`;
+Ako je pitanje općenito (npr. o ulozi AI asistenta ili načinu pomoći građanima):
+- odgovori kratko i informativno
+- objasni u kojim područjima možeš pomoći građanima
+
+Nikada ne ostavljaj odgovor prazan.
+Nikada ne odgovaraj neformalno.
+Nikada ne koristi kolokvijalni jezik, emotikone ili osobna mišljenja.
+
+Tvoj je cilj pružiti točne, pouzdane i službeno formulirane informacije u skladu s ulogom javne uprave.`;
 
 // Grounding instructions for when context is provided
 const GROUNDING_INSTRUCTIONS = `
@@ -76,16 +77,16 @@ ODGOVORI:
 - Ne dodavaj generičke završne rečenice.`;
 
 /**
- * Stream chat tokens from Groq LLM
+ * Stream chat tokens from OpenAI
  */
 export async function* streamChat({ messages, context }: StreamChatOptions): AsyncGenerator<string> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   
   if (!apiKey) {
-    throw new Error('GROQ_API_KEY environment variable is not set');
+    throw new Error('OPENAI_API_KEY environment variable is not set');
   }
 
-  const groq = new Groq({ apiKey });
+  const openai = new OpenAI({ apiKey });
 
   // Build system prompt with grounding instructions if context is provided
   let systemPrompt = BASE_SYSTEM_PROMPT;
@@ -106,7 +107,7 @@ export async function* streamChat({ messages, context }: StreamChatOptions): Asy
   }
 
   // Build messages array with system prompt + user messages
-  const groqMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+  const llmMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
       content: systemPrompt,
@@ -117,19 +118,21 @@ export async function* streamChat({ messages, context }: StreamChatOptions): Asy
     })),
   ];
 
+  // Track if any tokens were yielded (safety net to prevent empty responses)
+  let hasYieldedTokens = false;
+
   try {
-    // Create streaming completion
-    const stream = await groq.chat.completions.create({
-      model: DEFAULT_MODEL,
-      messages: groqMessages,
+    const stream = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: llmMessages,
       stream: true,
     });
 
-    // Stream tokens from Groq
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       // Only yield non-empty content
       if (content && content.length > 0) {
+        hasYieldedTokens = true;
         yield content;
       }
     }
@@ -137,22 +140,28 @@ export async function* streamChat({ messages, context }: StreamChatOptions): Asy
     // Re-throw errors so chat.ts can handle them (emit [ERROR] ...)
     throw error;
   }
+
+  // Safety net: if no tokens were yielded, yield a fallback message
+  // This ensures the frontend NEVER receives an empty assistant message
+  if (!hasYieldedTokens) {
+    yield 'Žao mi je, trenutno ne mogu generirati odgovor. Molimo pokušajte ponovno.';
+  }
 }
 
 /**
- * Generate conversation title and summary using LLM
+ * Generate conversation title and summary using OpenAI
  * Returns { title: string, summary: string } or null on error
  */
 export async function generateConversationTitleSummary(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
 ): Promise<{ title: string; summary: string } | null> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   
   if (!apiKey) {
-    return null;
+    throw new Error('OPENAI_API_KEY environment variable is not set');
   }
 
-  const groq = new Groq({ apiKey });
+  const openai = new OpenAI({ apiKey });
 
   // Build conversation context from last ~6 messages
   const recentMessages = messages.slice(-6);
@@ -169,13 +178,15 @@ Bez dodatnog teksta.
 Razgovor:
 ${conversationText}`;
 
+  const systemMessage = 'Odgovaraj isključivo na hrvatskom jeziku. Vrati samo JSON objekt bez dodatnog teksta.';
+
   try {
-    const completion = await groq.chat.completions.create({
-      model: DEFAULT_MODEL,
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
       messages: [
         {
           role: 'system',
-          content: 'Odgovaraj isključivo na hrvatskom jeziku. Vrati samo JSON objekt bez dodatnog teksta.',
+          content: systemMessage,
         },
         {
           role: 'user',
