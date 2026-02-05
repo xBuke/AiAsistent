@@ -54,6 +54,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasReceivedFirstTokenRef = useRef<boolean>(false);
+  const metaRef = useRef<Record<string, any> | null>(null);
 
   // Choose transport based on config. Never use MockTransport in production.
   const isProd = import.meta.env.PROD;
@@ -400,6 +401,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     // CRITICAL: Reset intake form state at the start of each message send
     // The form must ONLY be shown when backend explicitly requests it via response
     setShowIntakeForm(false);
+    setIntakeSubmitted(false);
+    // Reset metadata ref for new message
+    metaRef.current = null;
     // #region agent log
     fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:352',message:'showIntakeForm reset to false',data:{showIntakeForm:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
@@ -605,6 +609,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // This ensures form only appears when backend explicitly determines human is needed
         },
         onMeta: (metaObj) => {
+          // Store metadata in ref immediately when meta event arrives
+          metaRef.current = metaObj;
+          
           // DEBUG: Log onMeta invocation
           if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
             console.log('[WidgetApp] onMeta invoked:', {
@@ -714,8 +721,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         streamTimeoutRef.current = null;
       }
 
-      // Get metadata from transport if available (for debug trace)
-      const meta = (transport instanceof ApiTransport) ? (transport.metadata || undefined) : undefined;
+      // Read metadata from ref (stored in onMeta callback) instead of transport.metadata
+      // This ensures metadata is captured deterministically even if transport.metadata is cleared
+      const meta = metaRef.current || undefined;
       
       // Debug logging for citations
       if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
@@ -781,7 +789,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Check BOTH needs_human (snake_case) and needsHuman (camelCase) from metadata (strict === true check)
       // If both are undefined/null/missing => treat as false (do not show form)
       // This is the ONLY source of truth for showing the intake form
-      const needsHuman = meta?.needs_human === true || meta?.needsHuman === true;
+      // Read from ref to ensure deterministic access to metadata
+      const needsHuman = metaRef.current?.needs_human === true || metaRef.current?.needsHuman === true;
       // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from metadata - ONLY source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
