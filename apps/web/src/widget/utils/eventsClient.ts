@@ -20,6 +20,7 @@ export type BackendEvent = {
     email?: string;
     address?: string;
     description: string;
+    contact_note?: string;
     consent_given: boolean;
     consent_text: string;
     consent_timestamp: number;

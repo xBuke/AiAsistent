@@ -326,6 +326,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           email: data.email,
           address: data.address,
           description: data.description,
+          contact_note: data.contact_note,
           consent_given: data.consent_given,
           consent_text: consentText,
           consent_timestamp: consentTimestamp,

@@ -7,6 +7,7 @@ export interface TicketIntakeData {
   email?: string;
   address?: string;
   description: string;
+  contact_note?: string;
   consent_given: boolean;
 }
 
@@ -79,6 +80,7 @@ const TicketIntakeForm: React.FC<TicketIntakeFormProps> = ({
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         description: description.trim(),
+        contact_note: description.trim(),
         consent_given: true,
       });
     }

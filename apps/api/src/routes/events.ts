@@ -31,6 +31,7 @@ interface EventBody {
     email?: string;
     address?: string;
     description: string;
+    contact_note?: string;
     consent_given: boolean;
     consent_text: string;
     consent_timestamp: number;
@@ -359,11 +360,20 @@ export async function eventsHandler(
         return reply.status(400).send({ error: 'Phone or email is required' });
       }
 
-      const contactNote = (intakeData as { note?: string; napomena?: string; message?: string; description?: string }).note
+      // Extract contact_note, prioritizing contact_note field, then fallback to description
+      const intakeWithNote = intakeData as { contact_note?: string; note?: string; napomena?: string; message?: string; description?: string };
+      const contactNote = intakeWithNote.contact_note
+        ?? intakeWithNote.note
         ?? (intakeData as { napomena?: string }).napomena
         ?? (intakeData as { message?: string }).message
         ?? intakeData.description
         ?? null;
+
+      // Validate contact_note is present and non-empty
+      if (!contactNote || !contactNote.trim()) {
+        request.log.warn({ conversationUuid }, 'Invalid intake data: missing or empty contact_note');
+        return reply.status(400).send({ error: 'Molimo unesite opis problema.' });
+      }
 
       // Upsert into tickets (single source of truth; do not use ticket_intakes)
       const { data: existingTicket } = await supabase
