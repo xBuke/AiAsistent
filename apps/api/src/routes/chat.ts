@@ -5,7 +5,6 @@ import { updateConversationFallback } from './events.js';
 import { CHAT_RATE_LIMIT } from '../middleware/rateLimit.js';
 import { supabase } from '../db/supabase.js';
 import { randomUUID } from 'crypto';
-import Groq from 'groq-sdk';
 
 interface ChatBody {
   message: string;
@@ -118,7 +117,7 @@ export async function chatHandler(
 
   // Track trace data
   const traceStartTime = Date.now();
-  const model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   let usedFallback = false;
   let retrievedDocs: Array<{ title: string | null; source: string | null; score: number }> = [];
   let conversationUuid: string | null = null;

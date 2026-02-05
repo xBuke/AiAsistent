@@ -114,7 +114,9 @@ export async function* streamChat({ messages, context }: StreamChatOptions): Asy
     },
     ...messages.map((msg) => ({
       role: msg.role as 'user' | 'assistant',
-      content: msg.content,
+      content: msg.role === 'user' 
+        ? `---\nORIGINAL USER QUESTION (do not translate, keep original language):\n"${msg.content}"\n\nINSTRUCTION:\nOdgovori ISKLJUČIVO na književnom hrvatskom jeziku, u službenom tonu.\n---`
+        : msg.content,
     })),
   ];
 
