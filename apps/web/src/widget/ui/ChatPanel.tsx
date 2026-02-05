@@ -253,8 +253,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               primaryColor={primaryColor}
               initialDescription={intakeInitialDescription}
             />
-          ) : null;
-        })()}
+          ) : null}
         
         {/* Contact Handoff Form */}
         {shouldShowHandoff && onContactSubmit && (
