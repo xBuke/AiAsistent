@@ -57,27 +57,27 @@ function initWidget(overrideConfig?: PartialConfig): void {
   }
 
   // Determine cityId with fallback logic:
-  // 1. URL parameter ?city=X (highest priority)
+  // 0. Force 'demo' on gradai.mangai.hr (production override)
+  // 1. URL parameter ?city=X (highest priority for non-production)
   // 2. data-city attribute on script tag
-  // 3. Default to 'demo' if hostname is gradai.mangai.hr (production demo landing)
-  // 4. Otherwise fail if missing (backward compatibility)
+  // 3. Otherwise fail if missing (backward compatibility)
   let cityId: string | undefined;
   
-  // Check URL parameter first
-  const urlParams = new URLSearchParams(window.location.search);
-  const cityParam = urlParams.get('city');
-  if (cityParam) {
-    cityId = cityParam;
-  }
-  
-  // Check data-city attribute second
-  if (!cityId) {
-    cityId = scriptTag.dataset.city;
-  }
-  
-  // Default to 'demo' for production demo landing page
-  if (!cityId && window.location.hostname === 'gradai.mangai.hr') {
+  // Production override: force 'demo' on gradai.mangai.hr
+  if (typeof window !== 'undefined' && window.location.hostname === 'gradai.mangai.hr') {
     cityId = 'demo';
+  } else {
+    // Check URL parameter first
+    const urlParams = new URLSearchParams(window.location.search);
+    const cityParam = urlParams.get('city');
+    if (cityParam) {
+      cityId = cityParam;
+    }
+    
+    // Check data-city attribute second
+    if (!cityId) {
+      cityId = scriptTag.dataset.city;
+    }
   }
   
   // Fail-safe: do nothing if cityId is still missing
