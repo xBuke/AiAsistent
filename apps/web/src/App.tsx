@@ -1737,7 +1737,7 @@ function EnglishLandingPage() {
             What to try
           </h2>
           <CopyableExample
-            text="How can you help me as a citizen?"
+            text="How can AI help me as a citizen?"
             label="Example 1 (general info)"
           />
           <CopyableExample
@@ -1796,7 +1796,7 @@ function EnglishLandingPage() {
           }}
         >
           <a
-            href="https://gradai.mangai.hr/admin/demo"
+            href="https://civisai.mangai.hr/admin/demo"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -2053,7 +2053,7 @@ function ChatPage() {
             Iskusite kako izgleda AI asistent za građane
           </button>
           <a
-            href="https://gradai.mangai.hr/admin/demo"
+            href="https://civisai.mangai.hr/admin/demo"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -2112,7 +2112,7 @@ function ChatPage() {
             Što možete probati
           </h2>
           <CopyableExample
-            text="Kako mi Grad može pomoći kao građaninu?"
+            text="Kako mi AI može pomoći kao građaninu?"
             label="Primjer 1 (općenito)"
             lang="hr"
           />
