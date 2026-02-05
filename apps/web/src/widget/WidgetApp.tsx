@@ -429,6 +429,13 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const handleSend = async (text: string) => {
     // Deterministic frontend trigger: if message matches ticket intent, open form and return early (do not send to backend)
     if (matchesTicketIntent(text)) {
+      // TEMPORARY DEBUG: Frontend gate check
+      console.log('[DEBUG][FRONTEND_GATE] Matched ticket intent, opening form', { 
+        text, 
+        normalized: normalizeCroatianText(text),
+        timestamp: Date.now()
+      });
+      
       if (DEBUG_INTAKE) {
         console.info('[INTAKE][TRIGGER] Message matches ticket intent, opening form immediately (skipping backend call)');
       }
@@ -475,6 +482,13 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     // #endregion
     // CRITICAL: Reset intake form state at the start of each message send
     // The form must ONLY be shown when backend explicitly requests it via response
+    // TEMPORARY DEBUG: Log state before reset
+    console.log('[DEBUG][RESET] Resetting showIntakeForm to false', { 
+      beforeReset: showIntakeForm, 
+      currentMeta: metaRef.current,
+      transportMeta: transport instanceof ApiTransport ? transport.metadata : null,
+      timestamp: Date.now()
+    });
     setShowIntakeForm(false);
     setIntakeSubmitted(false);
     
@@ -692,6 +706,18 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // Store metadata in ref immediately when meta event arrives
           metaRef.current = metaObj;
           
+          // TEMPORARY DEBUG: Enhanced meta logging
+          console.log('[DEBUG][META_RECEIVED] Meta event received', {
+            needs_human: metaObj?.needs_human,
+            needsHuman: metaObj?.needsHuman,
+            model: metaObj?.model,
+            retrieved_docs_count: metaObj?.retrieved_docs_count,
+            used_fallback: metaObj?.used_fallback,
+            fullMeta: metaObj,
+            timestamp: Date.now(),
+            showIntakeFormCurrent: showIntakeForm
+          });
+          
           // TEMPORARY: Debug instrumentation
           if (DEBUG_INTAKE) {
             console.info('[INTAKE][META]', {
@@ -814,6 +840,18 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Resolve metadata from multiple sources (single source of truth)
       const meta = resolveMeta(transport);
       
+      // TEMPORARY DEBUG: Enhanced metadata resolution logging
+      console.log('[DEBUG][RESOLVE_META] Resolved metadata', {
+        metaRef: metaRef.current,
+        transportMeta: transport instanceof ApiTransport ? transport.metadata : null,
+        resolved: meta,
+        needs_human: meta?.needs_human,
+        needsHuman: meta?.needsHuman,
+        model: meta?.model,
+        retrieved_docs_count: meta?.retrieved_docs_count,
+        timestamp: Date.now()
+      });
+      
       // Debug logging for citations
       if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
         console.log('citations meta', meta);
@@ -881,6 +919,20 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // If both are undefined/null/missing => treat as false (do not show form)
       const needsHuman = meta?.needs_human === true || meta?.needsHuman === true;
       
+      // TEMPORARY DEBUG: Enhanced needs human check logging
+      console.log('[DEBUG][NEEDS_HUMAN_CHECK]', {
+        metaNeedsHuman_snake: meta?.needs_human,
+        metaNeedsHuman_camel: meta?.needsHuman,
+        metaNeedsHuman_snake_type: typeof meta?.needs_human,
+        metaNeedsHuman_camel_type: typeof meta?.needsHuman,
+        computedNeedsHuman: needsHuman,
+        intakeSubmitted,
+        willOpenForm: needsHuman && !intakeSubmitted,
+        showIntakeFormBefore: showIntakeForm,
+        fullMeta: meta,
+        timestamp: Date.now()
+      });
+      
       // TEMPORARY: Debug instrumentation
       if (DEBUG_INTAKE) {
         console.info('[INTAKE][CHECK]', {
@@ -897,6 +949,15 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from resolved metadata - single source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
       if (needsHuman && !intakeSubmitted) {
+        // TEMPORARY DEBUG: Form open call logging
+        console.log('[DEBUG][FORM_OPEN] Calling setShowIntakeForm(true)', {
+          needsHuman,
+          intakeSubmitted,
+          meta,
+          showIntakeFormBefore: showIntakeForm,
+          timestamp: Date.now()
+        });
+        
         // TEMPORARY: Debug instrumentation
         if (DEBUG_INTAKE) {
           console.info('[INTAKE][OPEN] calling setShowIntakeForm(true)');

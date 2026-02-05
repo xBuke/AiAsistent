@@ -267,7 +267,12 @@ export async function chatHandler(
 
     // Deterministic keyword trigger: check for ticket intent BEFORE retrieval/LLM
     if (matchesTicketIntent(message)) {
-      request.log.info({ message, conversationUuid }, 'Ticket intent detected via keyword matching - triggering form immediately');
+      request.log.info({ 
+        message, 
+        conversationUuid,
+        normalized: message.toLowerCase().trim(),
+        matched: true
+      }, '[DEBUG][BACKEND_GATE] Ticket intent detected via keyword matching - triggering form immediately');
       
       // Emit meta event with needs_human=true to trigger ticket form
       const latencyMs = Date.now() - traceStartTime;
@@ -280,6 +285,14 @@ export async function chatHandler(
         needs_human: true, // Explicit trigger for ticket form
       };
       writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
+      
+      // TEMPORARY DEBUG: Log meta emission
+      request.log.info({
+        conversationUuid,
+        traceData,
+        needs_human: traceData.needs_human,
+        metaJson: JSON.stringify(traceData)
+      }, '[DEBUG][BACKEND_META] Emitting meta event with needs_human=true');
       
       // Send completion signal
       reply.raw.write('data: [DONE]\n\n');

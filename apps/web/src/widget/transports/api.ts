@@ -103,6 +103,16 @@ export class ApiTransport implements ChatTransport {
                     const parsed = JSON.parse(payload);
                     this._metadata = parsed;
                     
+                    // TEMPORARY DEBUG: Enhanced meta event logging
+                    console.log('[DEBUG][TRANSPORT] Meta event detected', {
+                      payload: payload.substring(0, 200),
+                      parsed,
+                      needs_human: parsed?.needs_human,
+                      needsHuman: parsed?.needsHuman,
+                      model: parsed?.model,
+                      timestamp: Date.now()
+                    });
+                    
                     // DEBUG: Log meta event parsing
                     if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
                       const payloadPreview = JSON.stringify(payload).substring(0, 80);
@@ -116,6 +126,13 @@ export class ApiTransport implements ChatTransport {
                     
                     // Call onMeta callback from input if provided
                     if (onMeta) {
+                      console.log('[DEBUG][TRANSPORT] Calling onMeta callback', {
+                        parsed,
+                        needs_human: parsed?.needs_human,
+                        needsHuman: parsed?.needsHuman,
+                        hasCallback: !!onMeta,
+                        timestamp: Date.now()
+                      });
                       onMeta(parsed);
                     }
                     // Also call instance onMeta if set (for backward compatibility)
