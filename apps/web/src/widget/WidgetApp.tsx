@@ -65,6 +65,31 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     return metaRef.current || tmeta || traceMetadata;
   }
 
+  // Helper to normalize Croatian text for matching (lowercase, trim, strip diacritics)
+  function normalizeCroatianText(text: string): string {
+    return text
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, ''); // Strip diacritics
+  }
+
+  // Check if message matches ticket intent phrases
+  function matchesTicketIntent(text: string): boolean {
+    const normalized = normalizeCroatianText(text);
+    const phrases = [
+      'zelim prijaviti problem',
+      'zelim prijaviti kvar',
+      'trebam prijaviti problem',
+      'trebam prijaviti kvar',
+      'prijava problema',
+      'prijava kvara',
+      'prijaviti problem',
+      'prijaviti kvar',
+    ];
+    return phrases.some(phrase => normalized.includes(phrase));
+  }
+
   // Choose transport based on config. Never use MockTransport in production.
   const isProd = import.meta.env.PROD;
   const apiUnavailableInProd = isProd && !config.apiBaseUrl;
@@ -404,6 +429,38 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   };
 
   const handleSend = async (text: string) => {
+    // Deterministic frontend trigger: if message matches ticket intent, open form and return early (do not send to backend)
+    if (matchesTicketIntent(text)) {
+      if (DEBUG_INTAKE) {
+        console.info('[INTAKE][TRIGGER] Message matches ticket intent, opening form immediately (skipping backend call)');
+      }
+      
+      // Ensure conversationId exists
+      let currentConversationId = conversationId;
+      if (!currentConversationId) {
+        currentConversationId = createConversationId();
+        setConversationId(currentConversationId);
+        emitConversationStart(cityId, currentConversationId, config.apiBaseUrl);
+      }
+      
+      // Add user message to chat (but don't send to backend)
+      const userMessageId = `user-${Date.now()}`;
+      const userMessage: Message = {
+        id: userMessageId,
+        role: 'user',
+        content: text,
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      
+      // Track user message for intake form initial description
+      setUserMessages((prev) => [...prev, text]);
+      
+      // Open intake form
+      setIntakeSubmitted(false);
+      setShowIntakeForm(true);
+      return; // Do not send message to backend/LLM
+    }
+    
     // TEMPORARY: Debug instrumentation
     if (DEBUG_INTAKE) {
       console.info('[INTAKE][SEND]', {
