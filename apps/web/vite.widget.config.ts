@@ -1,8 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  define: {
+    // Replace process.env.NODE_ENV for browser compatibility
+    // React and other dependencies check this to determine build mode
+    'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
+  },
   build: {
     outDir: 'dist-widget',
     lib: {
@@ -24,4 +29,4 @@ export default defineConfig({
       include: [/node_modules/],
     },
   },
-});
+}));

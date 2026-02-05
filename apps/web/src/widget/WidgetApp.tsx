@@ -56,7 +56,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   }, [showIntakeForm, intakeSubmitted]);
   // #endregion
   const abortControllerRef = useRef<AbortController | null>(null);
-  const streamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const streamTimeoutRef = useRef<number | null>(null);
   const hasReceivedFirstTokenRef = useRef<boolean>(false);
   const metaRef = useRef<Record<string, any> | null>(null);
 
