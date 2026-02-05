@@ -13,6 +13,16 @@ export const EVENTS_RATE_LIMIT = {
     timeWindow: parseInt(process.env.RATE_LIMIT_EVENTS_WINDOW_MS || '60000', 10),
 };
 /**
+ * Login rate limit (DEMO_MODE only)
+ * Only active when DEMO_MODE === 'true', otherwise undefined (no rate limiting)
+ */
+export const LOGIN_RATE_LIMIT = process.env.DEMO_MODE === 'true'
+    ? {
+        max: parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '5', 10),
+        timeWindow: parseInt(process.env.RATE_LIMIT_LOGIN_WINDOW_MS || '900000', 10), // 15 minutes
+    }
+    : undefined;
+/**
  * Register @fastify/rate-limit once. Global: false → only routes with config.rateLimit
  * are limited. OPTIONS and /admin/* have no config → never limited.
  * Uses req.ip (trustProxy must be true for correct client IP behind proxy).

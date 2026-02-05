@@ -1,5 +1,6 @@
 import { supabase } from '../db/supabase.js';
 import { verifyPassword } from '../auth/password.js';
+import { LOGIN_RATE_LIMIT } from '../middleware/rateLimit.js';
 /**
  * POST /admin/login
  * Authenticate a user with city code and password
@@ -53,16 +54,25 @@ export async function loginHandler(request, reply) {
             hashPrefix: hashToCheck ? hashToCheck.slice(0, 4) : null,
             hashLen: hashToCheck ? hashToCheck.length : 0
         }, 'Hash check details');
-        if (!hashToCheck) {
-            return reply.status(401).send({ error: 'Invalid password' });
-        }
         // Temporary debug log for password normalization
         request.log.info({
             rawPasswordLength: rawPassword.length,
             normalizedLength: password.length
         }, 'Password normalization');
-        // Verify password (using normalized password)
-        const isValid = await verifyPassword(password, hashToCheck);
+        // DEMO_MODE: Check hardcoded admin password first
+        const isDemoMode = process.env.DEMO_MODE === 'true';
+        let isValid = false;
+        if (isDemoMode && role === 'admin') {
+            // In DEMO_MODE, admin password is hardcoded (bypass hash check)
+            isValid = password === 'demo-yc-x26';
+        }
+        else {
+            // Normal password verification requires hash
+            if (!hashToCheck) {
+                return reply.status(401).send({ error: 'Invalid password' });
+            }
+            isValid = await verifyPassword(password, hashToCheck);
+        }
         if (!isValid) {
             return reply.status(401).send({ error: 'Invalid password' });
         }
@@ -73,13 +83,24 @@ export async function loginHandler(request, reply) {
             role,
         };
         // Set httpOnly cookie
-        reply.setCookie('session', JSON.stringify(session), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 60 * 60 * 24, // 1 day
-        });
+        // DEMO_MODE: Use cross-site cookie settings (secure: true, sameSite: none, maxAge: 2 hours)
+        // Note: sameSite: 'none' is required for cross-site cookies (gradai.mangai.hr -> asistent-api-nine.vercel.app)
+        const cookieOptions = isDemoMode
+            ? {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none',
+                path: '/',
+                maxAge: 60 * 60 * 2, // 2 hours
+            }
+            : {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 60 * 60 * 24, // 1 day
+            };
+        reply.setCookie('session', JSON.stringify(session), cookieOptions);
         return reply.send({ success: true, cityId: city.id, cityCode: city.code, role });
     }
     catch (error) {
@@ -92,10 +113,11 @@ export async function loginHandler(request, reply) {
  * Clear the session cookie
  */
 export async function logoutHandler(request, reply) {
+    const isDemoMode = process.env.DEMO_MODE === 'true';
     reply.clearCookie('session', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isDemoMode ? true : process.env.NODE_ENV === 'production',
+        sameSite: isDemoMode ? 'none' : 'lax',
         path: '/',
     });
     return reply.send({ success: true });
@@ -104,6 +126,16 @@ export async function logoutHandler(request, reply) {
  * Register auth routes
  */
 export async function registerAuthRoutes(server) {
-    server.post('/admin/login', loginHandler);
+    // Apply rate limiting only if LOGIN_RATE_LIMIT is defined (DEMO_MODE only)
+    if (LOGIN_RATE_LIMIT) {
+        server.post('/admin/login', {
+            config: {
+                rateLimit: LOGIN_RATE_LIMIT,
+            },
+        }, loginHandler);
+    }
+    else {
+        server.post('/admin/login', loginHandler);
+    }
     server.post('/admin/logout', logoutHandler);
 }

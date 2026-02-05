@@ -268,11 +268,19 @@ export async function eventsHandler(request, reply) {
                 request.log.warn({ conversationUuid }, 'Invalid intake data: missing contact method');
                 return reply.status(400).send({ error: 'Phone or email is required' });
             }
-            const contactNote = intakeData.note
+            // Extract contact_note, prioritizing contact_note field, then fallback to description
+            const intakeWithNote = intakeData;
+            const contactNote = intakeWithNote.contact_note
+                ?? intakeWithNote.note
                 ?? intakeData.napomena
                 ?? intakeData.message
                 ?? intakeData.description
                 ?? null;
+            // Validate contact_note is present and non-empty
+            if (!contactNote || !contactNote.trim()) {
+                request.log.warn({ conversationUuid }, 'Invalid intake data: missing or empty contact_note');
+                return reply.status(400).send({ error: 'Molimo unesite opis problema.' });
+            }
             // Upsert into tickets (single source of truth; do not use ticket_intakes)
             const { data: existingTicket } = await supabase
                 .from('tickets')

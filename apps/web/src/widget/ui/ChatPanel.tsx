@@ -40,6 +40,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onIntakeSubmit,
   intakeInitialDescription = '',
 }) => {
+  // TEMPORARY: Debug instrumentation
+  const DEBUG_INTAKE = true;
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -209,16 +211,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         <MessageList messages={messages} showTypingIndicator={showTypingIndicator} />
         
         {/* Ticket Intake Form - shown on fallback escalation */}
-        {showIntakeForm && onIntakeSubmit && (
-          <TicketIntakeForm
-            onSubmit={(data) => {
-              onIntakeSubmit(data);
-            }}
-            lang={lang}
-            primaryColor={primaryColor}
-            initialDescription={intakeInitialDescription}
-          />
-        )}
+        {(() => {
+          // TEMPORARY: Debug instrumentation
+          if (DEBUG_INTAKE) {
+            console.info('[INTAKE][CHATPANEL]', {
+              showIntakeForm,
+              hasOnIntakeSubmit: !!onIntakeSubmit,
+              willRender: showIntakeForm && !!onIntakeSubmit,
+            });
+          }
+          return showIntakeForm && onIntakeSubmit ? (
+            <TicketIntakeForm
+              onSubmit={(data) => {
+                onIntakeSubmit(data);
+              }}
+              lang={lang}
+              primaryColor={primaryColor}
+              initialDescription={intakeInitialDescription}
+            />
+          ) : null;
+        })()}
         
         {/* Contact Handoff Form */}
         {shouldShowHandoff && onContactSubmit && (

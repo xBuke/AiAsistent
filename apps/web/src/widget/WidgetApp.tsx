@@ -26,6 +26,9 @@ interface WidgetAppProps {
 }
 
 const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
+  // TEMPORARY: Debug instrumentation for intake form
+  const DEBUG_INTAKE = true;
+  
   // Runtime override: force 'demo' cityId on gradai.mangai.hr hostname
   const cityId = (typeof window !== 'undefined' && window.location.hostname === 'gradai.mangai.hr') 
     ? 'demo' 
@@ -401,6 +404,17 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   };
 
   const handleSend = async (text: string) => {
+    // TEMPORARY: Debug instrumentation
+    if (DEBUG_INTAKE) {
+      console.info('[INTAKE][SEND]', {
+        userMessage: text,
+        conversationId,
+        cityId,
+        intakeSubmitted_BEFORE: intakeSubmitted,
+        showIntakeForm_BEFORE: showIntakeForm,
+      });
+    }
+    
     // #region agent log
     fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:349',message:'handleSend called',data:{text,currentShowIntakeForm:showIntakeForm,currentTicketNeedsHuman:ticket?.needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
@@ -408,6 +422,11 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     // The form must ONLY be shown when backend explicitly requests it via response
     setShowIntakeForm(false);
     setIntakeSubmitted(false);
+    
+    // TEMPORARY: Debug instrumentation
+    if (DEBUG_INTAKE) {
+      console.info('[INTAKE][SEND] Resets applied: setShowIntakeForm(false), setIntakeSubmitted(false)');
+    }
     // Reset metadata ref for new message
     metaRef.current = null;
     // #region agent log
@@ -618,6 +637,16 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // Store metadata in ref immediately when meta event arrives
           metaRef.current = metaObj;
           
+          // TEMPORARY: Debug instrumentation
+          if (DEBUG_INTAKE) {
+            console.info('[INTAKE][META]', {
+              needs_human: metaObj?.needs_human,
+              needsHuman: metaObj?.needsHuman,
+              top3: metaObj?.retrieved_docs_top3?.length,
+              fullMeta: metaObj,
+            });
+          }
+          
           // DEBUG: Log onMeta invocation
           if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1') {
             console.log('[WidgetApp] onMeta invoked:', {
@@ -796,12 +825,38 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Check BOTH needs_human (snake_case) and needsHuman (camelCase) from metadata (strict === true check)
       // If both are undefined/null/missing => treat as false (do not show form)
       const needsHuman = meta?.needs_human === true || meta?.needsHuman === true;
+      
+      // TEMPORARY: Debug instrumentation
+      if (DEBUG_INTAKE) {
+        console.info('[INTAKE][CHECK]', {
+          meta: {
+            needs_human: meta?.needs_human,
+            needsHuman: meta?.needsHuman,
+          },
+          computedNeedsHuman: needsHuman,
+          intakeSubmitted,
+        });
+      }
+      
       // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from resolved metadata - single source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
       if (needsHuman && !intakeSubmitted) {
+        // TEMPORARY: Debug instrumentation
+        if (DEBUG_INTAKE) {
+          console.info('[INTAKE][OPEN] calling setShowIntakeForm(true)');
+        }
+        
         console.log('[WidgetApp] needs_human=true detected in resolved metadata, showing intake form');
         setShowIntakeForm(true);
+        
+        // TEMPORARY: Debug instrumentation
+        if (DEBUG_INTAKE) {
+          setTimeout(() => {
+            console.info('[INTAKE][OPEN] requested open (state update pending)');
+          }, 0);
+        }
+        
         // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:654',message:'setShowIntakeForm(true) called from resolved needs_human metadata',data:{needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
@@ -920,6 +975,15 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       abortControllerRef.current = null;
     }
   };
+
+  // TEMPORARY: Debug instrumentation
+  if (DEBUG_INTAKE && isOpen) {
+    console.info('[INTAKE][RENDER]', {
+      showIntakeForm,
+      intakeSubmitted,
+      showIntakeFormProp: showIntakeForm && !intakeSubmitted,
+    });
+  }
 
   return (
     <div

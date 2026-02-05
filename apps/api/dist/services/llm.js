@@ -14,7 +14,7 @@ JEZIK – OBAVEZNA PRAVILA:
 
 STIL (POJEDNOSTAVLJENO ZA GRAĐANE):
 - Piši kratko, jasno i pristojno, kao da objašnjavaš građaninu.
-- 2–6 rečenica po odgovoru.
+- 1–4 rečenice po odgovoru.
 - Bez emotikona.
 - Ako treba, koristi nabrajanje (maks. 3 stavke).
 
@@ -24,7 +24,8 @@ SAMOKONTROLA:
 
 TOČNOST:
 - Ne izmišljaj podatke (telefoni, e-mailovi, datumi, rokovi, iznosi, radna vremena).
-- Ako informacija nije sigurna ili nije dostupna, reci da nemaš pouzdanu informaciju i postavi jedno kratko potpitanje.
+- Ako informacija nije dostupna U KONTEKSTU, postavi jedno kratko potpitanje za pojašnjenje.
+- Ako je informacija DOSTUPNA U KONTEKSTU, koristi je točno kako je navedena.
 
 RELEVANTNOST (VAŽNO):
 - Nemoj automatski dodavati upute za kontakt, obrasce ili 'sljedeće korake' na kraj svakog odgovora.
@@ -34,12 +35,31 @@ RELEVANTNOST (VAŽNO):
 // Grounding instructions for when context is provided
 const GROUNDING_INSTRUCTIONS = `
 
-OGRANIČENJA ODGOVORA (KRITIČNO):
+KORIŠTENJE CONTEXT-a (KRITIČNO):
 - Odgovaraj ISKLJUČIVO na temelju informacija iz CONTEXT-a koji ti je dostavljen.
-- Ako CONTEXT ne sadrži informaciju potrebnu za odgovor na korisnikovo pitanje, reci to jasno i postavi jedno kratko potpitanje za pojašnjenje.
+- Kada CONTEXT sadrži točne podatke (vremena, datume, brojeve, imena, adrese), IZVAĐAJ I KORISTI IH VERBATIM - točno kako su navedeni u CONTEXT-u.
+- NIKADA ne izlazi placeholdere poput "od:00 do:00", "uglavnom", "može varirati" ili slične generičke fraze.
 - NIKADA ne izmišljaj podatke koji nisu u CONTEXT-u.
 - NIKADA ne pretpostavljaj informacije koje nisu eksplicitno navedene u CONTEXT-u.
-- Ako CONTEXT ne pokriva korisnikovo pitanje, jednostavno reci da nemaš tu informaciju u dostupnim dokumentima i postavi jedno kratko potpitanje.`;
+
+RADNO VRIJEME (SPECIFIČNO):
+- Ako pitanje traži radno vrijeme i CONTEXT sadrži radno vrijeme, navedi ga TOČNO kako je zapisano u CONTEXT-u (npr. "07:30 – 15:30", "11:00 – 19:00").
+- Ako CONTEXT ne sadrži radno vrijeme za traženi odjel/lokaciju, pitaj: "Za koji odjel ili lokaciju trebate radno vrijeme?"
+
+KADA INFORMACIJA NIJE U CONTEXT-u:
+- Ako CONTEXT ne sadrži informaciju potrebnu za odgovor, reci to jasno i postavi JEDNO kratko potpitanje za pojašnjenje.
+- NIKADA ne koristi generičke fraze poput "Pokušajte preformulirati pitanje" kada CONTEXT postoji - samo kada je retrieval potpuno prazan.
+- Preferiraj specifično potpitanje umjesto općenitih odgovora.
+
+DEMO MODE - STROGA PRAVILA (KRITIČNO):
+- Ako CONTEXT sadrži odgovor, izvadi i odgovori TOČNO. Ne generaliziraj.
+- Ako CONTEXT je prazan, postavi JEDNO kratko potpitanje za pojašnjenje.
+- NIKADA ne izlazi placeholdere poput "od do sati" ili slične generičke fraze.
+
+ODGOVORI:
+- Drži odgovore kratke (1–4 rečenice).
+- Ne spominji izvore, linkove ili "Sources:" u tekstu odgovora.
+- Ne dodavaj generičke završne rečenice.`;
 /**
  * Stream chat tokens from Groq LLM
  */
@@ -54,6 +74,17 @@ export async function* streamChat({ messages, context }) {
     if (context && context.length > 0) {
         systemPrompt += GROUNDING_INSTRUCTIONS;
         systemPrompt += `\n\nCONTEXT:\n${context}`;
+        // DEMO_MODE: Log context injection
+        if (process.env.DEMO_MODE === 'true') {
+            console.log(`[DEMO_MODE] LLM: Context injected into system prompt, context length: ${context.length} chars`);
+            console.log(`[DEMO_MODE] LLM: Full system prompt length: ${systemPrompt.length} chars`);
+        }
+    }
+    else {
+        // DEMO_MODE: Log when context is empty
+        if (process.env.DEMO_MODE === 'true') {
+            console.log(`[DEMO_MODE] LLM: No context provided (context length: 0)`);
+        }
     }
     // Build messages array with system prompt + user messages
     const groqMessages = [

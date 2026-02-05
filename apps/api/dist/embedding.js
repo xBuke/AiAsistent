@@ -1,39 +1,50 @@
-const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
-const EMBEDDING_DIM = 384;
+import OpenAI from 'openai';
+const OPENAI_MODEL = 'text-embedding-3-small';
+const OPENAI_EMBEDDING_DIM = 512; // OpenAI text-embedding-3-small minimum dimension
 const MAX_EMBED_CHARS = 12000;
-let embedder = null;
-async function getEmbedder() {
-    if (!embedder) {
-        // Lazy dynamic import to avoid loading sharp at module initialization
-        const { pipeline } = await import('@xenova/transformers');
-        embedder = await pipeline('feature-extraction', MODEL_NAME);
-        console.log(`✓ Embedding model loaded: ${MODEL_NAME}`);
+let openaiClient = null;
+function getOpenAIClient() {
+    if (!openaiClient) {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY environment variable is not set. Required for embeddings.');
+        }
+        openaiClient = new OpenAI({ apiKey });
     }
-    return embedder;
+    return openaiClient;
 }
+/**
+ * Generate embedding vector using OpenAI embeddings API
+ * Returns embedding vector matching OpenAI text-embedding-3-small dimensions (512)
+ */
 export async function embed(text) {
     const truncated = text.length > MAX_EMBED_CHARS
         ? text.substring(0, MAX_EMBED_CHARS)
         : text;
-    const model = await getEmbedder();
-    const result = await model(truncated, { pooling: 'mean', normalize: true });
-    // Convert tensor to array and ensure it's exactly 384 dimensions
-    let embedding;
-    if (Array.isArray(result.data)) {
-        embedding = result.data;
+    try {
+        const client = getOpenAIClient();
+        const response = await client.embeddings.create({
+            model: OPENAI_MODEL,
+            input: truncated,
+            dimensions: OPENAI_EMBEDDING_DIM,
+        });
+        const embedding = response.data[0]?.embedding;
+        if (!embedding || !Array.isArray(embedding)) {
+            throw new Error('Invalid embedding response from OpenAI API');
+        }
+        if (embedding.length !== OPENAI_EMBEDDING_DIM) {
+            throw new Error(`Expected embedding dimension ${OPENAI_EMBEDDING_DIM}, got ${embedding.length}`);
+        }
+        return embedding;
     }
-    else if (result.data && typeof result.data === 'object' && 'tolist' in result.data) {
-        embedding = result.data.tolist();
+    catch (error) {
+        // Log error loudly - do NOT silently fail
+        console.error('[EMBEDDING ERROR] Failed to generate embedding:', error);
+        if (error instanceof Error) {
+            console.error('[EMBEDDING ERROR] Error message:', error.message);
+            console.error('[EMBEDDING ERROR] Error stack:', error.stack);
+        }
+        // Re-throw to prevent silent failure
+        throw new Error(`Embedding generation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-    else {
-        embedding = Array.from(result.data);
-    }
-    // Flatten if nested array
-    if (embedding.length > 0 && Array.isArray(embedding[0])) {
-        embedding = embedding.flat();
-    }
-    if (embedding.length !== EMBEDDING_DIM) {
-        throw new Error(`Expected embedding dimension ${EMBEDDING_DIM}, got ${embedding.length}`);
-    }
-    return embedding;
 }
