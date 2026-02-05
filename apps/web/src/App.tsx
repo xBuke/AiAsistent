@@ -1550,6 +1550,10 @@ function CopyableExample({ text, label }: { text: string; label: string }) {
 // English Landing Page Component
 function EnglishLandingPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  // Disable old FloatingChat on civisai.mangai.hr (use new widget instead)
+  const isCivisAi = typeof window !== 'undefined' && window.location.hostname === 'civisai.mangai.hr';
+  const shouldShowOldChat = !isCivisAi;
 
   return (
     <div
@@ -1820,7 +1824,14 @@ function EnglishLandingPage() {
             Open Admin Dashboard
           </a>
           <button
-            onClick={() => setIsChatOpen(true)}
+            onClick={() => {
+              // Try to open new widget if available, otherwise fall back to old chat
+              if (typeof window !== 'undefined' && (window as any).CivisWidget?.open) {
+                (window as any).CivisWidget.open();
+              } else if (shouldShowOldChat) {
+                setIsChatOpen(true);
+              }
+            }}
             style={{
               padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
               fontSize: 'clamp(1rem, 2vw, 1.125rem)',
@@ -1847,56 +1858,60 @@ function EnglishLandingPage() {
         </div>
       </section>
 
-      {/* Floating Chat */}
-      {isChatOpen ? (
-        <FloatingChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
-      ) : (
-        <button
-          onClick={() => setIsChatOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: 'clamp(10px, 2vw, 20px)',
-            right: 'clamp(10px, 2vw, 20px)',
-            width: 'clamp(48px, 8vw, 56px)',
-            height: 'clamp(48px, 8vw, 56px)',
-            borderRadius: '50%',
-            border: 'none',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            zIndex: 999,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.05)';
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-          }}
-          aria-label="Open chat"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+      {/* Floating Chat - disabled on civisai.mangai.hr (use new widget instead) */}
+      {shouldShowOldChat && (
+        <>
+          {isChatOpen ? (
+            <FloatingChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+          ) : (
+            <button
+              onClick={() => setIsChatOpen(true)}
+              style={{
+                position: 'fixed',
+                bottom: 'clamp(10px, 2vw, 20px)',
+                right: 'clamp(10px, 2vw, 20px)',
+                width: 'clamp(48px, 8vw, 56px)',
+                height: 'clamp(48px, 8vw, 56px)',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: '#2563eb',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                zIndex: 999,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+              }}
+              aria-label="Open chat"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -1905,6 +1920,10 @@ function EnglishLandingPage() {
 // Landing Page Component (Croatian)
 function ChatPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  // Disable old FloatingChat on civisai.mangai.hr (use new widget instead)
+  const isCivisAi = typeof window !== 'undefined' && window.location.hostname === 'civisai.mangai.hr';
+  const shouldShowOldChat = !isCivisAi;
 
   return (
     <div
@@ -2001,7 +2020,14 @@ function ChatPage() {
           }}
         >
           <button
-            onClick={() => setIsChatOpen(true)}
+            onClick={() => {
+              // Try to open new widget if available, otherwise fall back to old chat
+              if (typeof window !== 'undefined' && (window as any).CivisWidget?.open) {
+                (window as any).CivisWidget.open();
+              } else if (shouldShowOldChat) {
+                setIsChatOpen(true);
+              }
+            }}
             style={{
               padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
               fontSize: 'clamp(1rem, 2vw, 1.125rem)',
@@ -2266,56 +2292,60 @@ function ChatPage() {
         </div>
       </section>
 
-      {/* Floating Chat */}
-      {isChatOpen ? (
-        <FloatingChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
-      ) : (
-        <button
-          onClick={() => setIsChatOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: 'clamp(10px, 2vw, 20px)',
-            right: 'clamp(10px, 2vw, 20px)',
-            width: 'clamp(48px, 8vw, 56px)',
-            height: 'clamp(48px, 8vw, 56px)',
-            borderRadius: '50%',
-            border: 'none',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            zIndex: 999,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.05)';
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-          }}
-          aria-label="Otvori chat"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+      {/* Floating Chat - disabled on civisai.mangai.hr (use new widget instead) */}
+      {shouldShowOldChat && (
+        <>
+          {isChatOpen ? (
+            <FloatingChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+          ) : (
+            <button
+              onClick={() => setIsChatOpen(true)}
+              style={{
+                position: 'fixed',
+                bottom: 'clamp(10px, 2vw, 20px)',
+                right: 'clamp(10px, 2vw, 20px)',
+                width: 'clamp(48px, 8vw, 56px)',
+                height: 'clamp(48px, 8vw, 56px)',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: '#2563eb',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                zIndex: 999,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+              }}
+              aria-label="Otvori chat"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+        </>
       )}
     </div>
   );

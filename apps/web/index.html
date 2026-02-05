@@ -22,5 +22,12 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Widget script - only loads on civisai.mangai.hr in production -->
+    <script
+      src="/widget.js"
+      data-api-base-url="https://asistent-api-nine.vercel.app"
+      data-city-id="demo"
+      defer
+    ></script>
   </body>
 </html>

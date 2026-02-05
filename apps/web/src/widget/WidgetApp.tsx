@@ -47,6 +47,21 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
   const [lastMeta, setLastMeta] = useState<Record<string, any> | null>(null);
   
+  // Expose global API for controlling widget (for CTA buttons)
+  useEffect(() => {
+    (window as any).CivisWidget = {
+      open: () => setIsOpen(true),
+      close: () => setIsOpen(false),
+    };
+    
+    return () => {
+      // Cleanup: remove global API if widget unmounts
+      if ((window as any).CivisWidget) {
+        delete (window as any).CivisWidget;
+      }
+    };
+  }, []);
+  
   // #region agent log
   // Instrumentation: Track when showIntakeForm state changes
   useEffect(() => {

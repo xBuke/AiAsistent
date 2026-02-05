@@ -57,14 +57,15 @@ function initWidget(overrideConfig?: PartialConfig): void {
   }
 
   // Determine cityId with fallback logic:
-  // 0. Force 'demo' on gradai.mangai.hr (production override)
+  // 0. Force 'demo' on gradai.mangai.hr or civisai.mangai.hr (production override)
   // 1. URL parameter ?city=X (highest priority for non-production)
-  // 2. data-city attribute on script tag
+  // 2. data-city-id or data-city attribute on script tag
   // 3. Otherwise fail if missing (backward compatibility)
   let cityId: string | undefined;
   
-  // Production override: force 'demo' on gradai.mangai.hr
-  if (typeof window !== 'undefined' && window.location.hostname === 'gradai.mangai.hr') {
+  // Production override: force 'demo' on gradai.mangai.hr or civisai.mangai.hr
+  if (typeof window !== 'undefined' && 
+      (window.location.hostname === 'gradai.mangai.hr' || window.location.hostname === 'civisai.mangai.hr')) {
     cityId = 'demo';
   } else {
     // Check URL parameter first
@@ -74,9 +75,9 @@ function initWidget(overrideConfig?: PartialConfig): void {
       cityId = cityParam;
     }
     
-    // Check data-city attribute second
+    // Check data-city-id or data-city attribute second
     if (!cityId) {
-      cityId = scriptTag.dataset.city;
+      cityId = scriptTag.dataset.cityId || scriptTag.dataset.city;
     }
   }
   
@@ -86,7 +87,7 @@ function initWidget(overrideConfig?: PartialConfig): void {
     return;
   }
 
-  const apiBaseUrl = scriptTag.dataset.apiBase;
+  const apiBaseUrl = scriptTag.dataset.apiBaseUrl || scriptTag.dataset.apiBase;
   const lang = scriptTag.dataset.lang;
   const primary = scriptTag.dataset.primary;
   const secondary = scriptTag.dataset.secondary;
