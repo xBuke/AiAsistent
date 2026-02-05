@@ -14,9 +14,11 @@ This guide explains how to deploy both `apps/web` (Vite frontend) and `apps/api`
 
 ### Framework Details
 - **Framework**: Vite
-- **Build Command**: `npm run build` (runs `tsc && vite build`)
+- **Build Command**: `npm run build` (runs SPA build, widget build, and copies widget.js to dist/)
 - **Output Directory**: `dist`
 - **Node Version**: 18.x or higher (set in Vercel project settings)
+
+**Note**: The build process produces both the main SPA assets and an embeddable widget bundle. After builds complete, `widget.js` is copied from `dist-widget/` to `dist/widget.js`, making it available at `/widget.js` in production.
 
 ### Deployment Steps
 

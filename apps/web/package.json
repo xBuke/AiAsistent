@@ -4,8 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "node ./node_modules/vite/bin/vite.js",
-    "build": "node ./node_modules/vite/bin/vite.js build",
+    "build": "npm run build:spa && npm run build:widget && npm run copy:widget",
+    "build:spa": "node ./node_modules/vite/bin/vite.js build",
     "build:widget": "node ./node_modules/vite/bin/vite.js build -c vite.widget.config.ts",
+    "copy:widget": "node scripts/copy-widget.mjs",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit"
   },

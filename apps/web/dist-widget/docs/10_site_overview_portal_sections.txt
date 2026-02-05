@@ -1,0 +1,29 @@
+TITLE: Službeni portal Grada Ploča – pregled ključnih rubrika
+TYPE: site_overview
+DATE: n/a
+SOURCE: https://ploce.hr/
+
+Ploce.hr je službeni portal Grada Ploča koji služi kao centralno mjesto informiranja građana, poslovnih subjekata i posjetitelja.
+
+Glavne cjeline portala:
+1) Grad – informacije o gradu, upravi, gradonačelniku i gradskom vijeću; pravni akti; arhive sjednica; informacije o izborima i referendumima.
+2) Mjesni odbori – zasebne stranice mjesnih odbora s kontaktima predstavnika i novostima.
+3) Dokumenti – službeni glasnici po godinama, izvješća, odluke, proračuni i drugi akti.
+4) Proračun – financijski izvještaji i planovi, proračunski vodiči i izvršenje proračuna.
+5) Novosti i obavijesti – vijesti o događajima, natječajima, odlukama, festivalima i drugim aktivnostima.
+6) Gradske institucije i tvrtke – poveznice na javne ustanove i gradske tvrtke.
+7) Otvoreni podaci i pravo na pristup informacijama – upute i kontakti.
+8) Fotogalerije – galerije događaja i istaknuta galerija na dnu kontakt-stranice.
+
+Q&A HINTS:
+Q: Gdje na ploce.hr mogu naći informacije o gradonačelniku?
+A: U rubrici “Grad” i na stranici “O gradonačelniku”.
+
+Q: Gdje su dokumenti i službeni akti?
+A: U rubrici “Dokumenti” (službeni glasnici, odluke, izvješća, proračuni).
+
+Q: Gdje pronaći proračunske dokumente?
+A: U rubrici “Proračun”.
+
+Q: Gdje su novosti i obavijesti?
+A: U rubrici “Novosti i obavijesti”.
