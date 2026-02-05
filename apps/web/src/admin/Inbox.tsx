@@ -67,6 +67,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  // Track if detail fetch is in progress to prevent overlapping requests
+  const detailFetchInFlightRef = useRef(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(() => {
     // Collapsed by default on mobile, expanded on desktop
     if (typeof window !== 'undefined') {
@@ -110,37 +112,56 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   }, [cityCode]);
 
   // Load conversation detail
-  const loadConversationDetail = useCallback(async (conversationUuid: string) => {
-    setDetailLoading(true);
+  // isBackgroundRefresh: if true, don't show loading spinner (for polling updates)
+  const loadConversationDetail = useCallback(async (conversationUuid: string, isBackgroundRefresh: boolean = false) => {
+    // Prevent overlapping requests
+    if (detailFetchInFlightRef.current) {
+      return;
+    }
+    
+    detailFetchInFlightRef.current = true;
+    
+    // Only show loading spinner on initial load, not on background refresh
+    if (!isBackgroundRefresh) {
+      setDetailLoading(true);
+    }
     setDetailError(null);
+    
     try {
       const detail = await fetchConversationDetail(cityCode, conversationUuid);
       setConversationDetail(detail);
-      // Store initial values for autosave comparison
-      initialConversationRef.current = {
-        status: detail.conversation.status,
-        department: detail.conversation.department,
-        urgent: detail.conversation.urgent,
-      };
-      // Initialize workflow form from detail (in_progress treated as open for dropdown)
-      setWorkflowStatus(
-        detail.conversation.status === 'open' ||
-          detail.conversation.status === 'in_progress' ||
-          detail.conversation.status === 'resolved'
-          ? detail.conversation.status === 'resolved' || detail.conversation.status === 'closed'
-            ? 'resolved'
+      // Store initial values for autosave comparison (only on initial load)
+      if (!isBackgroundRefresh) {
+        initialConversationRef.current = {
+          status: detail.conversation.status,
+          department: detail.conversation.department,
+          urgent: detail.conversation.urgent,
+        };
+        // Initialize workflow form from detail (in_progress treated as open for dropdown)
+        setWorkflowStatus(
+          detail.conversation.status === 'open' ||
+            detail.conversation.status === 'in_progress' ||
+            detail.conversation.status === 'resolved'
+            ? detail.conversation.status === 'resolved' || detail.conversation.status === 'closed'
+              ? 'resolved'
+              : 'open'
             : 'open'
-          : 'open'
-      );
-      setWorkflowDepartment(detail.conversation.department || '');
-      setWorkflowUrgent(detail.conversation.urgent || false);
+        );
+        setWorkflowDepartment(detail.conversation.department || '');
+        setWorkflowUrgent(detail.conversation.urgent || false);
+      }
       setSaveError(null);
       setDetailLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load conversation detail';
-      setConversationDetail(null);
+      // Only clear detail and show error on initial load
+      if (!isBackgroundRefresh) {
+        setConversationDetail(null);
+        setDetailError(errorMessage);
+      }
       setDetailLoading(false);
-      setDetailError(errorMessage);
+    } finally {
+      detailFetchInFlightRef.current = false;
     }
   }, [cityCode]);
 
@@ -185,14 +206,16 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       setConversationDetail(null);
       initialConversationRef.current = null;
       loadingRef.current = null;
+      detailFetchInFlightRef.current = false;
     }
   }, [cityId, selectedConversationId]);
 
   // Poll conversation detail every 4s when Live is enabled and conversation is selected
   // Smart scroll: only auto-scroll if user is at bottom
+  // This is called for background refresh (polling), so use isBackgroundRefresh=true
   const loadConversationDetailWithScroll = useCallback(async (conversationUuid: string) => {
     if (!transcriptRef.current) {
-      await loadConversationDetail(conversationUuid);
+      await loadConversationDetail(conversationUuid, true);
       return;
     }
     
@@ -200,7 +223,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     const container = transcriptRef.current;
     const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
     
-    await loadConversationDetail(conversationUuid);
+    // Background refresh: don't show loading spinner
+    await loadConversationDetail(conversationUuid, true);
     
     // Only auto-scroll if user was at bottom
     if (wasAtBottom && container) {
@@ -388,7 +412,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
           console.error('Autosave failed:', err);
           savingInProgressRef.current = false;
           if (selectedConversationId) {
-            loadConversationDetail(selectedConversationId);
+            // Background refresh to avoid flickering during error recovery
+            loadConversationDetail(selectedConversationId, true);
             loadConversations();
           }
           setIsSaving(false);
