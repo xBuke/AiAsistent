@@ -1197,6 +1197,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                   )}
                 </div>
               </div>
+              </div>
             </div>
 
             {/* Messages - chat bubbles, calm spacing */}
