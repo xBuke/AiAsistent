@@ -21,6 +21,7 @@ interface ChatPanelProps {
   showIntakeForm?: boolean;
   onIntakeSubmit?: (data: TicketIntakeData) => void;
   intakeInitialDescription?: string;
+  onOpenIntakeForm?: () => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -39,6 +40,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   showIntakeForm = false,
   onIntakeSubmit,
   intakeInitialDescription = '',
+  onOpenIntakeForm,
 }) => {
   // TEMPORARY: Debug instrumentation
   const DEBUG_INTAKE = true;
@@ -67,6 +69,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [showIntakeForm, onIntakeSubmit]);
   // #endregion
 
+  // Helper to normalize Croatian text for matching (lowercase, trim, strip diacritics)
+  const normalizeCroatianText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, ''); // Strip diacritics
+  };
+
+  // Check if message matches ticket intent phrases
+  const matchesTicketIntent = (text: string): boolean => {
+    const normalized = normalizeCroatianText(text);
+    const phrases = [
+      'prijaviti problem',
+      'prijaviti kvar',
+      'prijava problema',
+      'prijava kvara',
+      'trebam prijaviti',
+      'zelim prijaviti',
+    ];
+    return phrases.some(phrase => normalized.includes(phrase));
+  };
+
   const handleSend = () => {
     // Safety guard: prevent double sends within the same tick
     if (isSendingRef.current) {
@@ -75,6 +100,27 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     
     const trimmed = inputText.trim();
     if (!trimmed) {
+      return;
+    }
+    
+    // INTAKE GATE: Check if message matches ticket intent before sending
+    if (matchesTicketIntent(trimmed)) {
+      const textOriginal = trimmed;
+      const textNorm = normalizeCroatianText(trimmed);
+      console.warn('[INTAKE_GATE] opened form, skipping send', { textOriginal, textNorm });
+      
+      // Open intake form if callback is provided
+      if (onOpenIntakeForm) {
+        onOpenIntakeForm();
+      }
+      
+      // Clear input
+      setInputText('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+      
+      // Return early - do NOT call onSend (which would trigger network request)
       return;
     }
     

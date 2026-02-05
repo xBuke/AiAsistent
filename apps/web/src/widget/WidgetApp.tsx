@@ -1065,6 +1065,10 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           showIntakeForm={showIntakeForm && !intakeSubmitted}
           onIntakeSubmit={handleIntakeSubmit}
           intakeInitialDescription={userMessages.length > 0 ? userMessages[userMessages.length - 1] : ''}
+          onOpenIntakeForm={() => {
+            setShowIntakeForm(true);
+            setIntakeSubmitted(false);
+          }}
         />
       )}
       <div
