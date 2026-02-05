@@ -3,7 +3,35 @@ import { retrieveDocuments, buildContext } from '../services/retrieval.js';
 import { CHAT_RATE_LIMIT } from '../middleware/rateLimit.js';
 import { supabase } from '../db/supabase.js';
 import { randomUUID } from 'crypto';
-import Groq from 'groq-sdk';
+/**
+ * Write SSE event with proper multiline support
+ * Each line of the data must be prefixed with "data: "
+ */
+function writeSseEvent(res, eventName, dataString) {
+    res.write(`event: ${eventName}\n`);
+    const lines = String(dataString).split(/\r?\n/);
+    for (const line of lines) {
+        res.write(`data: ${line}\n`);
+    }
+    res.write(`\n`);
+}
+/**
+ * Check if message matches ticket intent keywords (deterministic, case-insensitive)
+ * Returns true if message contains any of the ticket reporting phrases
+ */
+function matchesTicketIntent(message) {
+    const normalized = message.toLowerCase().trim();
+    // Strict keyword patterns for ticket reporting intent
+    const patterns = [
+        'želim prijaviti kvar',
+        'želim prijaviti problem',
+        'prijava kvara',
+        'prijava problema',
+        'prijaviti problem',
+        'prijaviti kvar',
+    ];
+    return patterns.some(pattern => normalized.includes(pattern));
+}
 /**
  * POST /grad/:cityId/chat
  * Stream chat responses using Server-Sent Events (SSE)
@@ -18,24 +46,43 @@ export async function chatHandler(request, reply) {
     if (!cityId) {
         return reply.status(400).send({ error: 'Missing cityId parameter' });
     }
-    // Hijack the response to handle streaming manually
-    reply.hijack();
-    // Set CORS headers (required when hijacking response - bypasses Fastify CORS plugin)
+    // Validate and set CORS headers BEFORE hijacking
     const origin = request.headers.origin;
-    if (origin) {
-        reply.raw.setHeader('Access-Control-Allow-Origin', origin);
+    const allowedOrigins = [
+        'https://gradai.mangai.hr',
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
+    ];
+    // Determine allowed origin
+    let allowedOrigin;
+    if (origin && allowedOrigins.includes(origin)) {
+        allowedOrigin = origin;
+    }
+    else if (!origin) {
+        // No origin header (e.g., same-origin request or non-browser client)
+        allowedOrigin = '*';
     }
     else {
-        reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+        // Origin not in allowed list - still allow but log for security
+        request.log.warn({ origin }, 'Request from non-whitelisted origin');
+        allowedOrigin = origin; // Allow for now, but could be restricted
     }
+    // Hijack the response to handle streaming manually
+    reply.hijack();
+    // Set SSE headers explicitly on raw response BEFORE any writes
+    reply.raw.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    reply.raw.setHeader('Cache-Control', 'no-cache, no-transform');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
     reply.raw.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     reply.raw.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    // Set SSE headers
-    reply.raw.setHeader('Content-Type', 'text/event-stream');
-    reply.raw.setHeader('Cache-Control', 'no-cache');
-    reply.raw.setHeader('Connection', 'keep-alive');
-    reply.raw.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+    reply.raw.setHeader('Vary', 'Origin');
+    reply.raw.setHeader('X-Accel-Buffering', 'no');
+    // Send initial SSE comment to establish connection and flush headers
+    reply.raw.write(': keep-alive\n\n');
     const { conversationId } = request.body || {};
     // Track trace data
     const traceStartTime = Date.now();
@@ -171,12 +218,72 @@ export async function chatHandler(request, reply) {
                 request.log.warn({ error, conversationUuid }, 'Failed to insert user message');
             }
         }
+        // Deterministic keyword trigger: check for ticket intent BEFORE retrieval/LLM
+        if (matchesTicketIntent(message)) {
+            request.log.info({ message, conversationUuid }, 'Ticket intent detected via keyword matching - triggering form immediately');
+            // Emit meta event with needs_human=true to trigger ticket form
+            const latencyMs = Date.now() - traceStartTime;
+            const traceData = {
+                model: null, // No LLM call
+                latency_ms: latencyMs,
+                retrieved_docs_count: 0,
+                retrieved_docs_top3: [],
+                used_fallback: false,
+                needs_human: true, // Explicit trigger for ticket form
+            };
+            writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
+            // Send completion signal
+            reply.raw.write('data: [DONE]\n\n');
+            // Update conversation to mark needs_human
+            if (conversationUuid) {
+                await supabase
+                    .from('conversations')
+                    .update({
+                    needs_human: true,
+                    last_activity_at: new Date().toISOString(),
+                })
+                    .eq('id', conversationUuid);
+            }
+            request.log.info({
+                conversationUuid,
+                needs_human: true,
+                trigger: 'keyword_match',
+            }, 'Ticket intent response - needs_human=true (keyword trigger)');
+            reply.raw.end();
+            return;
+        }
         // Retrieve relevant documents (scoped by city_id)
         if (!cityUuid) {
             request.log.error({ cityId }, 'City UUID not resolved, cannot retrieve documents');
             return reply.status(500).send({ error: 'City resolution failed' });
         }
-        const documents = await retrieveDocuments(message, cityUuid);
+        // DEMO_MODE or DEBUG_RETRIEVAL: Log city resolution
+        if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+            request.log.info({
+                cityId,
+                cityUuid,
+            }, '[DEBUG] City resolution: resolved cityUuid and cityId slug');
+        }
+        let documents = [];
+        try {
+            documents = await retrieveDocuments(message, cityUuid);
+        }
+        catch (error) {
+            // Log embedding/retrieval errors loudly - this is a critical failure
+            request.log.error({
+                error,
+                message,
+                cityUuid,
+                cityId,
+                errorType: error instanceof Error ? error.constructor.name : typeof error,
+                errorMessage: error instanceof Error ? error.message : String(error),
+            }, 'CRITICAL: Document retrieval failed - embedding generation or database query error');
+            // Return HTTP 500 - do NOT silently return empty array
+            return reply.status(500).send({
+                error: 'Embedding or retrieval service unavailable',
+                details: error instanceof Error ? error.message : String(error)
+            });
+        }
         const context = buildContext(documents);
         // Capture top 3 retrieved docs for trace
         retrievedDocs = documents.slice(0, 3).map(doc => ({
@@ -184,96 +291,44 @@ export async function chatHandler(request, reply) {
             source: doc.source_url || null,
             score: doc.similarity,
         }));
+        // DEMO_MODE or DEBUG_RETRIEVAL: Log retrieval results and context length
+        if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+            request.log.info({
+                retrieval_count: documents.length,
+                top3_docs: retrievedDocs.map((doc, idx) => ({
+                    rank: idx + 1,
+                    title: doc.title,
+                    source_url: doc.source,
+                    score: doc.score,
+                })),
+                context_length_chars: context.length,
+            }, '[DEBUG] Retrieval results and context length');
+        }
         // Fallback: if no documents retrieved or all have low similarity
         if (documents.length === 0) {
             usedFallback = true;
+            // DEMO_MODE or DEBUG_RETRIEVAL: Log fallback reason
+            if (process.env.DEMO_MODE === 'true' || process.env.DEBUG_RETRIEVAL === 'true') {
+                request.log.warn({
+                    cityId,
+                    cityUuid,
+                    message,
+                    reason: 'retrieved_docs_count_equals_zero',
+                    retrieval_count: documents.length,
+                }, '[DEBUG] Fallback triggered: no documents retrieved');
+            }
+            // Deterministic fallback message (no LLM call, no generic answers)
+            const fallbackMessage = 'Nemam dovoljno službenih informacija u dokumentima Grada Ploča da bih pouzdano odgovorio na to pitanje. Možete li ga malo precizirati ili pitati nešto drugo?';
+            assistantResponse = fallbackMessage;
             // Check if DEMO_MODE is enabled
-            const demoMode = process.env.DEMO_MODE === 'true';
-            if (demoMode) {
-                // Demo mode: Use general assistant LLM call instead of fallback message
-                try {
-                    const apiKey = process.env.GROQ_API_KEY;
-                    if (!apiKey) {
-                        throw new Error('GROQ_API_KEY environment variable is not set');
-                    }
-                    const groq = new Groq({ apiKey });
-                    const demoModel = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
-                    // General assistant system prompt for demo mode
-                    const demoSystemPrompt = `Ti si AI asistent gradskih usluga.
-
-PRAVILA IDENTITETA (KRITIČNO):
-- NIKADA se ne referiraj na sebe kao "chatbot".
-- UVJEK se referiraj na sebe kao "AI asistent" ili "AI pomoćnik".
-- Ne spominji da si demo osim ako nije eksplicitno pitano.
-- Govori kao razvojni, adaptivni sustav koji uči iz potreba građana.
-- Ton: profesionalan, smiren, ljudski, pouzdan.
-- Drži uvod kratko (maksimalno 3 rečenice).
-
-Ako te pitaju tko si ili što radiš:
-- Daj kratko, samopouzdano objašnjenje.
-- Završi jednim jednostavnim potpitanjem.
-
-PRAVILA STILA ODGOVORA (KRITIČNO):
-- Drži odgovore kratke i razgovorne (2–4 rečenice maksimalno).
-- NIKADA ne koristi duga nabrajanja osim ako nije eksplicitno traženo.
-- Preferiraj jedan kratak odlomak umjesto bullet pointova.
-- Ako nabrajaš mogućnosti, sažmi ih u jednu ili dvije rečenice.
-- UVJEK pozovi korisnika da postavi sljedeće pitanje.
-- Zvuči ljudski, korisno i smireno — ne kao dokumentacija.
-
-Ako korisnik pita općenito što možeš:
-- Daj kratak sažetak mogućnosti.
-- Završi mekim pitanjem poput:
-  "Što vas konkretno zanima?" ili
-  "Možete mi malo pojasniti situaciju?"
-
-OPĆENITO:
-- Ako je službeni kontekst dostupan, koristi ga.
-- Ako kontekst nije dostupan, odgovori općenito i praktično (kako gradovi obično funkcioniraju).
-- Izbjegavaj izmišljanje specifičnih brojeva/datuma/pravnih tvrdnji.`;
-                    const groqMessages = [
-                        {
-                            role: 'system',
-                            content: demoSystemPrompt,
-                        },
-                        {
-                            role: 'user',
-                            content: message,
-                        },
-                    ];
-                    // Stream tokens from LLM
-                    const stream = await groq.chat.completions.create({
-                        model: demoModel,
-                        messages: groqMessages,
-                        stream: true,
-                    });
-                    for await (const chunk of stream) {
-                        const content = chunk.choices[0]?.delta?.content;
-                        if (content && content.length > 0) {
-                            reply.raw.write(`data: ${content}\n\n`);
-                            assistantResponse += content;
-                        }
-                    }
-                    // Send completion signal
-                    reply.raw.write('data: [DONE]\n\n');
-                }
-                catch (error) {
-                    // If LLM call fails in demo mode, fall back to original message
-                    request.log.warn({ error }, 'Demo mode LLM call failed, using fallback message');
-                    const fallbackMessage = 'Ne mogu pouzdano odgovoriti iz dostupnih dokumenata. Pokušajte preformulirati pitanje.';
-                    reply.raw.write(`data: ${fallbackMessage}\n\n`);
-                    assistantResponse = fallbackMessage;
-                    reply.raw.write('data: [DONE]\n\n');
-                }
+            const isDemoMode = process.env.DEMO_MODE === 'true';
+            // In DEMO_MODE: send as single message event, otherwise stream as data
+            if (isDemoMode) {
+                writeSseEvent(reply.raw, 'message', fallbackMessage);
             }
             else {
-                // Original behavior: Stream fallback message (widget expects answer/text field, so stream it as tokens)
-                const fallbackMessage = 'Ne mogu pouzdano odgovoriti iz dostupnih dokumenata. Pokušajte preformulirati pitanje.';
                 // Stream message token by token to match success response format
-                reply.raw.write(`data: ${fallbackMessage}\n\n`);
-                assistantResponse = fallbackMessage;
-                // Send completion signal
-                reply.raw.write('data: [DONE]\n\n');
+                writeSseEvent(reply.raw, 'message', fallbackMessage);
             }
             // Emit meta event with trace data (include needs_human explicitly)
             const latencyMs = Date.now() - traceStartTime;
@@ -285,7 +340,9 @@ OPĆENITO:
                 used_fallback: true,
                 needs_human: false, // Explicitly set to false - never infer from fallback
             };
-            reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+            writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
+            // Send completion signal
+            reply.raw.write('data: [DONE]\n\n');
             // Log before responding
             request.log.info({
                 conversationUuid,
@@ -500,14 +557,27 @@ OPĆENITO:
                 content: message,
             },
         ];
+        // Check if DEMO_MODE is enabled
+        const isDemoMode = process.env.DEMO_MODE === 'true';
         // Stream tokens from LLM with context and collect response
         for await (const token of streamChat({ messages, context })) {
-            // Format as SSE: data: token\n\n
-            reply.raw.write(`data: ${token}\n\n`);
             assistantResponse += token;
+            // In DEMO_MODE: buffer tokens, don't stream to client
+            // In normal mode: stream tokens immediately
+            if (!isDemoMode) {
+                // Format as SSE: handle multiline tokens by prefixing each line with "data: "
+                reply.raw.write(`event: message\n`);
+                const lines = String(token).split(/\r?\n/);
+                for (const line of lines) {
+                    reply.raw.write(`data: ${line}\n`);
+                }
+                reply.raw.write(`\n`);
+            }
         }
-        // Send completion signal
-        reply.raw.write('data: [DONE]\n\n');
+        // In DEMO_MODE: send full answer as single message event
+        if (isDemoMode) {
+            writeSseEvent(reply.raw, 'message', assistantResponse);
+        }
         // Emit meta event with trace data (include needs_human explicitly)
         const latencyMs = Date.now() - traceStartTime;
         const traceData = {
@@ -518,7 +588,9 @@ OPĆENITO:
             used_fallback: false,
             needs_human: false, // Explicitly set to false
         };
-        reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+        writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
+        // Send completion signal
+        reply.raw.write('data: [DONE]\n\n');
         // Log before responding
         request.log.info({
             conversationUuid,
@@ -652,9 +724,15 @@ OPĆENITO:
         request.log.error(error);
         // Stream error message (widget expects answer/text field, so stream it as tokens)
         const errorMessage = 'Došlo je do pogreške. Pokušajte ponovno.';
-        reply.raw.write(`data: ${errorMessage}\n\n`);
-        // Send completion signal
-        reply.raw.write('data: [DONE]\n\n');
+        // Check if DEMO_MODE is enabled
+        const isDemoMode = process.env.DEMO_MODE === 'true';
+        // In DEMO_MODE: send as single message event, otherwise stream as data
+        if (isDemoMode) {
+            writeSseEvent(reply.raw, 'message', errorMessage);
+        }
+        else {
+            writeSseEvent(reply.raw, 'message', errorMessage);
+        }
         // Emit meta event with trace data (include needs_human explicitly)
         const latencyMs = Date.now() - traceStartTime;
         const traceData = {
@@ -665,7 +743,9 @@ OPĆENITO:
             used_fallback: false,
             needs_human: false, // Explicitly set to false - never set on errors
         };
-        reply.raw.write(`event: meta\ndata: ${JSON.stringify(traceData)}\n\n`);
+        writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
+        // Send completion signal
+        reply.raw.write('data: [DONE]\n\n');
         // Log before responding (error case)
         request.log.info({
             conversationUuid,
@@ -694,15 +774,32 @@ OPĆENITO:
  */
 export async function chatOptionsHandler(request, reply) {
     const origin = request.headers.origin;
-    if (origin) {
-        reply.header('Access-Control-Allow-Origin', origin);
+    const allowedOrigins = [
+        'https://gradai.mangai.hr',
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
+    ];
+    // Determine allowed origin
+    let allowedOrigin;
+    if (origin && allowedOrigins.includes(origin)) {
+        allowedOrigin = origin;
+    }
+    else if (!origin) {
+        // No origin header (e.g., same-origin request or non-browser client)
+        allowedOrigin = '*';
     }
     else {
-        reply.header('Access-Control-Allow-Origin', '*');
+        // Origin not in allowed list - still allow but log for security
+        request.log.warn({ origin }, 'OPTIONS request from non-whitelisted origin');
+        allowedOrigin = origin; // Allow for now, but could be restricted
     }
+    reply.header('Access-Control-Allow-Origin', allowedOrigin);
     reply.header('Access-Control-Allow-Credentials', 'true');
     reply.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
     reply.header('Access-Control-Allow-Headers', 'Content-Type');
+    reply.header('Vary', 'Origin');
     return reply.status(204).send();
 }
 /**

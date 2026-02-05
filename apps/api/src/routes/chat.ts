@@ -32,6 +32,26 @@ function writeSseEvent(res: NodeJS.WritableStream, eventName: string, dataString
 }
 
 /**
+ * Check if message matches ticket intent keywords (deterministic, case-insensitive)
+ * Returns true if message contains any of the ticket reporting phrases
+ */
+function matchesTicketIntent(message: string): boolean {
+  const normalized = message.toLowerCase().trim();
+  
+  // Strict keyword patterns for ticket reporting intent
+  const patterns = [
+    'želim prijaviti kvar',
+    'želim prijaviti problem',
+    'prijava kvara',
+    'prijava problema',
+    'prijaviti problem',
+    'prijaviti kvar',
+  ];
+  
+  return patterns.some(pattern => normalized.includes(pattern));
+}
+
+/**
  * POST /grad/:cityId/chat
  * Stream chat responses using Server-Sent Events (SSE)
  */
@@ -243,6 +263,46 @@ export async function chatHandler(
       } catch (error) {
         request.log.warn({ error, conversationUuid }, 'Failed to insert user message');
       }
+    }
+
+    // Deterministic keyword trigger: check for ticket intent BEFORE retrieval/LLM
+    if (matchesTicketIntent(message)) {
+      request.log.info({ message, conversationUuid }, 'Ticket intent detected via keyword matching - triggering form immediately');
+      
+      // Emit meta event with needs_human=true to trigger ticket form
+      const latencyMs = Date.now() - traceStartTime;
+      const traceData = {
+        model: null, // No LLM call
+        latency_ms: latencyMs,
+        retrieved_docs_count: 0,
+        retrieved_docs_top3: [],
+        used_fallback: false,
+        needs_human: true, // Explicit trigger for ticket form
+      };
+      writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
+      
+      // Send completion signal
+      reply.raw.write('data: [DONE]\n\n');
+      
+      // Update conversation to mark needs_human
+      if (conversationUuid) {
+        await supabase
+          .from('conversations')
+          .update({
+            needs_human: true,
+            last_activity_at: new Date().toISOString(),
+          })
+          .eq('id', conversationUuid);
+      }
+      
+      request.log.info({
+        conversationUuid,
+        needs_human: true,
+        trigger: 'keyword_match',
+      }, 'Ticket intent response - needs_human=true (keyword trigger)');
+      
+      reply.raw.end();
+      return;
     }
 
     // Retrieve relevant documents (scoped by city_id)
