@@ -585,6 +585,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   };
 
   const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
 
   useEffect(() => {
     const checkMobile = () => {
@@ -596,11 +597,24 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       } else if (!mobile && filtersCollapsed) {
         setFiltersCollapsed(false);
       }
+      // Reset mobileView when switching to desktop
+      if (!mobile) {
+        setMobileView('list');
+      }
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, [filtersCollapsed]);
+
+  // On mobile, switch to detail view when conversation is selected
+  useEffect(() => {
+    if (isMobile && selectedConversationId) {
+      setMobileView('detail');
+    } else if (isMobile && !selectedConversationId) {
+      setMobileView('list');
+    }
+  }, [isMobile, selectedConversationId]);
 
   return (
     <div
@@ -622,7 +636,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-          display: 'flex',
+          display: isMobile && mobileView === 'detail' ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -700,12 +714,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
           </div>
 
           {/* Collapsible filters section */}
+          {!filtersCollapsed && (
           <div
             style={{
-              maxHeight: filtersCollapsed ? '0' : '1000px',
               overflow: 'hidden',
-              opacity: filtersCollapsed ? 0 : 1,
-              transition: 'max-height 0.3s ease-in-out, opacity 0.3s ease-in-out',
             }}
           >
             {/* Status + Hitno chips */}
@@ -825,6 +837,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               </select>
             )}
           </div>
+          )}
         </div>
 
         {/* Conversation list */}
@@ -1015,11 +1028,11 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         style={{
           flex: 1,
           minWidth: 0,
-          height: isMobile ? '50vh' : 'auto',
+          height: isMobile ? (mobileView === 'detail' ? 'calc(100vh - 120px)' : '50vh') : 'auto',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-          display: 'flex',
+          display: isMobile && mobileView === 'list' && !selectedConversationId ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -1034,6 +1047,41 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 flexShrink: 0,
               }}
             >
+              {/* Back button for mobile */}
+              {isMobile && (
+                <button
+                  onClick={() => {
+                    setMobileView('list');
+                    // Keep selection so user can return to same conversation
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '0.75rem',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: '#374151',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s, border-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f9fafb';
+                    e.currentTarget.style.borderColor = '#9ca3af';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                  }}
+                >
+                  <span>←</span>
+                  <span>Nazad na listu</span>
+                </button>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.5rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600, color: '#111827', lineHeight: '1.3', marginBottom: conversationDetail.conversation.summary ? '0.25rem' : 0 }}>
@@ -1184,6 +1232,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 flex: 1,
                 overflowY: 'auto',
                 padding: '1rem 1.5rem',
+                paddingBottom: isMobile ? 'calc(1rem + 80px)' : '1rem', // Extra padding on mobile to avoid widget overlap
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: 0,

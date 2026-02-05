@@ -629,6 +629,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
   }
 
   const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
 
   useEffect(() => {
     const checkMobile = () => {
@@ -640,11 +641,24 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
       } else if (!mobile && filtersCollapsed) {
         setFiltersCollapsed(false);
       }
+      // Reset mobileView when switching to desktop
+      if (!mobile) {
+        setMobileView('list');
+      }
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, [filtersCollapsed]);
+
+  // On mobile, switch to detail view when conversation is selected
+  useEffect(() => {
+    if (isMobile && selectedConversationId) {
+      setMobileView('detail');
+    } else if (isMobile && !selectedConversationId) {
+      setMobileView('list');
+    }
+  }, [isMobile, selectedConversationId]);
 
   return (
     <div
@@ -666,7 +680,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-          display: 'flex',
+          display: isMobile && mobileView === 'detail' ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -743,12 +757,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
           </div>
 
           {/* Collapsible filters section */}
+          {!filtersCollapsed && (
           <div
             style={{
-              maxHeight: filtersCollapsed ? '0' : '1000px',
               overflow: 'hidden',
-              opacity: filtersCollapsed ? 0 : 1,
-              transition: 'max-height 0.3s ease-in-out, opacity 0.3s ease-in-out',
             }}
           >
             {/* Date range filter */}
@@ -860,6 +872,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
               <option value="category">Po kategoriji</option>
             </select>
           </div>
+          )}
         </div>
 
         {/* Conversation list */}
@@ -1065,11 +1078,11 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
         style={{
           flex: 1,
           minWidth: 0,
-          height: isMobile ? '50vh' : 'auto',
+          height: isMobile ? (mobileView === 'detail' ? 'calc(100vh - 120px)' : '50vh') : 'auto',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-          display: 'flex',
+          display: isMobile && mobileView === 'list' && !selectedConversationId ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -1082,11 +1095,46 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                 padding: '1.25rem 1.5rem',
                 borderBottom: '1px solid #e5e7eb',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                gap: '1rem',
+                flexDirection: 'column',
+                gap: '0.75rem',
               }}
             >
+              {/* Back button for mobile */}
+              {isMobile && (
+                <button
+                  onClick={() => {
+                    setMobileView('list');
+                    // Keep selection so user can return to same conversation
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: '#374151',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s, border-color 0.2s',
+                    alignSelf: 'flex-start',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f9fafb';
+                    e.currentTarget.style.borderColor = '#9ca3af';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                  }}
+                >
+                  <span>←</span>
+                  <span>Nazad na listu</span>
+                </button>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2
                   style={{
@@ -1120,34 +1168,34 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     </span>
                   )}
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', flexShrink: 0 }}>
-                <span
-                  style={{
-                    padding: '0.25rem 0.5rem',
-                    backgroundColor: '#f3f4f6',
-                    color: '#4b5563',
-                    borderRadius: '9999px',
-                    fontSize: '0.75rem',
-                    fontWeight: 500,
-                  }}
-                >
-                  {categoryLabel(selectedConversation.category)}
-                </span>
-                {selectedConversation.isSpam && (
+                <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', flexShrink: 0 }}>
                   <span
                     style={{
                       padding: '0.25rem 0.5rem',
-                      backgroundColor: '#fef2f2',
-                      color: '#991b1b',
+                      backgroundColor: '#f3f4f6',
+                      color: '#4b5563',
                       borderRadius: '9999px',
                       fontSize: '0.75rem',
                       fontWeight: 500,
                     }}
                   >
-                    Spam
+                    {categoryLabel(selectedConversation.category)}
                   </span>
-                )}
+                  {selectedConversation.isSpam && (
+                    <span
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        backgroundColor: '#fef2f2',
+                        color: '#991b1b',
+                        borderRadius: '9999px',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                      }}
+                    >
+                      Spam
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1158,6 +1206,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                 flex: 1,
                 overflowY: 'auto',
                 padding: '1.25rem 1.5rem',
+                paddingBottom: isMobile ? 'calc(1.25rem + 80px)' : '1.25rem', // Extra padding on mobile to avoid widget overlap
               }}
             >
               {messagesLoading ? (
