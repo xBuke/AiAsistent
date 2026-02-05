@@ -45,6 +45,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [ticket, setTicket] = useState<Ticket | undefined>(undefined);
   const [showIntakeForm, setShowIntakeForm] = useState(false);
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
+  const [lastMeta, setLastMeta] = useState<Record<string, any> | null>(null);
   
   // #region agent log
   // Instrumentation: Track when showIntakeForm state changes
@@ -706,6 +707,19 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           // Store metadata in ref immediately when meta event arrives
           metaRef.current = metaObj;
           
+          // [DIAGNOSTIC_PROBE] WidgetApp: onMeta callback invoked
+          console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_ONMETA_CALLBACK]', {
+            location: 'WidgetApp.tsx:705',
+            metaObj,
+            needs_human: metaObj?.needs_human,
+            needsHuman: metaObj?.needsHuman,
+            stored_in_metaRef: true,
+            timestamp: Date.now()
+          });
+          
+          // Store lastMeta for UI debug display
+          setLastMeta(metaObj);
+          
           // TEMPORARY DEBUG: Enhanced meta logging
           console.log('[DEBUG][META_RECEIVED] Meta event received', {
             needs_human: metaObj?.needs_human,
@@ -840,6 +854,20 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Resolve metadata from multiple sources (single source of truth)
       const meta = resolveMeta(transport);
       
+      // [DIAGNOSTIC_PROBE] WidgetApp: Metadata resolution after stream completes
+      console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_META_RESOLVED]', {
+        location: 'WidgetApp.tsx:841',
+        metaRef_current: metaRef.current,
+        transportMeta: transport instanceof ApiTransport ? transport.metadata : null,
+        resolved_meta: meta,
+        needs_human: meta?.needs_human,
+        needsHuman: meta?.needsHuman,
+        needs_human_type: typeof meta?.needs_human,
+        needsHuman_type: typeof meta?.needsHuman,
+        finalAnswerContent_length: finalAnswerContent.length,
+        timestamp: Date.now()
+      });
+      
       // TEMPORARY DEBUG: Enhanced metadata resolution logging
       console.log('[DEBUG][RESOLVE_META] Resolved metadata', {
         metaRef: metaRef.current,
@@ -919,6 +947,21 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // If both are undefined/null/missing => treat as false (do not show form)
       const needsHuman = meta?.needs_human === true || meta?.needsHuman === true;
       
+      // [DIAGNOSTIC_PROBE] WidgetApp: Needs human check and form open decision
+      console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_NEEDS_HUMAN_CHECK]', {
+        location: 'WidgetApp.tsx:920',
+        meta_needs_human_snake: meta?.needs_human,
+        meta_needs_human_camel: meta?.needsHuman,
+        meta_needs_human_snake_type: typeof meta?.needs_human,
+        meta_needs_human_camel_type: typeof meta?.needsHuman,
+        computed_needsHuman: needsHuman,
+        intakeSubmitted,
+        willOpenForm: needsHuman && !intakeSubmitted,
+        showIntakeForm_before: showIntakeForm,
+        fullMeta: meta,
+        timestamp: Date.now()
+      });
+      
       // TEMPORARY DEBUG: Enhanced needs human check logging
       console.log('[DEBUG][NEEDS_HUMAN_CHECK]', {
         metaNeedsHuman_snake: meta?.needs_human,
@@ -949,6 +992,17 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from resolved metadata - single source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
       if (needsHuman && !intakeSubmitted) {
+        // [DIAGNOSTIC_PROBE] WidgetApp: Opening intake form
+        console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_FORM_OPEN]', {
+          location: 'WidgetApp.tsx:951',
+          action: 'setShowIntakeForm(true)',
+          needsHuman,
+          intakeSubmitted,
+          meta,
+          showIntakeForm_before: showIntakeForm,
+          timestamp: Date.now()
+        });
+        
         // TEMPORARY DEBUG: Form open call logging
         console.log('[DEBUG][FORM_OPEN] Calling setShowIntakeForm(true)', {
           needsHuman,
@@ -977,6 +1031,17 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:654',message:'setShowIntakeForm(true) called from resolved needs_human metadata',data:{needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
       } else {
+        // [DIAGNOSTIC_PROBE] WidgetApp: NOT opening intake form
+        console.log('[DIAGNOSTIC_PROBE][WIDGETAPP_FORM_NOT_OPEN]', {
+          location: 'WidgetApp.tsx:979',
+          reason: needsHuman ? 'intakeSubmitted=true' : 'needsHuman=false/undefined',
+          needsHuman,
+          intakeSubmitted,
+          meta_needs_human: meta?.needs_human,
+          meta_needsHuman: meta?.needsHuman,
+          timestamp: Date.now()
+        });
+        
         // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:656',message:'NOT showing form - needs_human is false/undefined',data:{needsHuman,metaNeedsHuman:meta?.needs_human},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
@@ -1145,6 +1210,30 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           primaryColor={config.theme?.primary}
         />
       </div>
+      {/* [DIAGNOSTIC_PROBE] UI Debug Display - only shown when ?debugMeta=1 query param is present */}
+      {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugMeta') === '1' && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '10px',
+            left: '10px',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            color: '#fff',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            maxWidth: '400px',
+            zIndex: 10000,
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>[DIAGNOSTIC_PROBE] lastMeta:</div>
+          <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {lastMeta ? JSON.stringify(lastMeta, null, 2) : 'null'}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

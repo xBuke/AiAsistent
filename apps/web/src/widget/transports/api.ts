@@ -103,6 +103,17 @@ export class ApiTransport implements ChatTransport {
                     const parsed = JSON.parse(payload);
                     this._metadata = parsed;
                     
+                    // [DIAGNOSTIC_PROBE] Transport: Meta event received and parsed
+                    console.log('[DIAGNOSTIC_PROBE][TRANSPORT_META_RECEIVED]', {
+                      location: 'api.ts:103',
+                      parsed,
+                      needs_human: parsed?.needs_human,
+                      needsHuman: parsed?.needsHuman,
+                      stored_in_transport: !!this._metadata,
+                      has_onMeta_callback: !!onMeta,
+                      timestamp: Date.now()
+                    });
+                    
                     // TEMPORARY DEBUG: Enhanced meta event logging
                     console.log('[DEBUG][TRANSPORT] Meta event detected', {
                       payload: payload.substring(0, 200),
@@ -126,6 +137,13 @@ export class ApiTransport implements ChatTransport {
                     
                     // Call onMeta callback from input if provided
                     if (onMeta) {
+                      console.log('[DIAGNOSTIC_PROBE][TRANSPORT_CALLING_ONMETA]', {
+                        location: 'api.ts:136',
+                        parsed,
+                        needs_human: parsed?.needs_human,
+                        needsHuman: parsed?.needsHuman,
+                        timestamp: Date.now()
+                      });
                       console.log('[DEBUG][TRANSPORT] Calling onMeta callback', {
                         parsed,
                         needs_human: parsed?.needs_human,
@@ -139,7 +157,14 @@ export class ApiTransport implements ChatTransport {
                     if (this.onMeta) {
                       this.onMeta(parsed);
                     }
-                  } catch {
+                  } catch (error) {
+                    // [DIAGNOSTIC_PROBE] Transport: Meta parse error
+                    console.error('[DIAGNOSTIC_PROBE][TRANSPORT_META_PARSE_ERROR]', {
+                      location: 'api.ts:143',
+                      error: error instanceof Error ? error.message : String(error),
+                      payload: payload.substring(0, 200),
+                      timestamp: Date.now()
+                    });
                     // Ignore parse errors for metadata
                   }
                   currentEvent = ''; // Reset event type
