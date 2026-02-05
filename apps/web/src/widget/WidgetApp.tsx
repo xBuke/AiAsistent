@@ -78,14 +78,12 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   function matchesTicketIntent(text: string): boolean {
     const normalized = normalizeCroatianText(text);
     const phrases = [
-      'zelim prijaviti problem',
-      'zelim prijaviti kvar',
-      'trebam prijaviti problem',
-      'trebam prijaviti kvar',
-      'prijava problema',
-      'prijava kvara',
       'prijaviti problem',
       'prijaviti kvar',
+      'prijava problema',
+      'prijava kvara',
+      'trebam prijaviti',
+      'zelim prijaviti',
     ];
     return phrases.some(phrase => normalized.includes(phrase));
   }
