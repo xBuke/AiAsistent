@@ -26,6 +26,11 @@ interface WidgetAppProps {
 }
 
 const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
+  // Runtime override: force 'demo' cityId on gradai.mangai.hr hostname
+  const cityId = (typeof window !== 'undefined' && window.location.hostname === 'gradai.mangai.hr') 
+    ? 'demo' 
+    : config.cityId;
+  
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -69,17 +74,17 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setIntakeSubmitted(false);
       
       // Emit conversation_start event
-      emitConversationStart(config.cityId, newConversationId, config.apiBaseUrl);
+      emitConversationStart(cityId, newConversationId, config.apiBaseUrl);
     }
-  }, [isOpen, conversationId, config.cityId]);
+  }, [isOpen, conversationId, cityId]);
 
   // Check for existing ticket when conversationId changes
   useEffect(() => {
     if (conversationId) {
-      const existingTicket = getTicket(config.cityId, conversationId);
+      const existingTicket = getTicket(cityId, conversationId);
       setTicket(existingTicket);
     }
-  }, [conversationId, config.cityId]);
+  }, [conversationId, cityId]);
 
   // Compute needsHuman and create/update ticket after each user message
   useEffect(() => {
@@ -87,7 +92,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // #region agent log
       fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:76',message:'useEffect triggered - userMessages changed',data:{userMessagesCount:userMessages.length,lastMessage:userMessages[userMessages.length-1],conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
-      const existingTicket = getTicket(config.cityId, conversationId);
+      const existingTicket = getTicket(cityId, conversationId);
       const categorization = categorizeConversation(userMessages);
       // #region agent log
       fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:79',message:'Categorization result',data:{needsHuman:categorization.needsHuman,category:categorization.category,existingTicketNeedsHuman:existingTicket?.needsHuman},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
@@ -97,7 +102,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       if (existingTicket && existingTicket.status === 'closed') {
         const fallbackCount = existingTicket.fallbackCount ?? 0;
         const updatedTicket = upsertTicket({
-          cityId: config.cityId,
+          cityId: cityId,
           conversationId,
           status: 'needs_human',
           needsHuman: true,
@@ -121,7 +126,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           };
           postBackendEvent({
             apiBaseUrl: config.apiBaseUrl,
-            cityId: config.cityId,
+            cityId: cityId,
             event: backendEvent,
           }).catch(() => {
             // Already handled in postBackendEvent
@@ -146,7 +151,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           : 'needs_human';
         
         const updatedTicket = upsertTicket({
-          cityId: config.cityId,
+          cityId: cityId,
           conversationId,
           ...(status && { status }), // Only include status if defined
           needsHuman: true,
@@ -174,7 +179,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           };
           postBackendEvent({
             apiBaseUrl: config.apiBaseUrl,
-            cityId: config.cityId,
+            cityId: cityId,
             event: backendEvent,
           }).catch(() => {
             // Already handled in postBackendEvent
@@ -184,14 +189,14 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // Ticket exists but needsHuman is false - just update updatedAt to refresh timestamp
         // This ensures updatedAt is refreshed for every user message
         const updatedTicket = upsertTicket({
-          cityId: config.cityId,
+          cityId: cityId,
           conversationId,
           // Don't change status or other fields, just trigger update for updatedAt refresh
         });
         setTicket(updatedTicket);
       }
     }
-  }, [userMessages, conversationId, config.cityId]);
+  }, [userMessages, conversationId, cityId]);
 
   // Show welcome message when panel opens for the first time
   useEffect(() => {
@@ -210,7 +215,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   // Handle panel close - emit conversation_end and reset conversation for next open
   const handleClose = () => {
     if (conversationId) {
-      emitConversationEnd(config.cityId, conversationId, 'user_closed');
+      emitConversationEnd(cityId, conversationId, 'user_closed');
       // Reset conversationId so next open starts a new conversation
       setConversationId(null);
       setTurnIndex(0);
@@ -235,7 +240,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     if (!conversationId) return;
 
     const updatedTicket = upsertTicket({
-      cityId: config.cityId,
+      cityId: cityId,
       conversationId,
       contact: {
         ...contactData,
@@ -265,7 +270,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         timestamp: Date.now(),
       };
       try {
-        const url = `${config.apiBaseUrl}/grad/${config.cityId}/events`;
+        const url = `${config.apiBaseUrl}/grad/${cityId}/events`;
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -280,7 +285,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
     if (ticketRefFromServer) {
       setTicket(upsertTicket({
-        cityId: config.cityId,
+        cityId: cityId,
         conversationId,
         contact: {
           ...contactData,
@@ -335,7 +340,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       
       try {
         // Make API call directly to check for 200 response
-        const url = `${config.apiBaseUrl}/grad/${config.cityId}/events`;
+        const url = `${config.apiBaseUrl}/grad/${cityId}/events`;
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => {
           abortController.abort();
@@ -407,7 +412,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     if (!currentConversationId) {
       currentConversationId = createConversationId();
       setConversationId(currentConversationId);
-      emitConversationStart(config.cityId, currentConversationId, config.apiBaseUrl);
+      emitConversationStart(cityId, currentConversationId, config.apiBaseUrl);
     }
 
     // Get current turn index and increment for next turn
@@ -416,7 +421,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
     // Emit analytics event for question (emitted on every user send for compatibility)
     // Note: answerChars and latencyMs will be populated after completion or fallback
-    emitEvent('question', config.cityId, text, { apiBaseUrl: config.apiBaseUrl });
+    emitEvent('question', cityId, text, { apiBaseUrl: config.apiBaseUrl });
 
     // Abort previous stream if running
     if (abortControllerRef.current) {
@@ -444,7 +449,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
     // Emit message event for user message
     emitMessage(
-      config.cityId,
+      cityId,
       currentConversationId,
       'user',
       text,
@@ -510,7 +515,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         
         // Emit analytics event for fallback (timeout - no tokens after timeout)
         const latencyMs = Date.now() - startTime;
-        emitEvent('fallback', config.cityId, text, {
+        emitEvent('fallback', cityId, text, {
           answerChars: errContent.length,
           latencyMs,
           conversationId: currentConversationId,
@@ -519,7 +524,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
         // Emit message event for assistant fallback response
         emitMessage(
-          config.cityId,
+          cityId,
           currentConversationId,
           'assistant',
           errContent,
@@ -533,18 +538,18 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // Note: This only creates/updates tickets, does NOT show intake form
         // Intake form is ONLY shown when backend explicitly indicates via action or needs_human
         const fallbackCount = getRecentFallbackCount(
-          config.cityId,
+          cityId,
           currentConversationId,
           10 * 60 * 1000 // 10 minutes
         );
         
         if (fallbackCount >= 2) {
-          const existingTicket = getTicket(config.cityId, currentConversationId);
+          const existingTicket = getTicket(cityId, currentConversationId);
           
           // If ticket exists and is closed, reopen it
           if (existingTicket && existingTicket.status === 'closed') {
-            reopenTicket(config.cityId, currentConversationId);
-            const reopenedTicket = getTicket(config.cityId, currentConversationId);
+            reopenTicket(cityId, currentConversationId);
+            const reopenedTicket = getTicket(cityId, currentConversationId);
             setTicket(reopenedTicket);
             
             // Send ticket_update event to backend
@@ -563,7 +568,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
               };
               postBackendEvent({
                 apiBaseUrl: config.apiBaseUrl,
-                cityId: config.cityId,
+                cityId: cityId,
                 event: backendEvent,
               }).catch(() => {
                 // Already handled in postBackendEvent
@@ -580,7 +585,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Stream tokens from transport
       let finalAnswerContent = '';
       for await (const token of transport.sendMessage({
-        cityId: config.cityId,
+        cityId: cityId,
         apiBaseUrl: config.apiBaseUrl,
         message: text,
         signal: abortController.signal,
@@ -773,10 +778,10 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       });
 
       // Check if backend explicitly indicates intake form should be shown
-      // ONLY check needs_human from metadata (strict === true check)
-      // If needs_human is undefined/null/missing => treat as false (do not show form)
+      // Check BOTH needs_human (snake_case) and needsHuman (camelCase) from metadata (strict === true check)
+      // If both are undefined/null/missing => treat as false (do not show form)
       // This is the ONLY source of truth for showing the intake form
-      const needsHuman = meta?.needs_human === true;
+      const needsHuman = meta?.needs_human === true || meta?.needsHuman === true;
       // #region agent log
         fetch('http://127.0.0.1:7245/ingest/5d96d24f-5582-45a3-83cb-195b1624ff7f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WidgetApp.tsx:651',message:'Checking needs_human from metadata - ONLY source of truth',data:{needsHuman,metaNeedsHuman:meta?.needs_human,intakeSubmitted,fullMetadata:meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
@@ -796,7 +801,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Use finalAnswerContent which contains the complete response
       const latencyMs = Date.now() - startTime;
       emitMessage(
-        config.cityId,
+        cityId,
         currentConversationId,
         'assistant',
         finalAnswerContent,
@@ -835,7 +840,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
       // API error or stream issue – emit fallback events
       const latencyMs = Date.now() - startTime;
-      emitEvent('fallback', config.cityId, text, {
+      emitEvent('fallback', cityId, text, {
         answerChars: errContent.length,
         latencyMs,
         conversationId: currentConversationId,
@@ -843,7 +848,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       });
 
       emitMessage(
-        config.cityId,
+        cityId,
         currentConversationId,
         'assistant',
         errContent,
@@ -857,18 +862,18 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Note: This only creates/updates tickets, does NOT show intake form
       // Intake form is ONLY shown when backend explicitly indicates via action or needs_human
       const fallbackCount = getRecentFallbackCount(
-        config.cityId,
+        cityId,
         currentConversationId,
         10 * 60 * 1000 // 10 minutes
       );
       
       if (fallbackCount >= 2) {
-        const existingTicket = getTicket(config.cityId, currentConversationId);
+        const existingTicket = getTicket(cityId, currentConversationId);
         
         // If ticket exists and is closed, reopen it
         if (existingTicket && existingTicket.status === 'closed') {
-          reopenTicket(config.cityId, currentConversationId);
-          const reopenedTicket = getTicket(config.cityId, currentConversationId);
+          reopenTicket(cityId, currentConversationId);
+          const reopenedTicket = getTicket(cityId, currentConversationId);
           setTicket(reopenedTicket);
           
           // Send ticket_update event to backend
@@ -887,7 +892,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
             };
             postBackendEvent({
               apiBaseUrl: config.apiBaseUrl,
-              cityId: config.cityId,
+              cityId: cityId,
               event: backendEvent,
             }).catch(() => {
               // Already handled in postBackendEvent
@@ -912,7 +917,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     >
       {isOpen && (
         <ChatPanel
-          cityId={config.cityId}
+          cityId={cityId}
           lang={config.lang}
           logoUrl={config.theme?.logoUrl}
           primaryColor={config.theme?.primary}
