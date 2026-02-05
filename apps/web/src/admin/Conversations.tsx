@@ -154,6 +154,8 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
     }
     return false;
   });
+  // Track if user has manually toggled filters (prevents auto-reset on resize/polling)
+  const userToggledFilters = useRef(false);
 
   const [apiConversations, setApiConversations] = useState<ApiConversation[] | null>(null);
   const [conversationsLoading, setConversationsLoading] = useState(true);
@@ -636,10 +638,13 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       // Auto-collapse filters on mobile, expand on desktop
-      if (mobile && !filtersCollapsed) {
-        setFiltersCollapsed(true);
-      } else if (!mobile && filtersCollapsed) {
-        setFiltersCollapsed(false);
+      // BUT only if user hasn't manually toggled filters
+      if (!userToggledFilters.current) {
+        if (mobile && !filtersCollapsed) {
+          setFiltersCollapsed(true);
+        } else if (!mobile && filtersCollapsed) {
+          setFiltersCollapsed(false);
+        }
       }
       // Reset mobileView when switching to desktop
       if (!mobile) {
@@ -706,7 +711,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
           {/* Filters header with toggle */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <button
-              onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+              onClick={() => {
+                userToggledFilters.current = true;
+                setFiltersCollapsed(!filtersCollapsed);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
