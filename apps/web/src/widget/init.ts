@@ -56,10 +56,33 @@ function initWidget(overrideConfig?: PartialConfig): void {
     return;
   }
 
-  // Read dataset attributes
-  const cityId = scriptTag.dataset.city;
+  // Determine cityId with fallback logic:
+  // 1. URL parameter ?city=X (highest priority)
+  // 2. data-city attribute on script tag
+  // 3. Default to 'demo' if hostname is gradai.mangai.hr (production demo landing)
+  // 4. Otherwise fail if missing (backward compatibility)
+  let cityId: string | undefined;
+  
+  // Check URL parameter first
+  const urlParams = new URLSearchParams(window.location.search);
+  const cityParam = urlParams.get('city');
+  if (cityParam) {
+    cityId = cityParam;
+  }
+  
+  // Check data-city attribute second
   if (!cityId) {
-    // Fail-safe: do nothing if data-city is missing
+    cityId = scriptTag.dataset.city;
+  }
+  
+  // Default to 'demo' for production demo landing page
+  if (!cityId && window.location.hostname === 'gradai.mangai.hr') {
+    cityId = 'demo';
+  }
+  
+  // Fail-safe: do nothing if cityId is still missing
+  if (!cityId) {
+    console.warn('GradWidget: cityId is required. Provide ?city=X in URL, data-city attribute, or use on gradai.mangai.hr');
     return;
   }
 
