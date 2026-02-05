@@ -65,10 +65,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       .replace(/[\u0300-\u036f]/g, ''); // Strip diacritics
   };
 
+  // Helper to normalize text for matching (lowercase, trim)
+  const normalizeText = (text: string): string => {
+    return text.toLowerCase().trim();
+  };
+
   // Check if message matches ticket intent phrases
   const matchesTicketIntent = (text: string): boolean => {
     const normalized = normalizeCroatianText(text);
-    const phrases = [
+    const normalizedEn = normalizeText(text);
+    const croatianPhrases = [
       'prijaviti problem',
       'prijaviti kvar',
       'prijava problema',
@@ -76,7 +82,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       'trebam prijaviti',
       'zelim prijaviti',
     ];
-    return phrases.some(phrase => normalized.includes(phrase));
+    const englishPhrases = [
+      'i need to report a problem',
+    ];
+    return croatianPhrases.some(phrase => normalized.includes(phrase)) ||
+           englishPhrases.some(phrase => normalizedEn.includes(phrase));
   };
 
   const handleSend = () => {

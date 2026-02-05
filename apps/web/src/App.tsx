@@ -1442,8 +1442,9 @@ function FloatingChat({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
 }
 
 // Copyable Example Component
-function CopyableExample({ text, label }: { text: string; label: string }) {
+function CopyableExample({ text, label, lang }: { text: string; label: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
+  const isCroatian = lang === 'hr' || (!lang && typeof window !== 'undefined' && window.location.pathname === '/');
 
   const handleCopy = async () => {
     try {
@@ -1541,7 +1542,7 @@ function CopyableExample({ text, label }: { text: string; label: string }) {
           }
         }}
       >
-        {copied ? '✓ Copied' : 'Copy'}
+        {copied ? (isCroatian ? '✓ Kopirano' : '✓ Copied') : (isCroatian ? 'Kopiraj' : 'Copy')}
       </button>
     </div>
   );
@@ -1736,7 +1737,7 @@ function EnglishLandingPage() {
             What to try
           </h2>
           <CopyableExample
-            text="How can the city help me as a citizen?"
+            text="How can you help me as a citizen?"
             label="Example 1 (general info)"
           />
           <CopyableExample
@@ -1744,7 +1745,7 @@ function EnglishLandingPage() {
             label="Example 2 (service guidance)"
           />
           <CopyableExample
-            text="I have an issue with public lighting in my street."
+            text="I need to report a problem"
             label="Example 3 (ticket flow)"
           />
           <p
@@ -2080,6 +2081,62 @@ function ChatPage() {
           >
             Admin Dashboard
           </a>
+        </div>
+      </section>
+
+      {/* What to Try Section */}
+      <section
+        style={{
+          padding: 'clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem)',
+          backgroundColor: '#ffffff',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto',
+            padding: '1.5rem',
+            backgroundColor: '#f9fafb',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 'clamp(1.125rem, 2vw, 1.25rem)',
+              fontWeight: 600,
+              color: '#111827',
+              margin: '0 0 1rem 0',
+            }}
+          >
+            Što možete probati
+          </h2>
+          <CopyableExample
+            text="Kako mi Grad može pomoći kao građaninu?"
+            label="Primjer 1 (općenito)"
+            lang="hr"
+          />
+          <CopyableExample
+            text="Kome se mogu obratiti za komunalni problem?"
+            label="Primjer 2 (usmjeravanje)"
+            lang="hr"
+          />
+          <CopyableExample
+            text="Želim prijaviti problem"
+            label="Primjer 3 (prijava)"
+            lang="hr"
+          />
+          <p
+            style={{
+              fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
+              color: '#6b7280',
+              margin: '1rem 0 0 0',
+              lineHeight: 1.6,
+              fontStyle: 'italic',
+            }}
+          >
+            Primjeri su tu da brže isprobate asistenta.
+          </p>
         </div>
       </section>
 

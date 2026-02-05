@@ -78,10 +78,16 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       .replace(/[\u0300-\u036f]/g, ''); // Strip diacritics
   }
 
+  // Helper to normalize text for matching (lowercase, trim)
+  function normalizeText(text: string): string {
+    return text.toLowerCase().trim();
+  }
+
   // Check if message matches ticket intent phrases
   function matchesTicketIntent(text: string): boolean {
     const normalized = normalizeCroatianText(text);
-    const phrases = [
+    const normalizedEn = normalizeText(text);
+    const croatianPhrases = [
       'prijaviti problem',
       'prijaviti kvar',
       'prijava problema',
@@ -89,7 +95,11 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       'trebam prijaviti',
       'zelim prijaviti',
     ];
-    return phrases.some(phrase => normalized.includes(phrase));
+    const englishPhrases = [
+      'i need to report a problem',
+    ];
+    return croatianPhrases.some(phrase => normalized.includes(phrase)) ||
+           englishPhrases.some(phrase => normalizedEn.includes(phrase));
   }
 
   // Choose transport based on config. Never use MockTransport in production.
@@ -445,10 +455,23 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       // Track user message for intake form initial description
       setUserMessages((prev) => [...prev, text]);
       
+      // Emit message event for recording (even though we're not sending to backend)
+      const currentTurnIndex = turnIndex;
+      setTurnIndex(currentTurnIndex + 1);
+      emitMessage(
+        cityId,
+        currentConversationId,
+        'user',
+        text,
+        userMessageId,
+        currentTurnIndex,
+        config.apiBaseUrl
+      );
+      
       // Open intake form
       setIntakeSubmitted(false);
       setShowIntakeForm(true);
-      return; // Do not send message to backend/LLM
+      return; // Do not send message to backend/LLM (form opens immediately)
     }
     
     // CRITICAL: Reset intake form state at the start of each message send
