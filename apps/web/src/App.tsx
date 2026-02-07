@@ -1650,7 +1650,7 @@ function EnglishLandingPage() {
               lineHeight: 1.6,
             }}
           >
-            <strong>Notice:</strong> This demo reflects workflows shaped by Croatian public-sector standards and operating practices.
+            <strong>Note:</strong> This demo reflects workflows shaped by Croatian public-sector standards and operating practices.
           </p>
         </div>
 
@@ -1674,7 +1674,7 @@ function EnglishLandingPage() {
               lineHeight: 1.6,
             }}
           >
-            The assistant is grounded on a small set of demo/mock documents (not official documents).
+            The assistant uses a small set of demo/mock documents for demonstration purposes.
           </p>
         </div>
 
