@@ -646,16 +646,119 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     }
   }, [isMobile, selectedConversationId]);
 
+  // Compute KPIs from conversations array
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
+    let aktivniZahtjevi = 0;
+    let danasZaprimljeni = 0;
+    let hitniZahtjevi = 0;
+    let rijeseniDanas = 0;
+
+    conversations.forEach((conv) => {
+      // 1. Aktivni zahtjevi: not resolved/closed
+      if (conv.status !== 'resolved' && conv.status !== 'closed') {
+        aktivniZahtjevi++;
+      }
+
+      // 2. Danas zaprimljeni: created today
+      if (conv.created_at) {
+        const createdDate = new Date(conv.created_at);
+        if (createdDate >= todayStart && createdDate < todayEnd) {
+          danasZaprimljeni++;
+        }
+      }
+
+      // 3. Hitni zahtjevi: urgent flag
+      if (conv.urgent === true) {
+        hitniZahtjevi++;
+      }
+
+      // 4. Riješeni danas: resolved/closed and updated today
+      if ((conv.status === 'resolved' || conv.status === 'closed') && conv.updated_at) {
+        const updatedDate = new Date(conv.updated_at);
+        if (updatedDate >= todayStart && updatedDate < todayEnd) {
+          rijeseniDanas++;
+        }
+      }
+    });
+
+    return {
+      aktivniZahtjevi,
+      danasZaprimljeni,
+      hitniZahtjevi,
+      rijeseniDanas,
+    };
+  }, [conversations]);
+
+  // KPI Bar component
+  const KPIBar = () => (
+    <div
+      style={{
+        width: '100%',
+        backgroundColor: '#fafafa',
+        borderBottom: '1px solid #e5e7eb',
+        padding: '1rem 1.5rem',
+        marginBottom: '1rem',
+      }}
+    >
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+          gap: isMobile ? '1rem' : '2rem',
+          maxWidth: '1200px',
+          margin: '0 auto',
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+            {kpis.aktivniZahtjevi}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Aktivni zahtjevi</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+            {kpis.danasZaprimljeni}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Danas zaprimljeni</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+            {kpis.hitniZahtjevi}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Hitni zahtjevi</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+            {kpis.rijeseniDanas}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Riješeni danas</div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
       style={{
         display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        height: isMobile ? 'auto' : 'calc(100vh - 200px)',
-        gap: '1rem',
+        flexDirection: 'column',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
     >
+      <KPIBar />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          height: isMobile ? 'auto' : 'calc(100vh - 200px)',
+          gap: '1rem',
+        }}
+      >
       {/* Left sidebar - Conversation list */}
       <div
         style={{
@@ -1703,6 +1806,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             Odaberite razgovor za prikaz detalja
           </div>
         )}
+      </div>
       </div>
     </div>
   );
