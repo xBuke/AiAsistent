@@ -1,4 +1,9 @@
-const BASE = (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || 'http://localhost:3000';
+// Use /api proxy for same-origin requests (avoids cross-site cookie issues in incognito)
+// In production, Vercel rewrites /api/* to https://asistent-api-nine.vercel.app/*
+// In development, fallback to localhost
+const BASE = import.meta.env.PROD 
+  ? '/api' 
+  : ((import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || 'http://localhost:3000');
 
 const defaultOpts: RequestInit = { credentials: 'include' };
 
