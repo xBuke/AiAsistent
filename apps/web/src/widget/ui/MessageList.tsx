@@ -27,31 +27,18 @@ function normalizeTitle(s: string | null | undefined): string {
 }
 
 /**
- * True if message is assistant and has at least one retrieved doc matching the novorodeno slug.
- * API does not send doc.type; match on doc.title (slug) only.
+ * CTA form type from this message's TOP-1 doc only (docs[0].title).
+ * Deterministic: exact match on normalized title; no fallback.
  */
-function assistantMessageHasNovorodenoSource(message: Message): boolean {
-  if (message.role !== 'assistant') return false;
-  const docs = message.metadata?.retrieved_docs_top3;
-  if (!Array.isArray(docs) || docs.length === 0) return false;
-  return docs.some((doc: { title?: string | null }) => {
-    const docNorm = normalizeTitle(doc.title ?? '');
-    return docNorm === NOVORODENO_SLUG || docNorm.includes('novorodeno');
-  });
-}
-
-/**
- * True if message is assistant and has at least one retrieved doc matching the jednokratna slug.
- * Match on normalizeTitle(doc.title) only (no doc.type).
- */
-function assistantMessageHasJednokratnaSource(message: Message): boolean {
-  if (message.role !== 'assistant') return false;
-  const docs = message.metadata?.retrieved_docs_top3;
-  if (!Array.isArray(docs) || docs.length === 0) return false;
-  return docs.some((doc: { title?: string | null }) => {
-    const docNorm = normalizeTitle(doc.title ?? '');
-    return docNorm === JEDNOKRATNA_SLUG;
-  });
+function getCtaFormTypeFromTopDoc(message: Message): FormCtaType | null {
+  if (message.role !== 'assistant') return null;
+  const docs = message.metadata?.retrieved_docs_top3 ?? [];
+  if (!Array.isArray(docs) || docs.length === 0) return null;
+  const topTitle = docs[0]?.title;
+  const norm = normalizeTitle(topTitle);
+  if (norm === NOVORODENO_SLUG) return 'novorodeno_dijete';
+  if (norm === JEDNOKRATNA_SLUG) return 'jednokratna_novcana_pomoc';
+  return null;
 }
 
 interface MessageListProps {
@@ -79,27 +66,13 @@ const MessageList: React.FC<MessageListProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [openCitationsId, setOpenCitationsId] = useState<string | null>(null);
 
-  const lastNovorodenoId =
-    messages
-      .filter((m) => assistantMessageHasNovorodenoSource(m))
-      .map((m) => m.id)
-      .pop() ?? null;
-  const lastJednokratnaId =
-    messages
-      .filter((m) => assistantMessageHasJednokratnaSource(m))
-      .map((m) => m.id)
-      .pop() ?? null;
-
-  const idxNovorodeno = lastNovorodenoId ? messages.findIndex((m) => m.id === lastNovorodenoId) : -1;
-  const idxJednokratna = lastJednokratnaId ? messages.findIndex((m) => m.id === lastJednokratnaId) : -1;
-  const lastMatchingAssistantId =
-    idxJednokratna > idxNovorodeno ? lastJednokratnaId : lastNovorodenoId;
-  const ctaFormType: FormCtaType | null =
-    lastMatchingAssistantId != null
-      ? idxJednokratna > idxNovorodeno
-        ? 'jednokratna_novcana_pomoc'
-        : 'novorodeno_dijete'
-      : null;
+  // Last assistant message whose top-1 doc (docs[0]) maps to a form type; CTA uses that message's form type
+  const messagesWithCta = messages
+    .map((m) => ({ id: m.id, formType: getCtaFormTypeFromTopDoc(m) }))
+    .filter((x): x is { id: string; formType: FormCtaType } => x.formType != null);
+  const lastCta = messagesWithCta.length > 0 ? messagesWithCta[messagesWithCta.length - 1] : null;
+  const lastMatchingAssistantId = lastCta?.id ?? null;
+  const ctaFormType: FormCtaType | null = lastCta?.formType ?? null;
 
   const dismissedForCurrentForm =
     ctaFormType === 'novorodeno_dijete'
