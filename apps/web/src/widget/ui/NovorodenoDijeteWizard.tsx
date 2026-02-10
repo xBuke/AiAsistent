@@ -177,6 +177,7 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
     setErrors({});
   };
 
+  // No submit logic yet – button is disabled/inert
   const handleSendRequest = () => {
     if (step !== 4 || !validateStep4(data)) return;
     onSendRequest();
@@ -239,7 +240,7 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
   return (
     <div style={baseStyle}>
       <div style={progressStyle}>
-        {t(lang, 'novorodenoStep')} {step}/4
+        {t(lang, 'novorodenoStep')} {step} / 4
       </div>
 
       {step === 1 && (
@@ -561,17 +562,21 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
             >
               {t(lang, 'novorodenoBack')}
             </button>
-          <button
-            type="button"
-            onClick={handleSendRequest}
-            style={{
-              ...buttonBase,
-              backgroundColor: primaryColor,
-              color: 'white',
-            }}
-          >
-            {t(lang, 'novorodenoSendRequest')}
-          </button>
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              onClick={() => {}}
+              style={{
+                ...buttonBase,
+                backgroundColor: primaryColor,
+                color: 'white',
+                opacity: 0.6,
+                cursor: 'not-allowed',
+              }}
+            >
+              {t(lang, 'novorodenoSendRequest')}
+            </button>
           </>
         )}
       </div>
