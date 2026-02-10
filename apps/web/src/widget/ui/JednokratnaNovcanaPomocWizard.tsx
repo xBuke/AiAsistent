@@ -963,6 +963,23 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
             {t(lang, 'jednokratnaNext')}
           </button>
         )}
+        {step === 5 && !isSummary && (
+          <button
+            type="button"
+            onClick={() => {
+              if (validateCurrent()) setShowSummary5(true);
+            }}
+            disabled={!canGoNext()}
+            style={{
+              ...buttonBase,
+              backgroundColor: canGoNext() ? primaryColor : '#ccc',
+              color: 'white',
+              opacity: canGoNext() ? 1 : 0.7,
+            }}
+          >
+            {t(lang, 'wizardPreview')}
+          </button>
+        )}
         {step === 5 && isSummary && (
           <>
             <button

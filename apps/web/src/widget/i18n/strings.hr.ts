@@ -116,6 +116,7 @@ export const strings = {
   jednokratnaOdustaniConfirm: 'Jeste li sigurni da želite odustati? Uneseni podaci će se obrisati.',
   jednokratnaNastavi: 'Nastavi',
   // Attachments step (both wizards)
+  wizardPreview: 'Pregled',
   attachmentsStepTitle: 'Prilozi',
   attachmentsFilesCount: 'Prilozi: {count} / 10',
   attachmentsDraftError: 'Nije moguće kreirati predložak zahtjeva. Pokušajte ponovno.',

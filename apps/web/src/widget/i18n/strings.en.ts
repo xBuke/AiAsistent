@@ -116,6 +116,7 @@ export const strings = {
   jednokratnaOdustaniConfirm: 'Are you sure you want to cancel? Entered data will be lost.',
   jednokratnaNastavi: 'Continue',
   // Attachments step (both wizards)
+  wizardPreview: 'Preview',
   attachmentsStepTitle: 'Attachments',
   attachmentsFilesCount: 'Attachments: {count} / 10',
   attachmentsDraftError: 'Could not create request draft. Please try again.',
