@@ -9,6 +9,7 @@ import { Dashboard } from './Dashboard';
 import { Conversations } from './Conversations';
 import { Reports } from './Reports';
 import { Inbox } from './Inbox';
+import { Forms } from './Forms';
 import { Filters } from './components/Filters';
 import { AdminShell } from './components/AdminShell';
 import type { AdminTabId } from './components/SidebarNav';
@@ -319,6 +320,7 @@ export function AdminApp() {
         {activeTab === "Reports" && (
           <ReportsTabContent events={events} filters={reportsFilters} onFiltersChange={setReportsFilters} />
         )}
+        {activeTab === "Obrasci" && <Forms />}
       </div>
     </AdminShell>
   );

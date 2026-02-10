@@ -45,4 +45,8 @@ export const strings = {
   intakeErrorEmailFormat: 'Neispravan format e-maila',
   intakeErrorConsent: 'Morate pristati na obradu osobnih podataka',
   intakeConfirmation: 'Hvala, vaša prijava je zaprimljena. Nadležna služba će vas kontaktirati.',
+  // CTA novorođeno
+  ctaSubmitRequest: 'Podnesi zahtjev',
+  ctaNotNow: 'Ne sada',
+  formPlaceholderNovorodeno: 'Pokrećem obrazac: Novčana pomoć za novorođeno dijete…',
 } as const;

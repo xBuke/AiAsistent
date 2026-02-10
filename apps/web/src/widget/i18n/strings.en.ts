@@ -45,4 +45,8 @@ export const strings = {
   intakeErrorEmailFormat: 'Invalid email format',
   intakeErrorConsent: 'You must consent to data processing',
   intakeConfirmation: 'Thank you, your inquiry has been received. The appropriate department will contact you.',
+  // CTA newborn
+  ctaSubmitRequest: 'Submit request',
+  ctaNotNow: 'Not now',
+  formPlaceholderNovorodeno: 'Launching form: Monetary assistance for newborn child…',
 } as const;

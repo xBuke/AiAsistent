@@ -22,6 +22,10 @@ interface ChatPanelProps {
   onIntakeSubmit?: (data: TicketIntakeData) => void;
   intakeInitialDescription?: string;
   onOpenIntakeForm?: () => void;
+  ctaDismissed?: boolean;
+  activeForm?: string | null;
+  onCtaDismiss?: () => void;
+  onCtaSubmit?: () => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -41,6 +45,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onIntakeSubmit,
   intakeInitialDescription = '',
   onOpenIntakeForm,
+  ctaDismissed = false,
+  activeForm = null,
+  onCtaDismiss,
+  onCtaSubmit,
 }) => {
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
@@ -251,8 +259,33 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           gap: '12px',
         }}
       >
-        <MessageList messages={messages} showTypingIndicator={showTypingIndicator} />
-        
+        <MessageList
+          messages={messages}
+          showTypingIndicator={showTypingIndicator}
+          lang={lang}
+          ctaDismissed={ctaDismissed}
+          activeForm={activeForm}
+          onCtaDismiss={onCtaDismiss}
+          onCtaSubmit={onCtaSubmit}
+        />
+
+        {/* Placeholder panel when activeForm is novorodeno_dijete */}
+        {activeForm === 'novorodeno_dijete' && (
+          <div
+            style={{
+              marginTop: '12px',
+              padding: '14px 16px',
+              borderRadius: '12px',
+              backgroundColor: '#f0f4f8',
+              border: '1px solid #e0e6ed',
+              fontSize: '14px',
+              color: '#333',
+            }}
+          >
+            {t(lang, 'formPlaceholderNovorodeno')}
+          </div>
+        )}
+
         {/* Ticket Intake Form - shown on fallback escalation */}
         {showIntakeForm && onIntakeSubmit ? (
             <TicketIntakeForm

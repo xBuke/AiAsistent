@@ -42,7 +42,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [ticket, setTicket] = useState<Ticket | undefined>(undefined);
   const [showIntakeForm, setShowIntakeForm] = useState(false);
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
-  
+  const [ctaDismissedSession, setCtaDismissedSession] = useState(false);
+  const [activeForm, setActiveForm] = useState<string | null>(null);
+
   // Expose global API for controlling widget (for CTA buttons)
   useEffect(() => {
     (window as any).CivisWidget = {
@@ -119,7 +121,9 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setTicket(undefined);
       setShowIntakeForm(false);
       setIntakeSubmitted(false);
-      
+      setCtaDismissedSession(false);
+      setActiveForm(null);
+
       // Emit conversation_start event
       emitConversationStart(cityId, newConversationId, config.apiBaseUrl);
     }
@@ -923,6 +927,10 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
             setShowIntakeForm(true);
             setIntakeSubmitted(false);
           }}
+          ctaDismissed={ctaDismissedSession}
+          activeForm={activeForm}
+          onCtaDismiss={() => setCtaDismissedSession(true)}
+          onCtaSubmit={() => setActiveForm('novorodeno_dijete')}
         />
       )}
       <div

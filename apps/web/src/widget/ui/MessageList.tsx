@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import TypingIndicator from './TypingIndicator';
 import { linkifyText } from '../utils/linkify';
+import { t } from '../i18n';
 
 export interface Message {
   id: string;
@@ -9,15 +10,47 @@ export interface Message {
   metadata?: any;
 }
 
+/** Demo heuristic: message is about novčana pomoć za novorođeno dijete */
+function matchesNovorodenoHeuristic(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  const n = text
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return n.includes('novorodeno') || (n.includes('novcana pomoc') && n.includes('novorodeno'));
+}
+
 interface MessageListProps {
   messages: Message[];
   showTypingIndicator: boolean;
+  lang?: string;
+  ctaDismissed?: boolean;
+  activeForm?: string | null;
+  onCtaDismiss?: () => void;
+  onCtaSubmit?: () => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator }) => {
+const MessageList: React.FC<MessageListProps> = ({
+  messages,
+  showTypingIndicator,
+  lang,
+  ctaDismissed = false,
+  activeForm = null,
+  onCtaDismiss,
+  onCtaSubmit,
+}) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [openCitationsId, setOpenCitationsId] = useState<string | null>(null);
+
+  const lastMatchingAssistantId =
+    messages
+      .filter((m) => m.role === 'assistant' && matchesNovorodenoHeuristic(m.content))
+      .map((m) => m.id)
+      .pop() ?? null;
+  const showCta =
+    !!lastMatchingAssistantId && !ctaDismissed && !activeForm && (onCtaDismiss != null || onCtaSubmit != null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -172,6 +205,49 @@ const MessageList: React.FC<MessageListProps> = ({ messages, showTypingIndicator
                   </div>
                 )}
               </>
+            )}
+            {message.role === 'assistant' && message.id === lastMatchingAssistantId && showCta && (
+              <div
+                style={{
+                  marginTop: '8px',
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={onCtaSubmit}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    backgroundColor: '#0b3a6e',
+                    color: 'white',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t(lang, 'ctaSubmitRequest')}
+                </button>
+                <button
+                  type="button"
+                  onClick={onCtaDismiss}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '20px',
+                    border: '1px solid #ccc',
+                    backgroundColor: 'transparent',
+                    color: '#666',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t(lang, 'ctaNotNow')}
+                </button>
+              </div>
             )}
           </div>
         );

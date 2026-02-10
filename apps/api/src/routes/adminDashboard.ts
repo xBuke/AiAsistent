@@ -803,6 +803,90 @@ export async function getQuestionsExamplesHandler(
 }
 
 /**
+ * GET /admin/forms
+ * Returns latest 50 rows from public.form_requests (reference_number, type, status, created_at).
+ * In production, requires admin session; in development, auth is bypassed for local testing.
+ */
+export async function getAdminFormsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  if (process.env.NODE_ENV === 'production') {
+    const session = await getSession(request);
+    if (!session) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    if (session.role !== 'admin') {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+  }
+
+  const { data: rows, error } = await supabase
+    .from('form_requests')
+    .select('reference_number, type, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    request.log.error({ err: error }, 'admin forms list failed');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+  return reply.send(rows ?? []);
+}
+
+interface FormPdfParams {
+  reference_number: string;
+}
+
+/**
+ * GET /admin/forms/:reference_number/pdf
+ * Serves PDF from pdf_base64. 404 if not found, 409 if pdf_base64 missing.
+ * In production, requires admin session; in development, auth is bypassed for local testing.
+ */
+export async function getAdminFormPdfHandler(
+  request: FastifyRequest<{ Params: FormPdfParams }>,
+  reply: FastifyReply
+) {
+  if (process.env.NODE_ENV === 'production') {
+    const session = await getSession(request);
+    if (!session) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    if (session.role !== 'admin') {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+  }
+
+  const { reference_number } = request.params;
+  const { data: row, error } = await supabase
+    .from('form_requests')
+    .select('pdf_base64')
+    .eq('reference_number', reference_number)
+    .single();
+
+  if (error || !row) {
+    return reply.status(404).send({ error: 'Form request not found' });
+  }
+  if (row.pdf_base64 == null || row.pdf_base64 === '') {
+    return reply.status(409).send({ error: 'PDF not available for this request' });
+  }
+
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(row.pdf_base64, 'base64');
+  } catch (e) {
+    request.log.error({ err: e }, 'admin form PDF base64 decode failed');
+    return reply.status(500).send({ error: 'Invalid PDF data' });
+  }
+
+  const filename = `${reference_number}.pdf`;
+  return reply
+    .header('Content-Type', 'application/pdf')
+    .header('Content-Disposition', `inline; filename="${filename}"`)
+    .send(buffer);
+}
+
+/**
  * Register admin dashboard routes
  */
 export async function registerAdminDashboardRoutes(server: FastifyInstance) {
@@ -812,4 +896,10 @@ export async function registerAdminDashboardRoutes(server: FastifyInstance) {
   server.get('/admin/knowledge-gaps', getKnowledgeGapsListHandler);
   server.get('/admin/knowledge-gaps/:id', getKnowledgeGapDetailHandler);
   server.get('/admin/questions/examples', getQuestionsExamplesHandler);
+  server.get('/admin/forms', getAdminFormsHandler);
+  server.get('/admin/forms/:reference_number/pdf', getAdminFormPdfHandler);
+
+  if (process.env.NODE_ENV !== 'production') {
+    server.log.info('Admin forms endpoints registered: GET /admin/forms, GET /admin/forms/:reference_number/pdf');
+  }
 }

@@ -3,13 +3,14 @@
  * Same layout for all roles; drives tab state (Dashboard, Inbox, Conversations, Reports).
  */
 
-export type AdminTabId = 'Dashboard' | 'Ticketi' | 'Svi razgovori' | 'Reports';
+export type AdminTabId = 'Dashboard' | 'Ticketi' | 'Svi razgovori' | 'Reports' | 'Obrasci';
 
 const NAV_ITEMS: { id: AdminTabId; label: string }[] = [
   { id: 'Dashboard', label: 'Dashboard' },
   { id: 'Ticketi', label: 'Upiti koji traze reakciju' },
   { id: 'Svi razgovori', label: 'Razgovori' },
   { id: 'Reports', label: 'Reports' },
+  { id: 'Obrasci', label: 'Obrasci / Zahtjevi' },
 ];
 
 interface SidebarNavProps {

@@ -473,3 +473,31 @@ export async function fetchTicketDetail(
 ): Promise<ApiConversationDetail> {
   return fetchConversationDetail(cityCode, ticketId);
 }
+
+/** API form request item (GET /admin/forms) */
+export interface ApiFormRequest {
+  reference_number: string;
+  type: string;
+  status: string | null;
+  created_at: string;
+}
+
+/**
+ * GET /admin/forms — list form requests (reference_number, type, status, created_at).
+ */
+export async function fetchAdminForms(): Promise<ApiFormRequest[]> {
+  const res = await fetch(`${BASE}/admin/forms`, {
+    ...defaultOpts,
+    method: 'GET',
+  });
+  if (!res.ok) throw new Error(`Forms: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * URL for opening a form request PDF in a new tab. Same-origin in prod (/api/...) so cookies are sent.
+ */
+export function getAdminFormPdfUrl(referenceNumber: string): string {
+  return `${BASE}/admin/forms/${encodeURIComponent(referenceNumber)}/pdf`;
+}
