@@ -20,6 +20,9 @@ import { upsertTicket, getTicket, getRecentFallbackCount, reopenTicket } from '.
 import type { Ticket } from '../analytics/tickets';
 import type { ContactData } from './ui/ContactHandoff';
 import type { TicketIntakeData } from './ui/TicketIntakeForm';
+import { getDefaultNovorodenoData, type NovorodenoDijeteFormData } from './ui/NovorodenoDijeteWizard';
+
+const NOVORODENO_WIZARD_STORAGE_KEY = 'civis_novorodeno_wizard';
 
 interface WidgetAppProps {
   config: WidgetConfig;
@@ -44,6 +47,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
   const [ctaDismissedSession, setCtaDismissedSession] = useState(false);
   const [activeForm, setActiveForm] = useState<string | null>(null);
+  const [novorodenoWizardStep, setNovorodenoWizardStep] = useState(1);
+  const [novorodenoWizardData, setNovorodenoWizardData] = useState<NovorodenoDijeteFormData>(() => getDefaultNovorodenoData());
 
   // Expose global API for controlling widget (for CTA buttons)
   useEffect(() => {
@@ -113,7 +118,6 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   // Initialize conversation when panel opens for the first time or starts new conversation
   useEffect(() => {
     if (isOpen && conversationId === null) {
-      // Create new conversation
       const newConversationId = createConversationId();
       setConversationId(newConversationId);
       setTurnIndex(0);
@@ -122,7 +126,28 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setShowIntakeForm(false);
       setIntakeSubmitted(false);
       setCtaDismissedSession(false);
+
+      // Restore novorodeno wizard from session if present (keep progress across widget close/reopen)
+      if (typeof sessionStorage !== 'undefined') {
+        try {
+          const stored = sessionStorage.getItem(NOVORODENO_WIZARD_STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored) as { step?: number; data?: NovorodenoDijeteFormData };
+            if (parsed?.data && typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= 4) {
+              setActiveForm('novorodeno_dijete');
+              setNovorodenoWizardStep(parsed.step);
+              setNovorodenoWizardData(parsed.data);
+              emitConversationStart(cityId, newConversationId, config.apiBaseUrl);
+              return;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
       setActiveForm(null);
+      setNovorodenoWizardStep(1);
+      setNovorodenoWizardData(getDefaultNovorodenoData());
 
       // Emit conversation_start event
       emitConversationStart(cityId, newConversationId, config.apiBaseUrl);
@@ -256,14 +281,22 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
   // Handle panel close - emit conversation_end and reset conversation for next open
   const handleClose = () => {
+    if (activeForm === 'novorodeno_dijete' && typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem(
+          NOVORODENO_WIZARD_STORAGE_KEY,
+          JSON.stringify({ step: novorodenoWizardStep, data: novorodenoWizardData })
+        );
+      } catch {
+        // ignore
+      }
+    }
     if (conversationId) {
       emitConversationEnd(cityId, conversationId, 'user_closed');
-      // Reset conversationId so next open starts a new conversation
       setConversationId(null);
       setTurnIndex(0);
     }
     setIsOpen(false);
-    // TODO: If inactivity timeout is implemented later, emit conversation_end with reason="timeout"
   };
 
   // Cleanup on unmount
@@ -930,7 +963,18 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           ctaDismissed={ctaDismissedSession}
           activeForm={activeForm}
           onCtaDismiss={() => setCtaDismissedSession(true)}
-          onCtaSubmit={() => setActiveForm('novorodeno_dijete')}
+          onCtaSubmit={() => {
+            setActiveForm('novorodeno_dijete');
+            setNovorodenoWizardStep(1);
+            setNovorodenoWizardData(getDefaultNovorodenoData());
+          }}
+          novorodenoWizardStep={novorodenoWizardStep}
+          novorodenoWizardData={novorodenoWizardData}
+          onNovorodenoWizardStepChange={setNovorodenoWizardStep}
+          onNovorodenoWizardDataChange={setNovorodenoWizardData}
+          onNovorodenoSendRequest={() => {
+            // No submit yet (handled in next prompt); keep wizard open with summary
+          }}
         />
       )}
       <div

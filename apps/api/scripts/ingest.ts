@@ -29,6 +29,42 @@ async function parseSourceUrl(content: string): Promise<string> {
   return '';
 }
 
+/**
+ * Parse CITY: slug from document content (e.g. "CITY: ploce").
+ * Used to scope document to a city for retrieval.
+ */
+function parseCitySlug(content: string): string {
+  const lines = content.split('\n');
+  for (const line of lines) {
+    if (line.startsWith('CITY:')) {
+      return line.replace(/^CITY:\s*/i, '').trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * Resolve city UUID by slug (then by code). Returns null if not found.
+ */
+async function resolveCityId(slug: string): Promise<string | null> {
+  if (!slug) return null;
+  const { data: bySlug } = await supabase
+    .from('cities')
+    .select('id')
+    .eq('slug', slug)
+    .limit(1)
+    .maybeSingle();
+  if (bySlug?.id) return bySlug.id;
+  const code = slug.toUpperCase();
+  const { data: byCode } = await supabase
+    .from('cities')
+    .select('id')
+    .eq('code', code)
+    .limit(1)
+    .maybeSingle();
+  return byCode?.id ?? null;
+}
+
 function extractContentForEmbedding(content: string): string {
   const lines = content.split('\n');
   const contentLines: string[] = [];
@@ -37,7 +73,7 @@ function extractContentForEmbedding(content: string): string {
   for (const line of lines) {
     // Skip metadata lines at the start
     if (!foundSeparator) {
-      if (line.match(/^(TITLE|TYPE|DATE|SOURCE):/i)) {
+      if (line.match(/^(TITLE|TYPE|DATE|SOURCE|CITY):/i)) {
         continue;
       }
       if (line.trim() === '---') {
@@ -68,7 +104,9 @@ async function ingestFile(filePath: string): Promise<void> {
     const title = basename(filename, ext);
     
     const sourceUrl = await parseSourceUrl(content);
-    
+    const citySlug = parseCitySlug(content);
+    const cityId = citySlug ? await resolveCityId(citySlug) : null;
+
     // Extract content for embedding and compute embedding
     let embedding: number[] | null = null;
     try {
@@ -77,26 +115,43 @@ async function ingestFile(filePath: string): Promise<void> {
     } catch (error) {
       console.warn(`Warning: Failed to generate embedding for ${filename}:`, error);
     }
-    
-    const { error } = await supabase
+
+    const row: Record<string, unknown> = {
+      title,
+      source_url: sourceUrl,
+      content,
+      content_hash: contentHash,
+      embedding: embedding || null,
+    };
+    if (cityId) row.city_id = cityId;
+
+    const { data: existing } = await supabase
       .from('documents')
-      .upsert(
-        {
-          title,
-          source_url: sourceUrl,
-          content,
-          content_hash: contentHash,
-          embedding: embedding || null,
-        },
-        {
-          onConflict: 'content_hash',
-        }
-      );
-    
+      .select('id')
+      .eq('content_hash', contentHash)
+      .limit(1)
+      .maybeSingle();
+
+    let error = null;
+    if (existing) {
+      const { error: updateErr } = await supabase
+        .from('documents')
+        .update(row)
+        .eq('id', existing.id);
+      error = updateErr;
+    } else {
+      const { error: insertErr } = await supabase
+        .from('documents')
+        .insert(row);
+      error = insertErr;
+    }
+
     if (error) {
       console.error(`Error upserting ${filename}:`, error.message);
     } else {
-      console.log(`✓ Processed: ${filename}${embedding ? ' (with embedding)' : ' (without embedding)'}`);
+      const parts = [embedding ? 'with embedding' : 'without embedding'];
+      if (cityId) parts.push(`city: ${citySlug}`);
+      console.log(`✓ Processed: ${filename} (${parts.join(', ')})`);
     }
   } catch (error) {
     console.error(`Error processing ${filePath}:`, error);

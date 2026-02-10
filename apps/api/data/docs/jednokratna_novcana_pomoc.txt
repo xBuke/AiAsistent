@@ -1,0 +1,55 @@
+TITLE: Jednokratna novčana pomoć
+TYPE: jednokratna_novcana_pomoc
+DATE: 2026-02-10
+SOURCE: demo_civis_internal
+CITY: ploce
+
+Grad Ploče omogućuje ostvarivanje prava na jednokratnu novčanu pomoć građanima koji su se našli u teškoj ili izvanrednoj životnoj situaciji, sukladno važećim odlukama i pravilima Grada.
+
+Jednokratna novčana pomoć namijenjena je ublažavanju posljedica financijskih poteškoća nastalih uslijed posebnih okolnosti kao što su gubitak prihoda, zdravstveni razlozi, povećani životni troškovi ili druge izvanredne situacije.
+
+## Tko može ostvariti pravo
+Pravo na jednokratnu novčanu pomoć može ostvariti građanin koji:
+- ima prebivalište na području Grada Ploča
+- podnese obrazloženi zahtjev za dodjelu pomoći
+- ispunjava uvjete propisane važećim gradskim odlukama
+
+Pravo se razmatra pojedinačno, uzimajući u obzir ukupne okolnosti i socijalni status podnositelja zahtjeva.
+
+## Iznos novčane pomoći
+Iznos jednokratne novčane pomoći nije unaprijed fiksno određen te ovisi o:
+- razlozima podnošenja zahtjeva
+- financijskom i socijalnom statusu podnositelja
+- raspoloživim sredstvima u proračunu Grada Ploča
+
+Odluku o iznosu donosi Grad Ploče nakon provedenog postupka razmatranja zahtjeva.
+
+## Postupak podnošenja zahtjeva
+Zahtjev za jednokratnu novčanu pomoć može se podnijeti:
+- osobno Gradu Pločama
+- ili elektroničkim putem putem sustava Civis – AI asistent Grada Ploča
+
+U zahtjevu je potrebno navesti razlog podnošenja zamolbe te, prema potrebi, priložiti odgovarajuću dokumentaciju.
+
+## Dokumentacija
+Uz zahtjev se, ovisno o okolnostima, može zatražiti:
+- dokaz o prihodima
+- potvrda o zaposlenju, mirovini ili nezaposlenosti
+- porezna potvrda
+- dokaz o troškovima ili zdravstvenom stanju
+- potvrda o IBAN računu
+- ostala dokumentacija prema zahtjevu Grada
+
+Nakon zaprimanja zahtjeva, Grad Ploče provodi postupak obrade te donosi odluku o dodjeli ili odbijanju jednokratne novčane pomoći.
+
+Grad Ploče zadržava pravo zatražiti dodatnu dokumentaciju ili pojašnjenja tijekom postupka obrade zahtjeva.
+
+Q&A HINTS:
+Q: Kako mogu ostvariti jednokratnu novčanu pomoć u Gradu Pločama?
+A: Građanin može podnijeti obrazloženi zahtjev Gradu Pločama osobno ili elektroničkim putem kroz sustav Civis – AI asistent Grada Ploča.
+
+Q: O čemu ovisi iznos jednokratne novčane pomoći?
+A: Ovisi o razlozima zahtjeva, financijskom i socijalnom statusu podnositelja te raspoloživim sredstvima u proračunu Grada.
+
+Q: Koja dokumentacija se može tražiti uz zahtjev?
+A: Dokazi o prihodima, statusu zaposlenja, zdravstvenim okolnostima, IBAN te druga dokumentacija prema potrebi.

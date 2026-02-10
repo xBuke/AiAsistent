@@ -2,6 +2,7 @@ import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import MessageList, { Message } from './MessageList';
 import ContactHandoff, { ContactData } from './ContactHandoff';
 import TicketIntakeForm, { TicketIntakeData } from './TicketIntakeForm';
+import NovorodenoDijeteWizard, { type NovorodenoDijeteFormData } from './NovorodenoDijeteWizard';
 import { t } from '../i18n';
 import type { Ticket } from '../../analytics/tickets';
 
@@ -26,6 +27,11 @@ interface ChatPanelProps {
   activeForm?: string | null;
   onCtaDismiss?: () => void;
   onCtaSubmit?: () => void;
+  novorodenoWizardStep?: number;
+  novorodenoWizardData?: NovorodenoDijeteFormData;
+  onNovorodenoWizardStepChange?: (step: number) => void;
+  onNovorodenoWizardDataChange?: (data: NovorodenoDijeteFormData) => void;
+  onNovorodenoSendRequest?: () => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -49,6 +55,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   activeForm = null,
   onCtaDismiss,
   onCtaSubmit,
+  novorodenoWizardStep = 1,
+  novorodenoWizardData,
+  onNovorodenoWizardStepChange,
+  onNovorodenoWizardDataChange,
+  onNovorodenoSendRequest,
 }) => {
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
@@ -269,21 +280,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           onCtaSubmit={onCtaSubmit}
         />
 
-        {/* Placeholder panel when activeForm is novorodeno_dijete */}
-        {activeForm === 'novorodeno_dijete' && (
-          <div
-            style={{
-              marginTop: '12px',
-              padding: '14px 16px',
-              borderRadius: '12px',
-              backgroundColor: '#f0f4f8',
-              border: '1px solid #e0e6ed',
-              fontSize: '14px',
-              color: '#333',
-            }}
-          >
-            {t(lang, 'formPlaceholderNovorodeno')}
-          </div>
+        {/* Novorođeno dijete wizard when activeForm is novorodeno_dijete */}
+        {activeForm === 'novorodeno_dijete' && novorodenoWizardData && onNovorodenoWizardStepChange && onNovorodenoWizardDataChange && onNovorodenoSendRequest && (
+          <NovorodenoDijeteWizard
+            lang={lang}
+            primaryColor={primaryColor}
+            step={novorodenoWizardStep}
+            data={novorodenoWizardData}
+            onStepChange={onNovorodenoWizardStepChange}
+            onDataChange={onNovorodenoWizardDataChange}
+            onSendRequest={onNovorodenoSendRequest}
+          />
         )}
 
         {/* Ticket Intake Form - shown on fallback escalation */}

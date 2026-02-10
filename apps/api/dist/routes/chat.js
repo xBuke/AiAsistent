@@ -86,7 +86,7 @@ export async function chatHandler(request, reply) {
     const { conversationId } = request.body || {};
     // Track trace data
     const traceStartTime = Date.now();
-    const model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
     let usedFallback = false;
     let retrievedDocs = [];
     let conversationUuid = null;
@@ -220,7 +220,12 @@ export async function chatHandler(request, reply) {
         }
         // Deterministic keyword trigger: check for ticket intent BEFORE retrieval/LLM
         if (matchesTicketIntent(message)) {
-            request.log.info({ message, conversationUuid }, 'Ticket intent detected via keyword matching - triggering form immediately');
+            request.log.info({
+                message,
+                conversationUuid,
+                normalized: message.toLowerCase().trim(),
+                matched: true
+            }, '[DEBUG][BACKEND_GATE] Ticket intent detected via keyword matching - triggering form immediately');
             // Emit meta event with needs_human=true to trigger ticket form
             const latencyMs = Date.now() - traceStartTime;
             const traceData = {
@@ -232,6 +237,13 @@ export async function chatHandler(request, reply) {
                 needs_human: true, // Explicit trigger for ticket form
             };
             writeSseEvent(reply.raw, 'meta', JSON.stringify(traceData));
+            // TEMPORARY DEBUG: Log meta emission
+            request.log.info({
+                conversationUuid,
+                traceData,
+                needs_human: traceData.needs_human,
+                metaJson: JSON.stringify(traceData)
+            }, '[DEBUG][BACKEND_META] Emitting meta event with needs_human=true');
             // Send completion signal
             reply.raw.write('data: [DONE]\n\n');
             // Update conversation to mark needs_human

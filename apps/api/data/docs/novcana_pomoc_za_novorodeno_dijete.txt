@@ -1,0 +1,51 @@
+TITLE: Novčana pomoć za novorođeno dijete
+TYPE: novorodeno_dijete
+DATE: 2026-02-10
+SOURCE: demo_civis_internal
+CITY: ploce
+
+Grad Ploče osigurava jednokratnu novčanu pomoć za roditelje novorođene djece s ciljem poticanja nataliteta i pružanja financijske potpore obiteljima.
+
+Pravo na novčanu pomoć može ostvariti jedan od roditelja novorođenog djeteta, sukladno važećim odlukama i pravilima Grada Ploča.
+
+## Uvjeti za ostvarivanje prava
+Pravo na jednokratnu novčanu pomoć može ostvariti roditelj:
+- koji ima prebivalište na području Grada Ploča
+- čije je dijete rođeno u tekućoj godini
+- koji nije ostvario isto pravo u drugoj jedinici lokalne samouprave
+
+Ako jedan od roditelja nema prebivalište u Gradu Pločama, potrebno je dostaviti potvrdu da pravo na novčanu pomoć nije ostvareno u drugoj jedinici lokalne samouprave.
+
+Za treće i svako sljedeće dijete mogu se primjenjivati dodatni uvjeti ili uvećani iznos pomoći, sukladno važećim gradskim odlukama.
+
+## Iznos novčane pomoći
+Iznos novčane pomoći određuje se odlukom Grada Ploča te može varirati ovisno o:
+- broju djece u obitelji
+- prebivalištu roditelja
+- raspoloživim proračunskim sredstvima Grada
+
+## Postupak podnošenja zahtjeva
+Zahtjev za ostvarivanje prava može se podnijeti:
+- osobno Gradu Pločama
+- ili elektroničkim putem putem sustava Civis – AI asistent Grada Ploča
+
+Uz zahtjev se, prema potrebi, prilaže sljedeća dokumentacija:
+- rodni list djeteta
+- dokaz o prebivalištu djeteta
+- preslike osobnih iskaznica roditelja
+- potvrda o IBAN računu
+- ostala dokumentacija prema zahtjevu Grada
+
+Nakon zaprimanja zahtjeva, Grad Ploče provodi postupak obrade te donosi odluku o dodjeli novčane pomoći.
+
+Grad Ploče zadržava pravo provjere dostavljene dokumentacije te može zatražiti dodatne podatke tijekom postupka obrade zahtjeva.
+
+Q&A HINTS:
+Q: Kako mogu dobiti novčanu pomoć za novorođeno dijete u Gradu Pločama?
+A: Roditelj novorođenog djeteta može podnijeti zahtjev Gradu Pločama osobno ili elektroničkim putem kroz sustav Civis – AI asistent Grada Ploča, uz ispunjavanje propisanih uvjeta.
+
+Q: Tko ima pravo na novčanu pomoć za novorođeno dijete?
+A: Pravo ima jedan od roditelja novorođenog djeteta s prebivalištem u Gradu Pločama, uz uvjet da pravo nije ostvareno u drugoj jedinici lokalne samouprave.
+
+Q: Koja dokumentacija je potrebna za ostvarivanje prava?
+A: Rodni list djeteta, dokaz o prebivalištu, osobni dokumenti roditelja, IBAN te ostala dokumentacija prema potrebi.

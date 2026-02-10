@@ -19,10 +19,12 @@ Simply place new or updated `.txt` or `.md` files in this directory (`apps/api/d
   TYPE: document_type
   DATE: 2024-01-01
   SOURCE: https://example.com
+  CITY: ploce
   ---
   [Document content here...]
   ```
 - The content after the `---` separator (or entire file if no separator) will be used for embeddings
+- `CITY:` is the city slug (e.g. `ploce`) so the document is scoped for retrieval to that city; resolve by slug then by code
 
 ### 2. Ingest Documents to Database
 
