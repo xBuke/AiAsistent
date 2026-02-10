@@ -501,3 +501,44 @@ export async function fetchAdminForms(): Promise<ApiFormRequest[]> {
 export function getAdminFormPdfUrl(referenceNumber: string): string {
   return `${BASE}/admin/forms/${encodeURIComponent(referenceNumber)}/pdf`;
 }
+
+/** API attachment item (GET /admin/forms/:reference_number/attachments) */
+export interface ApiAttachment {
+  id: string;
+  stored_filename: string;
+  category_key: string;
+  category_label?: string;
+  size_bytes: number;
+  mime_type: string;
+  created_at: string;
+}
+
+/**
+ * GET /admin/forms/:reference_number/attachments — list attachments for a form request (admin-only).
+ */
+export async function fetchAdminFormAttachments(referenceNumber: string): Promise<ApiAttachment[]> {
+  const res = await fetch(
+    `${BASE}/admin/forms/${encodeURIComponent(referenceNumber)}/attachments`,
+    { ...defaultOpts, method: 'GET' }
+  );
+  if (!res.ok) throw new Error(`Attachments: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * GET /admin/forms/:reference_number/attachments/:attachment_id/signed-url — get signed URL for an attachment (admin-only).
+ * Returns { url: string }.
+ */
+export async function fetchAdminFormAttachmentSignedUrl(
+  referenceNumber: string,
+  attachmentId: string
+): Promise<string> {
+  const res = await fetch(
+    `${BASE}/admin/forms/${encodeURIComponent(referenceNumber)}/attachments/${encodeURIComponent(attachmentId)}/signed-url`,
+    { ...defaultOpts, method: 'GET' }
+  );
+  if (!res.ok) throw new Error(`Signed URL: ${res.status}`);
+  const data = await res.json();
+  return data?.url ?? '';
+}

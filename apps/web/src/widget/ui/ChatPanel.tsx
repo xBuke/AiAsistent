@@ -9,6 +9,7 @@ import type { Ticket } from '../../analytics/tickets';
 
 interface ChatPanelProps {
   cityId: string;
+  apiBaseUrl?: string;
   lang?: string;
   logoUrl?: string;
   primaryColor?: string;
@@ -47,6 +48,7 @@ interface ChatPanelProps {
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
   cityId,
+  apiBaseUrl,
   lang,
   logoUrl,
   primaryColor = '#0b3a6e',
@@ -314,6 +316,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             onSubmit={onNovorodenoSubmit}
             onSuccess={onNovorodenoSuccess}
             onOdustani={onNovorodenoOdustani}
+            apiBaseUrl={apiBaseUrl}
+            citySlug={cityId}
           />
         )}
 
@@ -329,6 +333,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             onSubmit={onJednokratnaSubmit}
             onSuccess={onJednokratnaSuccess}
             onOdustani={onJednokratnaOdustani}
+            apiBaseUrl={apiBaseUrl}
+            citySlug={cityId}
           />
         )}
 

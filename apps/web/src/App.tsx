@@ -1748,6 +1748,10 @@ function EnglishLandingPage() {
             text="I need to report a problem"
             label="Example 3 (ticket flow)"
           />
+          <CopyableExample
+            text="I want to apply for one-time financial assistance"
+            label="Example 4 (form submission)"
+          />
           <p
             style={{
               fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
@@ -1758,6 +1762,16 @@ function EnglishLandingPage() {
             }}
           >
             These examples are in English for clarity. The assistant UI and responses are in Croatian.
+          </p>
+          <p
+            style={{
+              fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
+              color: '#6b7280',
+              margin: '0.5rem 0 0 0',
+              lineHeight: 1.6,
+            }}
+          >
+            These examples demonstrate how the assistant guides citizens through official form submissions, step by step.
           </p>
         </div>
 
@@ -2156,6 +2170,11 @@ function ChatPage() {
             label="Primjer 3 (prijava)"
             lang="hr"
           />
+          <CopyableExample
+            text="Želim podnijeti zahtjev za jednokratnu novčanu pomoć"
+            label="Primjer 4 (ispuna obrasca)"
+            lang="hr"
+          />
           <p
             style={{
               fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
@@ -2166,6 +2185,16 @@ function ChatPage() {
             }}
           >
             Primjeri su tu da brže isprobate asistenta.
+          </p>
+          <p
+            style={{
+              fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
+              color: '#6b7280',
+              margin: '0.5rem 0 0 0',
+              lineHeight: 1.6,
+            }}
+          >
+            Ovi primjeri pokazuju kako asistent vodi građanina kroz ispunu službenih obrazaca, korak po korak.
           </p>
         </div>
       </section>

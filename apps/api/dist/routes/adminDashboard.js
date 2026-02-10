@@ -675,9 +675,11 @@ export async function getAdminFormsHandler(request, reply) {
             return reply.status(403).send({ error: 'Forbidden' });
         }
     }
+    // Exclude draft rows so they never show in admin list (draft is for future use).
     const { data: rows, error } = await supabase
         .from('form_requests')
         .select('reference_number, type, status, created_at')
+        .neq('status', 'draft')
         .order('created_at', { ascending: false })
         .limit(50);
     if (error) {
@@ -728,6 +730,83 @@ export async function getAdminFormPdfHandler(request, reply) {
         .send(buffer);
 }
 /**
+ * GET /admin/forms/:reference_number/attachments
+ * Returns list of attachments for a form request (admin-only). No public URLs; bucket is private.
+ * Ordered by stored_filename asc.
+ */
+export async function getAdminFormAttachmentsHandler(request, reply) {
+    if (process.env.NODE_ENV === 'production') {
+        const session = await getSession(request);
+        if (!session) {
+            return reply.status(401).send({ error: 'Unauthorized' });
+        }
+        if (session.role !== 'admin') {
+            return reply.status(403).send({ error: 'Forbidden' });
+        }
+    }
+    const { reference_number } = request.params;
+    const { data: formRequest, error: frError } = await supabase
+        .from('form_requests')
+        .select('id')
+        .eq('reference_number', reference_number)
+        .single();
+    if (frError || !formRequest) {
+        return reply.status(404).send({ error: 'Form request not found' });
+    }
+    const { data: rows, error } = await supabase
+        .from('form_request_attachments')
+        .select('id, stored_filename, category_key, category_label, size_bytes, mime_type, created_at')
+        .eq('form_request_id', formRequest.id)
+        .order('stored_filename', { ascending: true });
+    if (error) {
+        request.log.error({ err: error }, 'admin form attachments list failed');
+        return reply.status(500).send({ error: 'Internal server error' });
+    }
+    return reply.send(rows ?? []);
+}
+const SIGNED_URL_EXPIRY_SECONDS = 60;
+/**
+ * GET /admin/forms/:reference_number/attachments/:attachment_id/signed-url
+ * Returns a short-lived signed URL for preview/download (admin-only).
+ */
+export async function getAdminFormAttachmentSignedUrlHandler(request, reply) {
+    if (process.env.NODE_ENV === 'production') {
+        const session = await getSession(request);
+        if (!session) {
+            return reply.status(401).send({ error: 'Unauthorized' });
+        }
+        if (session.role !== 'admin') {
+            return reply.status(403).send({ error: 'Forbidden' });
+        }
+    }
+    const { reference_number, attachment_id } = request.params;
+    const { data: formRequest, error: frError } = await supabase
+        .from('form_requests')
+        .select('id')
+        .eq('reference_number', reference_number)
+        .single();
+    if (frError || !formRequest) {
+        return reply.status(404).send({ error: 'Form request not found' });
+    }
+    const { data: attachment, error: attError } = await supabase
+        .from('form_request_attachments')
+        .select('storage_path, bucket_name')
+        .eq('id', attachment_id)
+        .eq('form_request_id', formRequest.id)
+        .single();
+    if (attError || !attachment) {
+        return reply.status(404).send({ error: 'Attachment not found' });
+    }
+    const { data: signed, error: signError } = await supabase.storage
+        .from(attachment.bucket_name)
+        .createSignedUrl(attachment.storage_path, SIGNED_URL_EXPIRY_SECONDS);
+    if (signError) {
+        request.log.error({ err: signError }, 'signed URL creation failed');
+        return reply.status(500).send({ error: 'Failed to generate download URL' });
+    }
+    return reply.send({ url: signed.signedUrl });
+}
+/**
  * Register admin dashboard routes
  */
 export async function registerAdminDashboardRoutes(server) {
@@ -739,7 +818,9 @@ export async function registerAdminDashboardRoutes(server) {
     server.get('/admin/questions/examples', getQuestionsExamplesHandler);
     server.get('/admin/forms', getAdminFormsHandler);
     server.get('/admin/forms/:reference_number/pdf', getAdminFormPdfHandler);
+    server.get('/admin/forms/:reference_number/attachments', getAdminFormAttachmentsHandler);
+    server.get('/admin/forms/:reference_number/attachments/:attachment_id/signed-url', getAdminFormAttachmentSignedUrlHandler);
     if (process.env.NODE_ENV !== 'production') {
-        server.log.info('Admin forms endpoints registered: GET /admin/forms, GET /admin/forms/:reference_number/pdf');
+        server.log.info('Admin forms endpoints registered: GET /admin/forms, GET /admin/forms/:reference_number/pdf, attachments');
     }
 }

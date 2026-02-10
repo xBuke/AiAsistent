@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 import { registerRateLimit } from './middleware/rateLimit.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerChatRoutes } from './routes/chat.js';
@@ -37,6 +38,9 @@ export async function buildServer() {
   });
 
   await server.register(cookie);
+
+  // Required for POST /forms/:reference_number/attachments (multipart file upload).
+  await server.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB per file
 
   await registerRateLimit(server);
 

@@ -1,5 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { t } from '../i18n';
+
+/** Single uploaded attachment (from API response) */
+export interface JednokratnaAttachmentItem {
+  id: string;
+  stored_filename: string;
+  category_key: string;
+  category_label?: string;
+  size_bytes?: number;
+  mime_type?: string;
+  created_at?: string;
+}
 
 export interface JednokratnaNovcanaPomocFormData {
   podnositelj: {
@@ -20,6 +31,13 @@ export interface JednokratnaNovcanaPomocFormData {
   meta: {
     mjesto_podnosenja: string;
     datum_podnosenja: string;
+  };
+  draftReferenceNumber?: string;
+  draftFormRequestId?: string;
+  attachments?: {
+    enabledCategories: Record<string, boolean>;
+    uploaded: JednokratnaAttachmentItem[];
+    errors?: Record<string, string>;
   };
 }
 
@@ -45,8 +63,24 @@ export function getDefaultJednokratnaData(): JednokratnaNovcanaPomocFormData {
       podstanar: null,
     },
     meta: { mjesto_podnosenja: DEFAULT_MJESTO, datum_podnosenja: todayCroatian() },
+    attachments: { enabledCategories: {}, uploaded: [] },
   };
 }
+
+const MAX_ATTACHMENTS_TOTAL = 10;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_MIME_J = ['application/pdf', 'image/jpeg', 'image/png'] as const;
+
+const JEDNOKRATNA_ATTACHMENT_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'osobni_dokumenti', label: 'Osobni dokumenti (OI/rodni listovi kućanstva)' },
+  { key: 'izjava_kucanstvo', label: 'Izjava o članovima kućanstva' },
+  { key: 'dokaz_primanja', label: 'Dokaz o primanjima (zadnja 3 mjeseca)' },
+  { key: 'porezna_potvrda', label: 'Porezna potvrda (ako primjenjivo)' },
+  { key: 'potvrda_poslodavac', label: 'Potvrda poslodavca / HZZ / mirovina (ako primjenjivo)' },
+  { key: 'ugovor_najam', label: 'Ugovor o najmu/podstanarstvu (ako primjenjivo)' },
+  { key: 'lijecnicka', label: 'Liječnička dokumentacija (ako primjenjivo)' },
+  { key: 'ostalo', label: 'Ostalo' },
+];
 
 const OIB_REGEX = /^\d{11}$/;
 const IBAN_MIN_LENGTH = 15;
@@ -70,13 +104,24 @@ function validateStep3(data: JednokratnaNovcanaPomocFormData): boolean {
   return r.length >= RAZLOG_MIN_LENGTH;
 }
 
-function validateStep4(data: JednokratnaNovcanaPomocFormData): boolean {
+function validateStep5(data: JednokratnaNovcanaPomocFormData): boolean {
   const { zdravstveni_razlog, gubitak_prihoda, podstanar } = data.okolnosti;
   return (
     zdravstveni_razlog !== null &&
     gubitak_prihoda !== null &&
     podstanar !== null
   );
+}
+
+function validateAttachmentsStep(data: JednokratnaNovcanaPomocFormData): boolean {
+  if (!data.draftReferenceNumber) return false;
+  const uploaded = data.attachments?.uploaded ?? [];
+  if (uploaded.length > MAX_ATTACHMENTS_TOTAL) return false;
+  const enabled = data.attachments?.enabledCategories ?? {};
+  for (const key of Object.keys(enabled)) {
+    if (enabled[key] && !uploaded.some((u) => u.category_key === key)) return false;
+  }
+  return true;
 }
 
 interface JednokratnaNovcanaPomocWizardProps {
@@ -89,6 +134,8 @@ interface JednokratnaNovcanaPomocWizardProps {
   onSubmit?: (data: JednokratnaNovcanaPomocFormData) => Promise<{ reference_number?: string; error?: string }>;
   onSuccess?: (referenceNumber: string) => void;
   onOdustani?: () => void;
+  apiBaseUrl?: string;
+  citySlug?: string;
 }
 
 const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps> = ({
@@ -101,12 +148,18 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
   onSubmit,
   onSuccess,
   onOdustani,
+  apiBaseUrl,
+  citySlug,
 }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showSummary4, setShowSummary4] = useState(false);
+  const [showSummary5, setShowSummary5] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showOdustaniConfirm, setShowOdustaniConfirm] = useState(false);
+  const [showNoAttachmentsConfirm, setShowNoAttachmentsConfirm] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
 
   const update = useCallback(
     (slice: Partial<JednokratnaNovcanaPomocFormData>) => {
@@ -120,9 +173,100 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
     if (step === 1) return validateStep1(data);
     if (step === 2) return validateStep2(data);
     if (step === 3) return validateStep3(data);
-    if (step === 4) return validateStep4(data);
+    if (step === 4) return validateAttachmentsStep(data);
+    if (step === 5) return validateStep5(data);
     return false;
   };
+
+  const createDraft = useCallback(async () => {
+    if (!apiBaseUrl?.trim() || !citySlug?.trim() || data.draftReferenceNumber) return;
+    setDraftError(null);
+    setDraftLoading(true);
+    const url = `${apiBaseUrl.replace(/\/$/, '')}/forms/draft`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ city_slug: citySlug, type: 'jednokratna_novcana_pomoc', data_json: {} }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { form_request_id?: string; reference_number?: string; status?: string; error?: string };
+      if (res.ok && json.reference_number) {
+        onDataChange({
+          ...data,
+          draftReferenceNumber: json.reference_number,
+          draftFormRequestId: json.form_request_id,
+          attachments: { ...data.attachments, enabledCategories: data.attachments?.enabledCategories ?? {}, uploaded: data.attachments?.uploaded ?? [] },
+        });
+      } else {
+        setDraftError(json.error || t(lang, 'attachmentsDraftError'));
+      }
+    } catch {
+      setDraftError(t(lang, 'attachmentsDraftError'));
+    } finally {
+      setDraftLoading(false);
+    }
+  }, [apiBaseUrl, citySlug, data, lang, onDataChange]);
+
+  useEffect(() => {
+    if (step === 4 && !data.draftReferenceNumber && apiBaseUrl?.trim() && citySlug?.trim() && !draftLoading) {
+      createDraft();
+    }
+  }, [step, data.draftReferenceNumber, apiBaseUrl, citySlug, draftLoading, createDraft]);
+
+  const uploadFile = useCallback(
+    async (categoryKey: string, categoryLabel: string, file: File) => {
+      const ref = data.draftReferenceNumber;
+      if (!ref || !apiBaseUrl?.trim()) return;
+      if (!ALLOWED_MIME_J.includes(file.type as any)) return;
+      if (file.size > MAX_FILE_SIZE_BYTES) return;
+      const uploaded = data.attachments?.uploaded ?? [];
+      if (uploaded.length >= MAX_ATTACHMENTS_TOTAL) return;
+      setUploadingCategory(categoryKey);
+      const url = `${apiBaseUrl.replace(/\/$/, '')}/forms/${encodeURIComponent(ref)}/attachments`;
+      const form = new FormData();
+      form.append('category_key', categoryKey);
+      form.append('category_label', categoryLabel);
+      form.append('file', file);
+      try {
+        const res = await fetch(url, { method: 'POST', body: form });
+        const json = (await res.json().catch(() => ({}))) as { id?: string; stored_filename?: string; category_key?: string; created_at?: string; error?: string };
+        if (res.ok && json.id) {
+          onDataChange({
+            ...data,
+            attachments: {
+              ...data.attachments,
+              enabledCategories: data.attachments?.enabledCategories ?? {},
+              uploaded: [...(data.attachments?.uploaded ?? []), { id: json.id, stored_filename: json.stored_filename ?? '', category_key: json.category_key ?? categoryKey, created_at: json.created_at }],
+              errors: { ...data.attachments?.errors, [categoryKey]: '' },
+            },
+          });
+        } else {
+          onDataChange({
+            ...data,
+            attachments: {
+              ...data.attachments,
+              enabledCategories: data.attachments?.enabledCategories ?? {},
+              uploaded: data.attachments?.uploaded ?? [],
+              errors: { ...data.attachments?.errors, [categoryKey]: json.error || t(lang, 'attachmentsUploadError') },
+            },
+          });
+        }
+      } catch {
+        onDataChange({
+          ...data,
+          attachments: {
+            ...data.attachments,
+            enabledCategories: data.attachments?.enabledCategories ?? {},
+            uploaded: data.attachments?.uploaded ?? [],
+            errors: { ...data.attachments?.errors, [categoryKey]: t(lang, 'attachmentsUploadError') },
+          },
+        });
+      } finally {
+        setUploadingCategory(null);
+      }
+    },
+    [data, apiBaseUrl, lang, onDataChange]
+  );
 
   const validateCurrent = (): boolean => {
     const e: Record<string, string> = {};
@@ -147,6 +291,18 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
         e.razlog_zamolbe = t(lang, 'jednokratnaErrorRazlog');
     }
     if (step === 4) {
+      if (!data.draftReferenceNumber) return false;
+      const uploaded = data.attachments?.uploaded ?? [];
+      if (uploaded.length > MAX_ATTACHMENTS_TOTAL) return false;
+      const enabled = data.attachments?.enabledCategories ?? {};
+      for (const key of Object.keys(enabled)) {
+        if (enabled[key] && !uploaded.some((u) => u.category_key === key)) {
+          e.attachments = t(lang, 'attachmentsCategoryRequired');
+          break;
+        }
+      }
+    }
+    if (step === 5) {
       if (data.okolnosti.zdravstveni_razlog === null)
         e.zdravstveni_razlog = t(lang, 'jednokratnaErrorRequired');
       if (data.okolnosti.gubitak_prihoda === null)
@@ -160,24 +316,24 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
 
   const handleNext = () => {
     if (!validateCurrent()) return;
-    if (step < 4) {
+    if (step < 5) {
       onStepChange(step + 1);
-      if (step + 1 === 4) setShowSummary4(false);
-    } else if (step === 4) {
-      setShowSummary4(true);
+      if (step + 1 === 5) setShowSummary5(false);
+    } else if (step === 5) {
+      setShowSummary5(true);
     }
   };
 
   const handleBack = () => {
-    if (step === 4 && showSummary4) {
-      setShowSummary4(false);
+    if (step === 5 && showSummary5) {
+      setShowSummary5(false);
       setErrors({});
       setSubmitError(null);
       return;
     }
     if (step > 1) {
       onStepChange(step - 1);
-      if (step - 1 === 4) setShowSummary4(false);
+      if (step - 1 === 5) setShowSummary5(false);
     }
     setErrors({});
     setSubmitError(null);
@@ -193,8 +349,7 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
     onOdustani?.();
   };
 
-  const handleSendRequest = () => {
-    if (step !== 4 || !validateStep4(data) || isSubmitting) return;
+  const doSubmit = () => {
     if (!onSubmit) return;
     setSubmitError(null);
     setIsSubmitting(true);
@@ -213,6 +368,17 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
         setSubmitError(t(lang, 'jednokratnaSubmitError'));
         setIsSubmitting(false);
       });
+  };
+
+  const handleSendRequest = () => {
+    if (step !== 5 || !validateStep5(data) || isSubmitting) return;
+    if (!onSubmit) return;
+    const totalAttachments = (data.attachments?.uploaded ?? []).length;
+    if (totalAttachments === 0) {
+      setShowNoAttachmentsConfirm(true);
+      return;
+    }
+    doSubmit();
   };
 
   const baseStyle = {
@@ -267,13 +433,13 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
     border: 'none',
   } as const;
 
-  const isSummary = step === 4 && showSummary4;
+  const isSummary = step === 5 && showSummary5;
   const canSubmit = !!onSubmit;
 
   return (
     <div style={baseStyle}>
       <div style={progressStyle}>
-        {t(lang, 'jednokratnaStep')} {step} / 4
+        {t(lang, 'jednokratnaStep')} {step} / 5
       </div>
 
       {step === 1 && (
@@ -405,7 +571,119 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
         </div>
       )}
 
-      {step === 4 && !isSummary && (
+      {step === 4 && (
+        <>
+          <div style={{ marginBottom: '8px', fontWeight: 600 }}>{t(lang, 'attachmentsStepTitle')}</div>
+          <div style={{ marginBottom: '8px', fontSize: '13px', color: '#666' }}>
+            {t(lang, 'attachmentsFilesCount').replace('{count}', String((data.attachments?.uploaded ?? []).length))}
+          </div>
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#666' }}>{t(lang, 'attachmentsMaxSize')}</div>
+          {!data.draftReferenceNumber && apiBaseUrl && citySlug && (
+            <div style={{ marginBottom: '12px' }}>
+              {draftError && (
+                <div style={{ marginBottom: '8px', padding: '8px 12px', backgroundColor: '#ffebee', borderRadius: '8px', fontSize: '13px', color: '#c62828' }}>
+                  {draftError}
+                </div>
+              )}
+              <button type="button" onClick={createDraft} disabled={draftLoading} style={{ ...buttonBase, backgroundColor: primaryColor, color: 'white' }}>
+                {draftLoading ? '...' : t(lang, 'attachmentsDraftRetry')}
+              </button>
+            </div>
+          )}
+          {errors.attachments && (
+            <div style={{ marginBottom: '8px', padding: '8px 12px', backgroundColor: '#ffebee', borderRadius: '8px', fontSize: '13px', color: '#c62828' }}>
+              {errors.attachments}
+            </div>
+          )}
+          {data.draftReferenceNumber && (
+            <div style={{ marginBottom: '12px' }}>
+              {(data.attachments?.uploaded ?? []).length >= MAX_ATTACHMENTS_TOTAL && (
+                <div style={{ marginBottom: '8px', fontSize: '12px', color: '#c62828' }}>{t(lang, 'attachmentsLimitReached')}</div>
+              )}
+              <div style={{ marginBottom: '6px', fontSize: '12px', color: '#666' }}>{t(lang, 'attachmentsInvalidFileTypeOrSize')}</div>
+              {JEDNOKRATNA_ATTACHMENT_CATEGORIES.map(({ key, label }) => {
+                const enabled = (data.attachments?.enabledCategories ?? {})[key] ?? false;
+                const categoryUploaded = (data.attachments?.uploaded ?? []).filter((u) => u.category_key === key);
+                const err = (data.attachments?.errors ?? {})[key];
+                const isUploading = uploadingCategory === key;
+                const categoryMissingFile = enabled && categoryUploaded.length === 0;
+                return (
+                  <div key={key} style={{ marginBottom: '14px', padding: '10px 12px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e0e6ed' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '6px' }}>
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={(e) =>
+                          onDataChange({
+                            ...data,
+                            attachments: {
+                              ...data.attachments,
+                              enabledCategories: { ...(data.attachments?.enabledCategories ?? {}), [key]: e.target.checked },
+                              uploaded: data.attachments?.uploaded ?? [],
+                            },
+                          })
+                        }
+                      />
+                      <span>{label}</span>
+                    </label>
+                    {enabled && (
+                      <>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                          multiple
+                          style={{ marginTop: '6px', fontSize: '13px' }}
+                          disabled={isUploading || (data.attachments?.uploaded ?? []).length >= MAX_ATTACHMENTS_TOTAL}
+                          onChange={(e) => {
+                            const files = e.target.files;
+                            if (!files?.length) return;
+                            const total = (data.attachments?.uploaded ?? []).length;
+                            let hasInvalid = false;
+                            for (let i = 0; i < files.length && total + i < MAX_ATTACHMENTS_TOTAL; i++) {
+                              const file = files[i];
+                              if (file.size > MAX_FILE_SIZE_BYTES || !ALLOWED_MIME_J.includes(file.type as any)) {
+                                hasInvalid = true;
+                                continue;
+                              }
+                              uploadFile(key, label, file);
+                            }
+                            if (hasInvalid) {
+                              onDataChange({
+                                ...data,
+                                attachments: {
+                                  ...data.attachments,
+                                  enabledCategories: data.attachments?.enabledCategories ?? {},
+                                  uploaded: data.attachments?.uploaded ?? [],
+                                  errors: { ...data.attachments?.errors, [key]: t(lang, 'attachmentsInvalidFileTypeOrSize') },
+                                },
+                              });
+                            }
+                            e.target.value = '';
+                          }}
+                        />
+                        {categoryUploaded.length > 0 && (
+                          <ul style={{ margin: '8px 0 0', paddingLeft: '20px', fontSize: '13px', color: '#333' }}>
+                            {categoryUploaded.map((u) => (
+                              <li key={u.id}>{u.stored_filename}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {categoryMissingFile && (
+                          <div style={{ marginTop: '4px', fontSize: '12px', color: '#c62828' }}>{t(lang, 'attachmentsInvalidCategory')}</div>
+                        )}
+                        {err && !categoryMissingFile && <div style={{ marginTop: '4px', fontSize: '12px', color: '#c62828' }}>{err}</div>}
+                        {isUploading && <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>Prijenos...</div>}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {step === 5 && !isSummary && (
         <>
           <div style={{ marginBottom: '12px' }}>
             <label style={labelStyle}>{t(lang, 'jednokratnaZdravstveniRazlog')} *</label>
@@ -536,13 +814,13 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
         </>
       )}
 
-      {step === 4 && isSummary && submitError && (
+      {step === 5 && isSummary && submitError && (
         <div style={{ marginBottom: '12px', padding: '8px 12px', backgroundColor: '#ffebee', borderRadius: '8px', fontSize: '13px', color: '#c62828' }}>
           {submitError}
         </div>
       )}
 
-      {step === 4 && isSummary && (
+      {step === 5 && isSummary && (
         <div style={{ marginBottom: '12px' }}>
           <div style={{ marginBottom: '8px', fontWeight: 600 }}>
             {t(lang, 'jednokratnaSummaryTitle')}
@@ -607,8 +885,56 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
         </div>
       )}
 
+      {showNoAttachmentsConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+          }}
+          onClick={() => setShowNoAttachmentsConfirm(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              padding: '20px',
+              borderRadius: '12px',
+              maxWidth: '320px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '15px' }}>{t(lang, 'noAttachmentsTitle')}</div>
+            <p style={{ margin: '0 0 16px', fontSize: '14px' }}>{t(lang, 'noAttachmentsBody')}</p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowNoAttachmentsConfirm(false)}
+                style={{ ...buttonBase, backgroundColor: '#f0f4f8', color: '#333', border: '1px solid #ccc' }}
+              >
+                {t(lang, 'noAttachmentsCancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNoAttachmentsConfirm(false);
+                  doSubmit();
+                }}
+                style={{ ...buttonBase, backgroundColor: primaryColor, color: 'white' }}
+              >
+                {t(lang, 'noAttachmentsSendAnyway')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={buttonRowStyle}>
-        {step > 1 && !(step === 4 && showSummary4) && (
+        {step > 1 && !(step === 5 && showSummary5) && (
           <button
             type="button"
             onClick={handleBack}
@@ -622,7 +948,7 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
             {t(lang, 'jednokratnaBack')}
           </button>
         )}
-        {step < 4 && (
+        {step < 5 && (
           <button
             type="button"
             onClick={handleNext}
@@ -637,22 +963,7 @@ const JednokratnaNovcanaPomocWizard: React.FC<JednokratnaNovcanaPomocWizardProps
             {t(lang, 'jednokratnaNext')}
           </button>
         )}
-        {step === 4 && !isSummary && (
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={!canGoNext()}
-            style={{
-              ...buttonBase,
-              backgroundColor: canGoNext() ? primaryColor : '#ccc',
-              color: 'white',
-              opacity: canGoNext() ? 1 : 0.7,
-            }}
-          >
-            {t(lang, 'jednokratnaNext')}
-          </button>
-        )}
-        {step === 4 && isSummary && (
+        {step === 5 && isSummary && (
           <>
             <button
               type="button"

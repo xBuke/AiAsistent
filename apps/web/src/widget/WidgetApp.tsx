@@ -231,7 +231,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           const storedNovo = sessionStorage.getItem(NOVORODENO_WIZARD_STORAGE_KEY);
           if (storedNovo) {
             const parsed = JSON.parse(storedNovo) as { step?: number; data?: NovorodenoDijeteFormData };
-            if (parsed?.data && typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= 4) {
+            if (parsed?.data && typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= 5) {
               setActiveForm('novorodeno_dijete');
               setNovorodenoWizardStep(parsed.step);
               setNovorodenoWizardData(parsed.data);
@@ -244,7 +244,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           const storedJed = sessionStorage.getItem(JEDNOKRATNA_WIZARD_STORAGE_KEY);
           if (storedJed) {
             const parsed = JSON.parse(storedJed) as { step?: number; data?: JednokratnaNovcanaPomocFormData };
-            if (parsed?.data && typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= 4) {
+            if (parsed?.data && typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= 5) {
               setActiveForm('jednokratna_novcana_pomoc');
               setJednokratnaWizardStep(parsed.step);
               setJednokratnaWizardData(parsed.data);
@@ -433,7 +433,15 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       return { error: t(config.lang, 'novorodenoSubmitError') };
     }
     const url = `${apiBaseUrl.replace(/\/$/, '')}/forms/submit`;
-    const body = buildNovorodenoSubmitPayload(cityId, data);
+    const body = {
+      ...buildNovorodenoSubmitPayload(cityId, data),
+      ...(data.draftReferenceNumber && { reference_number: data.draftReferenceNumber }),
+      ...(data.draftReferenceNumber && {
+        attachments_enabled_categories: Object.keys(data.attachments?.enabledCategories ?? {}).filter(
+          (k) => data.attachments?.enabledCategories?.[k]
+        ),
+      }),
+    };
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -490,7 +498,15 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       return { error: t(config.lang, 'jednokratnaSubmitError') };
     }
     const url = `${apiBaseUrl.replace(/\/$/, '')}/forms/submit`;
-    const body = buildJednokratnaSubmitPayload(cityId, data);
+    const body = {
+      ...buildJednokratnaSubmitPayload(cityId, data),
+      ...(data.draftReferenceNumber && { reference_number: data.draftReferenceNumber }),
+      ...(data.draftReferenceNumber && {
+        attachments_enabled_categories: Object.keys(data.attachments?.enabledCategories ?? {}).filter(
+          (k) => data.attachments?.enabledCategories?.[k]
+        ),
+      }),
+    };
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -1191,6 +1207,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       {isOpen && (
         <ChatPanel
           cityId={cityId}
+          apiBaseUrl={config.apiBaseUrl}
           lang={config.lang}
           logoUrl={config.theme?.logoUrl}
           primaryColor={config.theme?.primary}
