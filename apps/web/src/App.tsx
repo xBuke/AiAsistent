@@ -1737,8 +1737,8 @@ function EnglishLandingPage() {
             What to try
           </h2>
           <CopyableExample
-            text="How can AI help me as a citizen?"
-            label="Example 1 (general info)"
+            text="I want to apply for one-time financial assistance"
+            label="Example 1 (form submission)"
           />
           <CopyableExample
             text="Who should I contact about a communal issue?"
@@ -1749,8 +1749,8 @@ function EnglishLandingPage() {
             label="Example 3 (ticket flow)"
           />
           <CopyableExample
-            text="I want to apply for one-time financial assistance"
-            label="Example 4 (form submission)"
+            text="How can AI help me as a citizen?"
+            label="Example 4 (general info)"
           />
           <p
             style={{
@@ -2156,8 +2156,8 @@ function ChatPage() {
             Što možete probati
           </h2>
           <CopyableExample
-            text="Kako mi AI može pomoći kao građaninu?"
-            label="Primjer 1 (općenito)"
+            text="Kako ostvariti jednokratnu novčanu pomoć?"
+            label="Primjer 1 (ispuna obrasca)"
             lang="hr"
           />
           <CopyableExample
@@ -2171,8 +2171,8 @@ function ChatPage() {
             lang="hr"
           />
           <CopyableExample
-            text="Želim podnijeti zahtjev za jednokratnu novčanu pomoć"
-            label="Primjer 4 (ispuna obrasca)"
+            text="Kako mi AI može pomoći kao građaninu?"
+            label="Primjer 4 (općenito)"
             lang="hr"
           />
           <p
