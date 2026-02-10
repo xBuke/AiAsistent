@@ -76,4 +76,7 @@ export const strings = {
   novorodenoErrorIban: 'IBAN must start with HR and have at least 15 characters',
   novorodenoErrorDatum: 'Enter date in DD.MM.YYYY. format',
   novorodenoErrorGodina: 'Enter year in YYYY format',
+  novorodenoSubmitting: 'Sending...',
+  novorodenoSubmitError: 'An error occurred while sending. Please try again.',
+  novorodenoSuccessWithRef: 'Request received. Reference number: {ref}. Documentation will be submitted later if required by the City.',
 } as const;

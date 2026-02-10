@@ -90,7 +90,8 @@ interface NovorodenoDijeteWizardProps {
   data: NovorodenoDijeteFormData;
   onStepChange: (step: number) => void;
   onDataChange: (data: NovorodenoDijeteFormData) => void;
-  onSendRequest: () => void;
+  onSubmit: (data: NovorodenoDijeteFormData) => Promise<{ reference_number?: string; error?: string }>;
+  onSuccess: (referenceNumber: string) => void;
 }
 
 const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
@@ -100,10 +101,13 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
   data,
   onStepChange,
   onDataChange,
-  onSendRequest,
+  onSubmit,
+  onSuccess,
 }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSummary4, setShowSummary4] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const update = useCallback(
     (slice: Partial<NovorodenoDijeteFormData>) => {
@@ -168,6 +172,7 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
     if (step === 4 && showSummary4) {
       setShowSummary4(false);
       setErrors({});
+      setSubmitError(null);
       return;
     }
     if (step > 1) {
@@ -175,12 +180,26 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
       if (step - 1 === 4) setShowSummary4(false);
     }
     setErrors({});
+    setSubmitError(null);
   };
 
-  // No submit logic yet – button is disabled/inert
   const handleSendRequest = () => {
-    if (step !== 4 || !validateStep4(data)) return;
-    onSendRequest();
+    if (step !== 4 || !validateStep4(data) || isSubmitting) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    onSubmit(data)
+      .then((result) => {
+        if (result.reference_number) {
+          onSuccess(result.reference_number);
+        } else {
+          setSubmitError(result.error || t(lang, 'novorodenoSubmitError'));
+          setIsSubmitting(false);
+        }
+      })
+      .catch(() => {
+        setSubmitError(t(lang, 'novorodenoSubmitError'));
+        setIsSubmitting(false);
+      });
   };
 
   const baseStyle = {
@@ -482,6 +501,12 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
         </>
       )}
 
+      {step === 4 && isSummary && submitError && (
+        <div style={{ marginBottom: '12px', padding: '8px 12px', backgroundColor: '#ffebee', borderRadius: '8px', fontSize: '13px', color: '#c62828' }}>
+          {submitError}
+        </div>
+      )}
+
       {step === 4 && isSummary && (
         <div style={{ marginBottom: '12px' }}>
           <div style={{ marginBottom: '8px', fontWeight: 600 }}>
@@ -553,29 +578,32 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
             <button
               type="button"
               onClick={handleBack}
+              disabled={isSubmitting}
               style={{
                 ...buttonBase,
                 backgroundColor: 'transparent',
                 color: '#666',
                 border: '1px solid #ccc',
+                opacity: isSubmitting ? 0.6 : 1,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
               }}
             >
               {t(lang, 'novorodenoBack')}
             </button>
             <button
               type="button"
-              disabled
-              aria-disabled="true"
-              onClick={() => {}}
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+              onClick={handleSendRequest}
               style={{
                 ...buttonBase,
                 backgroundColor: primaryColor,
                 color: 'white',
-                opacity: 0.6,
-                cursor: 'not-allowed',
+                opacity: isSubmitting ? 0.8 : 1,
+                cursor: isSubmitting ? 'wait' : 'pointer',
               }}
             >
-              {t(lang, 'novorodenoSendRequest')}
+              {isSubmitting ? t(lang, 'novorodenoSubmitting') : t(lang, 'novorodenoSendRequest')}
             </button>
           </>
         )}

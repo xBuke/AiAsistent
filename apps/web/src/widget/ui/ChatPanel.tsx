@@ -31,7 +31,8 @@ interface ChatPanelProps {
   novorodenoWizardData?: NovorodenoDijeteFormData;
   onNovorodenoWizardStepChange?: (step: number) => void;
   onNovorodenoWizardDataChange?: (data: NovorodenoDijeteFormData) => void;
-  onNovorodenoSendRequest?: () => void;
+  onNovorodenoSubmit?: (data: NovorodenoDijeteFormData) => Promise<{ reference_number?: string; error?: string }>;
+  onNovorodenoSuccess?: (referenceNumber: string) => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -59,7 +60,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   novorodenoWizardData,
   onNovorodenoWizardStepChange,
   onNovorodenoWizardDataChange,
-  onNovorodenoSendRequest,
+  onNovorodenoSubmit,
+  onNovorodenoSuccess,
 }) => {
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
@@ -281,7 +283,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         />
 
         {/* Novorođeno dijete wizard when activeForm is novorodeno_dijete */}
-        {activeForm === 'novorodeno_dijete' && novorodenoWizardData && onNovorodenoWizardStepChange && onNovorodenoWizardDataChange && onNovorodenoSendRequest && (
+        {activeForm === 'novorodeno_dijete' && novorodenoWizardData && onNovorodenoWizardStepChange && onNovorodenoWizardDataChange && onNovorodenoSubmit && onNovorodenoSuccess && (
           <NovorodenoDijeteWizard
             lang={lang}
             primaryColor={primaryColor}
@@ -289,7 +291,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             data={novorodenoWizardData}
             onStepChange={onNovorodenoWizardStepChange}
             onDataChange={onNovorodenoWizardDataChange}
-            onSendRequest={onNovorodenoSendRequest}
+            onSubmit={onNovorodenoSubmit}
+            onSuccess={onNovorodenoSuccess}
           />
         )}
 

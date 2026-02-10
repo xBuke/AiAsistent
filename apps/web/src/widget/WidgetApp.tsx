@@ -24,6 +24,40 @@ import { getDefaultNovorodenoData, type NovorodenoDijeteFormData } from './ui/No
 
 const NOVORODENO_WIZARD_STORAGE_KEY = 'civis_novorodeno_wizard';
 
+/** Build request body for POST /forms/submit from wizard data */
+function buildNovorodenoSubmitPayload(
+  citySlug: string,
+  data: NovorodenoDijeteFormData
+): { city_slug: string; type: string; data: Record<string, unknown> } {
+  return {
+    city_slug: citySlug,
+    type: 'novorodeno_dijete',
+    data: {
+      podnositelj: {
+        ime_prezime: data.podnositelj.ime_prezime.trim(),
+        adresa: data.podnositelj.adresa.trim(),
+        kontakt: data.podnositelj.kontakt.trim(),
+        oib: data.identifikacija.oib.trim(),
+        iban: data.identifikacija.iban.trim(),
+      },
+      dijete: {
+        datum_rodjenja: data.dijete.datum_rodjenja.trim(),
+        godina_rodjenja: data.dijete.godina_rodjenja.trim(),
+        mjesto_rodjenja: data.dijete.mjesto_rodjenja,
+      },
+      flags: {
+        roditelj_izvan_ploca: data.posebne_okolnosti.roditelj_izvan_ploca === true,
+        za_trece_ili_sljedece: data.posebne_okolnosti.za_trece_ili_sljedece === true,
+      },
+      meta: {
+        mjesto_podnosenja: data.meta.mjesto_podnosenja,
+        datum_podnosenja: data.meta.datum_podnosenja,
+        ref_broj: '',
+      },
+    },
+  };
+}
+
 interface WidgetAppProps {
   config: WidgetConfig;
 }
@@ -297,6 +331,54 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setTurnIndex(0);
     }
     setIsOpen(false);
+  };
+
+  /** Submit novorodeno form to POST /forms/submit; returns ref or error for wizard */
+  const handleNovorodenoSubmit = async (
+    data: NovorodenoDijeteFormData
+  ): Promise<{ reference_number?: string; error?: string }> => {
+    const apiBaseUrl = config.apiBaseUrl;
+    if (!apiBaseUrl?.trim()) {
+      return { error: t(config.lang, 'novorodenoSubmitError') };
+    }
+    const url = `${apiBaseUrl.replace(/\/$/, '')}/forms/submit`;
+    const body = buildNovorodenoSubmitPayload(cityId, data);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = (await response.json().catch(() => ({}))) as {
+        reference_number?: string;
+        error?: string;
+      };
+      if (response.ok && json.reference_number) {
+        return { reference_number: json.reference_number };
+      }
+      return { error: json.error || t(config.lang, 'novorodenoSubmitError') };
+    } catch {
+      return { error: t(config.lang, 'novorodenoSubmitError') };
+    }
+  };
+
+  /** On successful submit: show message, exit form, clear wizard state */
+  const handleNovorodenoSuccess = (referenceNumber: string) => {
+    const content = t(config.lang, 'novorodenoSuccessWithRef').replace('{ref}', referenceNumber);
+    setMessages((prev) => [
+      ...prev,
+      { id: `novorodeno-success-${Date.now()}`, role: 'assistant', content },
+    ]);
+    setActiveForm(null);
+    setNovorodenoWizardStep(1);
+    setNovorodenoWizardData(getDefaultNovorodenoData());
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(NOVORODENO_WIZARD_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
   };
 
   // Cleanup on unmount
@@ -972,9 +1054,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           novorodenoWizardData={novorodenoWizardData}
           onNovorodenoWizardStepChange={setNovorodenoWizardStep}
           onNovorodenoWizardDataChange={setNovorodenoWizardData}
-          onNovorodenoSendRequest={() => {
-            // No submit yet (handled in next prompt); keep wizard open with summary
-          }}
+          onNovorodenoSubmit={handleNovorodenoSubmit}
+          onNovorodenoSuccess={handleNovorodenoSuccess}
         />
       )}
       <div

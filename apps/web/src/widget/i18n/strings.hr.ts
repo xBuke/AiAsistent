@@ -76,4 +76,7 @@ export const strings = {
   novorodenoErrorIban: 'IBAN mora počinjati s HR i imati najmanje 15 znakova',
   novorodenoErrorDatum: 'Unesite datum u formatu DD.MM.YYYY.',
   novorodenoErrorGodina: 'Unesite godinu u formatu YYYY',
+  novorodenoSubmitting: 'Slanje...',
+  novorodenoSubmitError: 'Došlo je do greške pri slanju. Pokušajte ponovno.',
+  novorodenoSuccessWithRef: 'Zahtjev je zaprimljen. Referentni broj: {ref}. Dokumentacija se po potrebi dostavlja naknadno na zahtjev Grada.',
 } as const;
