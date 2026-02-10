@@ -23,17 +23,22 @@ function normalizeTitle(s: string | null | undefined): string {
 }
 
 /**
- * True if the message is from assistant and has sources where at least one has type === "novorodeno_dijete".
- * Falls back to matching the known doc title when backend does not send type.
+ * True if the message is from assistant and has sources where at least one has type === "novorodeno_dijete"
+ * or title matches the known doc (human title or filename form, e.g. novcana_pomoc_za_novorodeno_dijete).
  */
 function assistantMessageHasNovorodenoSource(message: Message): boolean {
   if (message.role !== 'assistant') return false;
   const docs = message.metadata?.retrieved_docs_top3;
   if (!Array.isArray(docs) || docs.length === 0) return false;
-  const wantTitleNorm = normalizeTitle(NOVORODENO_DOC_TITLE);
+  const wantTitleNorm = normalizeTitle(NOVORODENO_DOC_TITLE); // "novcana pomoc za novorodeno dijete"
   return docs.some((doc: { type?: string; title?: string | null }) => {
     if (doc.type === 'novorodeno_dijete') return true;
-    return wantTitleNorm && normalizeTitle(doc.title) === wantTitleNorm;
+    if (!wantTitleNorm) return false;
+    const docNorm = normalizeTitle(doc.title ?? '');
+    if (docNorm === wantTitleNorm) return true;
+    // Backend stores title from filename (e.g. novcana_pomoc_za_novorodeno_dijete); match when normalized with spaces equals wantTitleNorm
+    if (docNorm.replace(/_/g, ' ') === wantTitleNorm) return true;
+    return false;
   });
 }
 
@@ -90,24 +95,10 @@ const MessageList: React.FC<MessageListProps> = ({
       }}
     >
       {messages.map((message) => {
-        // Get citations from message metadata for assistant messages
+        // Get citations from message metadata for assistant messages (same path as CTA)
         const docs = message.role === 'assistant' ? message.metadata?.retrieved_docs_top3 : null;
         const hasCitations = Array.isArray(docs) && docs.length > 0;
         const isCitationsOpen = openCitationsId === message.id;
-        
-        // DEBUG: Log rendering check for assistant messages
-        if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_CITATIONS') === '1' && message.role === 'assistant') {
-          console.log('[MessageList] Rendering assistant message:', {
-            messageId: message.id,
-            hasMetadata: !!message.metadata,
-            metadata: message.metadata,
-            retrieved_docs_top3: message.metadata?.retrieved_docs_top3,
-            retrieved_docs_top3_length: Array.isArray(message.metadata?.retrieved_docs_top3) ? message.metadata.retrieved_docs_top3.length : 'not array',
-            docs,
-            hasCitations,
-            contentLength: message.content?.length || 0,
-          });
-        }
 
         return (
           <div
