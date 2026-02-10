@@ -54,7 +54,30 @@ export function getDefaultNovorodenoData(): NovorodenoDijeteFormData {
 const OIB_REGEX = /^\d{11}$/;
 const IBAN_MIN_LENGTH = 15;
 const DATUM_REGEX = /^\d{2}\.\d{2}\.\d{4}\.?$/;
-const GODINA_REGEX = /^\d{4}$/;
+
+/** Auto-format digits into DD.MM.YYYY. (e.g. 12011996 -> 12.01.1996.) */
+function formatDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits.length === 2 ? `${digits}.` : digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}.`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}.`;
+}
+
+/** Extract year from DD.MM.YYYY. or DD.MM.YYYY */
+function extractYear(datum: string): string {
+  const digits = (datum || '').replace(/\D/g, '');
+  return digits.length >= 8 ? digits.slice(4, 8) : '';
+}
+
+/** Validate date: 8 digits, day 01-31, month 01-12, year 1900-2100 */
+function isValidDate(datum: string): boolean {
+  const digits = (datum || '').replace(/\D/g, '');
+  if (digits.length !== 8) return false;
+  const day = parseInt(digits.slice(0, 2), 10);
+  const month = parseInt(digits.slice(2, 4), 10);
+  const year = parseInt(digits.slice(4, 8), 10);
+  return day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100;
+}
 
 function validateStep1(data: NovorodenoDijeteFormData): boolean {
   const { ime_prezime, adresa, kontakt } = data.podnositelj;
@@ -71,11 +94,8 @@ function validateStep2(data: NovorodenoDijeteFormData): boolean {
 }
 
 function validateStep3(data: NovorodenoDijeteFormData): boolean {
-  const { datum_rodjenja, godina_rodjenja } = data.dijete;
-  return (
-    DATUM_REGEX.test((datum_rodjenja || '').trim()) &&
-    GODINA_REGEX.test((godina_rodjenja || '').trim())
-  );
+  const datum = (data.dijete.datum_rodjenja || '').trim();
+  return DATUM_REGEX.test(datum) && isValidDate(datum);
 }
 
 function validateStep4(data: NovorodenoDijeteFormData): boolean {
@@ -92,6 +112,7 @@ interface NovorodenoDijeteWizardProps {
   onDataChange: (data: NovorodenoDijeteFormData) => void;
   onSubmit: (data: NovorodenoDijeteFormData) => Promise<{ reference_number?: string; error?: string }>;
   onSuccess: (referenceNumber: string) => void;
+  onOdustani?: () => void;
 }
 
 const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
@@ -103,11 +124,13 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
   onDataChange,
   onSubmit,
   onSuccess,
+  onOdustani,
 }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSummary4, setShowSummary4] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showOdustaniConfirm, setShowOdustaniConfirm] = useState(false);
 
   const update = useCallback(
     (slice: Partial<NovorodenoDijeteFormData>) => {
@@ -144,9 +167,7 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
     }
     if (step === 3) {
       const dr = (data.dijete.datum_rodjenja || '').trim();
-      const gr = (data.dijete.godina_rodjenja || '').trim();
-      if (!DATUM_REGEX.test(dr)) e.datum_rodjenja = t(lang, 'novorodenoErrorDatum');
-      if (!GODINA_REGEX.test(gr)) e.godina_rodjenja = t(lang, 'novorodenoErrorGodina');
+      if (!DATUM_REGEX.test(dr) || !isValidDate(dr)) e.datum_rodjenja = t(lang, 'novorodenoErrorDatum');
     }
     if (step === 4) {
       if (data.posebne_okolnosti.roditelj_izvan_ploca === null)
@@ -181,6 +202,16 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
     }
     setErrors({});
     setSubmitError(null);
+  };
+
+  const handleOdustaniClick = () => {
+    if (!onOdustani) return;
+    setShowOdustaniConfirm(true);
+  };
+
+  const handleOdustaniConfirm = () => {
+    setShowOdustaniConfirm(false);
+    onOdustani?.();
   };
 
   const handleSendRequest = () => {
@@ -367,49 +398,31 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
       )}
 
       {step === 3 && (
-        <>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={labelStyle}>{t(lang, 'novorodenoDatumRodjenja')} *</label>
-            <input
-              type="text"
-              value={data.dijete.datum_rodjenja}
-              onChange={(e) =>
-                update({
-                  dijete: { ...data.dijete, datum_rodjenja: e.target.value },
-                })
-              }
-              placeholder="DD.MM.YYYY."
-              style={inputStyle(!!errors.datum_rodjenja)}
-            />
-            {errors.datum_rodjenja && (
-              <div style={{ marginTop: '4px', fontSize: '12px', color: '#d32f2f' }}>
-                {errors.datum_rodjenja}
-              </div>
-            )}
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={labelStyle}>{t(lang, 'novorodenoGodinaRodjenja')} *</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={4}
-              value={data.dijete.godina_rodjenja}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-                update({
-                  dijete: { ...data.dijete, godina_rodjenja: v },
-                });
-              }}
-              placeholder="YYYY"
-              style={inputStyle(!!errors.godina_rodjenja)}
-            />
-            {errors.godina_rodjenja && (
-              <div style={{ marginTop: '4px', fontSize: '12px', color: '#d32f2f' }}>
-                {errors.godina_rodjenja}
-              </div>
-            )}
-          </div>
-        </>
+        <div style={{ marginBottom: '12px' }}>
+          <label style={labelStyle}>{t(lang, 'novorodenoDatumRodjenja')} *</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={data.dijete.datum_rodjenja}
+            onChange={(e) => {
+              const formatted = formatDateInput(e.target.value);
+              update({
+                dijete: {
+                  ...data.dijete,
+                  datum_rodjenja: formatted,
+                  godina_rodjenja: extractYear(formatted),
+                },
+              });
+            }}
+            placeholder="DD.MM.YYYY."
+            style={inputStyle(!!errors.datum_rodjenja)}
+          />
+          {errors.datum_rodjenja && (
+            <div style={{ marginTop: '4px', fontSize: '12px', color: '#d32f2f' }}>
+              {errors.datum_rodjenja}
+            </div>
+          )}
+        </div>
       )}
 
       {step === 4 && !isSummary && (
@@ -528,8 +541,52 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
         </div>
       )}
 
+      {showOdustaniConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+          }}
+          onClick={() => setShowOdustaniConfirm(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              padding: '20px',
+              borderRadius: '12px',
+              maxWidth: '320px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ margin: '0 0 16px', fontSize: '14px' }}>{t(lang, 'novorodenoOdustaniConfirm')}</p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowOdustaniConfirm(false)}
+                style={{ ...buttonBase, backgroundColor: '#f0f4f8', color: '#333', border: '1px solid #ccc' }}
+              >
+                {t(lang, 'novorodenoNastavi')}
+              </button>
+              <button
+                type="button"
+                onClick={handleOdustaniConfirm}
+                style={{ ...buttonBase, backgroundColor: '#c62828', color: 'white' }}
+              >
+                {t(lang, 'novorodenoOdustani')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={buttonRowStyle}>
-        {step > 1 && (
+        {step > 1 && !(step === 4 && showSummary4) && (
           <button
             type="button"
             onClick={handleBack}
@@ -590,6 +647,23 @@ const NovorodenoDijeteWizard: React.FC<NovorodenoDijeteWizardProps> = ({
             >
               {t(lang, 'novorodenoBack')}
             </button>
+            {onOdustani && (
+              <button
+                type="button"
+                onClick={handleOdustaniClick}
+                disabled={isSubmitting}
+                style={{
+                  ...buttonBase,
+                  backgroundColor: 'transparent',
+                  color: '#c62828',
+                  border: '1px solid #c62828',
+                  opacity: isSubmitting ? 0.6 : 1,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {t(lang, 'novorodenoOdustani')}
+              </button>
+            )}
             <button
               type="button"
               disabled={isSubmitting}

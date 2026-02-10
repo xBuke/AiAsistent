@@ -33,6 +33,7 @@ interface ChatPanelProps {
   onNovorodenoWizardDataChange?: (data: NovorodenoDijeteFormData) => void;
   onNovorodenoSubmit?: (data: NovorodenoDijeteFormData) => Promise<{ reference_number?: string; error?: string }>;
   onNovorodenoSuccess?: (referenceNumber: string) => void;
+  onNovorodenoOdustani?: () => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -62,6 +63,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onNovorodenoWizardDataChange,
   onNovorodenoSubmit,
   onNovorodenoSuccess,
+  onNovorodenoOdustani,
 }) => {
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
@@ -293,6 +295,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             onDataChange={onNovorodenoWizardDataChange}
             onSubmit={onNovorodenoSubmit}
             onSuccess={onNovorodenoSuccess}
+            onOdustani={onNovorodenoOdustani}
           />
         )}
 

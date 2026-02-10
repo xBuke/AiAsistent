@@ -79,4 +79,7 @@ export const strings = {
   novorodenoSubmitting: 'Sending...',
   novorodenoSubmitError: 'An error occurred while sending. Please try again.',
   novorodenoSuccessWithRef: 'Request received. Reference number: {ref}. Documentation will be submitted later if required by the City.',
+  novorodenoOdustani: 'Cancel',
+  novorodenoOdustaniConfirm: 'Are you sure you want to cancel? Entered data will be lost.',
+  novorodenoNastavi: 'Continue',
 } as const;

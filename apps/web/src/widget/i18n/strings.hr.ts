@@ -79,4 +79,7 @@ export const strings = {
   novorodenoSubmitting: 'Slanje...',
   novorodenoSubmitError: 'Došlo je do greške pri slanju. Pokušajte ponovno.',
   novorodenoSuccessWithRef: 'Zahtjev je zaprimljen. Referentni broj: {ref}. Dokumentacija se po potrebi dostavlja naknadno na zahtjev Grada.',
+  novorodenoOdustani: 'Odustani',
+  novorodenoOdustaniConfirm: 'Jeste li sigurni da želite odustati? Uneseni podaci će se obrisati.',
+  novorodenoNastavi: 'Nastavi',
 } as const;

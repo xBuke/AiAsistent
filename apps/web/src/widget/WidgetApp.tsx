@@ -24,11 +24,19 @@ import { getDefaultNovorodenoData, type NovorodenoDijeteFormData } from './ui/No
 
 const NOVORODENO_WIZARD_STORAGE_KEY = 'civis_novorodeno_wizard';
 
+/** Extract year from DD.MM.YYYY. for payload (fallback when godina_rodjenja empty) */
+function extractYearFromDatum(datum: string): string {
+  const digits = (datum || '').replace(/\D/g, '');
+  return digits.length >= 8 ? digits.slice(4, 8) : '';
+}
+
 /** Build request body for POST /forms/submit from wizard data */
 function buildNovorodenoSubmitPayload(
   citySlug: string,
   data: NovorodenoDijeteFormData
 ): { city_slug: string; type: string; data: Record<string, unknown> } {
+  const datum = (data.dijete.datum_rodjenja || '').trim();
+  const godina = (data.dijete.godina_rodjenja || '').trim() || extractYearFromDatum(datum);
   return {
     city_slug: citySlug,
     type: 'novorodeno_dijete',
@@ -41,8 +49,8 @@ function buildNovorodenoSubmitPayload(
         iban: data.identifikacija.iban.trim(),
       },
       dijete: {
-        datum_rodjenja: data.dijete.datum_rodjenja.trim(),
-        godina_rodjenja: data.dijete.godina_rodjenja.trim(),
+        datum_rodjenja: datum,
+        godina_rodjenja: godina,
         mjesto_rodjenja: data.dijete.mjesto_rodjenja,
       },
       flags: {
@@ -359,6 +367,20 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       return { error: json.error || t(config.lang, 'novorodenoSubmitError') };
     } catch {
       return { error: t(config.lang, 'novorodenoSubmitError') };
+    }
+  };
+
+  /** On Odustani: exit form, clear wizard state, clear session storage */
+  const handleNovorodenoOdustani = () => {
+    setActiveForm(null);
+    setNovorodenoWizardStep(1);
+    setNovorodenoWizardData(getDefaultNovorodenoData());
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(NOVORODENO_WIZARD_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -1056,6 +1078,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           onNovorodenoWizardDataChange={setNovorodenoWizardData}
           onNovorodenoSubmit={handleNovorodenoSubmit}
           onNovorodenoSuccess={handleNovorodenoSuccess}
+          onNovorodenoOdustani={handleNovorodenoOdustani}
         />
       )}
       <div
