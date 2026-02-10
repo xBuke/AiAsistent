@@ -10,8 +10,8 @@ export interface Message {
   metadata?: any;
 }
 
-/** Known title of the novorodeno_dijete doc in the knowledge base (used when backend does not send type) */
-const NOVORODENO_DOC_TITLE = 'Novčana pomoć za novorođeno dijete';
+/** Slug title for novorodeno doc as sent in retrieved_docs_top3 (no doc.type from API) */
+const NOVORODENO_SLUG = 'novcana_pomoc_za_novorodeno_dijete';
 
 function normalizeTitle(s: string | null | undefined): string {
   if (s == null || typeof s !== 'string') return '';
@@ -23,22 +23,16 @@ function normalizeTitle(s: string | null | undefined): string {
 }
 
 /**
- * True if the message is from assistant and has sources where at least one has type === "novorodeno_dijete"
- * or title matches the known doc (human title or filename form, e.g. novcana_pomoc_za_novorodeno_dijete).
+ * True if message is assistant and has at least one retrieved doc matching the novorodeno slug.
+ * API does not send doc.type; match on doc.title (slug) only.
  */
 function assistantMessageHasNovorodenoSource(message: Message): boolean {
   if (message.role !== 'assistant') return false;
   const docs = message.metadata?.retrieved_docs_top3;
   if (!Array.isArray(docs) || docs.length === 0) return false;
-  const wantTitleNorm = normalizeTitle(NOVORODENO_DOC_TITLE); // "novcana pomoc za novorodeno dijete"
-  return docs.some((doc: { type?: string; title?: string | null }) => {
-    if (doc.type === 'novorodeno_dijete') return true;
-    if (!wantTitleNorm) return false;
+  return docs.some((doc: { title?: string | null }) => {
     const docNorm = normalizeTitle(doc.title ?? '');
-    if (docNorm === wantTitleNorm) return true;
-    // Backend stores title from filename (e.g. novcana_pomoc_za_novorodeno_dijete); match when normalized with spaces equals wantTitleNorm
-    if (docNorm.replace(/_/g, ' ') === wantTitleNorm) return true;
-    return false;
+    return docNorm === NOVORODENO_SLUG || docNorm.includes('novorodeno');
   });
 }
 
