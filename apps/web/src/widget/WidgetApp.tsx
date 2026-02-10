@@ -165,6 +165,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamTimeoutRef = useRef<number | null>(null);
   const hasReceivedFirstTokenRef = useRef<boolean>(false);
+  /** True only when at least one non-empty, non-whitespace text token was received (used to avoid false communication error) */
+  const hasReceivedTextTokenRef = useRef<boolean>(false);
   const metaRef = useRef<Record<string, any> | null>(null);
 
   // Helper to resolve metadata from multiple sources in priority order
@@ -869,93 +871,19 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     setIsStreaming(true);
     setHasReceivedFirstToken(false);
     hasReceivedFirstTokenRef.current = false;
+    hasReceivedTextTokenRef.current = false;
 
     // Create new AbortController for this request
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    // Set up timeout for fallback (6 seconds)
-    streamTimeoutRef.current = setTimeout(() => {
-      if (!hasReceivedFirstTokenRef.current) {
-        // No tokens received within 6 seconds – SSE/request failed
-        const errContent = t(config.lang, 'communicationError').replace(/\u2013/g, '-');
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? {
-                  ...msg,
-                  content: errContent,
-                }
-              : msg
-          )
-        );
-        setIsStreaming(false);
-        setHasReceivedFirstToken(false);
-        
-        // Emit analytics event for fallback (timeout - no tokens after timeout)
-        const latencyMs = Date.now() - startTime;
-        emitEvent('fallback', cityId, text, {
-          answerChars: errContent.length,
-          latencyMs,
-          conversationId: currentConversationId,
-          apiBaseUrl: config.apiBaseUrl,
-        });
-
-        // Emit message event for assistant fallback response
-        emitMessage(
-          cityId,
-          currentConversationId,
-          'assistant',
-          errContent,
-          assistantMessageId,
-          currentTurnIndex + 1,
-          config.apiBaseUrl,
-          latencyMs
-        );
-
-        // Check if we need to escalate to human (2+ fallbacks in last 10 minutes)
-        // Note: This only creates/updates tickets, does NOT show intake form
-        // Intake form is ONLY shown when backend explicitly indicates via action or needs_human
-        const fallbackCount = getRecentFallbackCount(
-          cityId,
-          currentConversationId,
-          10 * 60 * 1000 // 10 minutes
-        );
-        
-        if (fallbackCount >= 2) {
-          const existingTicket = getTicket(cityId, currentConversationId);
-          
-          // If ticket exists and is closed, reopen it
-          if (existingTicket && existingTicket.status === 'closed') {
-            reopenTicket(cityId, currentConversationId);
-            const reopenedTicket = getTicket(cityId, currentConversationId);
-            setTicket(reopenedTicket);
-            
-            // Send ticket_update event to backend
-            if (config.apiBaseUrl && reopenedTicket) {
-              const backendEvent: BackendEvent = {
-                type: 'ticket_update',
-                conversationId: currentConversationId,
-                needsHuman: true,
-                ticket: {
-                  status: 'needs_human',
-                  ticketRef: reopenedTicket.contact?.ticketRef,
-                  department: reopenedTicket.department,
-                  urgent: reopenedTicket.urgent,
-                },
-                timestamp: Date.now(),
-              };
-              postBackendEvent({
-                apiBaseUrl: config.apiBaseUrl,
-                cityId: cityId,
-                event: backendEvent,
-              }).catch(() => {
-                // Already handled in postBackendEvent
-              });
-            }
-          }
-          // Removed: Do NOT show intake form based on fallback count alone
-          // Intake form must be explicitly requested by backend via action or needs_human
+    // Timeout only clears when first real token arrives; we do NOT show error here.
+    // Error is shown only when stream has ended (DONE/close) and no real text was received.
+    streamTimeoutRef.current = window.setTimeout(() => {
+      if (!hasReceivedTextTokenRef.current) {
+        // Stream still active with no text yet – do nothing (no error). Wait for stream to finish.
+        if (import.meta.env.DEV && typeof console !== 'undefined' && console.debug) {
+          console.debug('[GradWidget] SSE: 6s elapsed with no text token yet; stream may still be active');
         }
       }
     }, 6000);
@@ -1010,13 +938,20 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           return;
         }
 
-        // Clear timeout on first token
-        if (!hasReceivedFirstTokenRef.current) {
-          hasReceivedFirstTokenRef.current = true;
+        // Count only non-empty, non-whitespace as "received text" – avoids false error on meta/empty/keep-alive
+        const isRealTextToken = typeof token === 'string' && token.trim() !== '';
+        if (isRealTextToken && !hasReceivedTextTokenRef.current) {
+          hasReceivedTextTokenRef.current = true;
           if (streamTimeoutRef.current) {
             clearTimeout(streamTimeoutRef.current);
             streamTimeoutRef.current = null;
           }
+          if (import.meta.env.DEV && typeof console !== 'undefined' && console.debug) {
+            console.debug('[GradWidget] SSE: first text token received');
+          }
+        }
+        if (!hasReceivedFirstTokenRef.current) {
+          hasReceivedFirstTokenRef.current = true;
           setHasReceivedFirstToken(true);
         }
 
@@ -1049,19 +984,21 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         return;
       }
 
-      // Stream completed successfully
+      // Stream completed successfully (stream ended – DONE or iterator finished)
       setIsStreaming(false);
       if (streamTimeoutRef.current) {
         clearTimeout(streamTimeoutRef.current);
         streamTimeoutRef.current = null;
       }
+      if (import.meta.env.DEV && typeof console !== 'undefined' && console.debug) {
+        console.debug('[GradWidget] SSE: stream ended', { hadText: hasReceivedTextTokenRef.current });
+      }
 
       // Resolve metadata from multiple sources (single source of truth)
       const meta = resolveMeta(transport);
 
-      // Handle case where backend sent [DONE] immediately with no content (fallback case)
-      // If no content was streamed, show a fallback message so user gets a response
-      if (finalAnswerContent.trim() === '') {
+      // Only show communication error when stream truly ended AND no real text was received
+      if (!hasReceivedTextTokenRef.current && finalAnswerContent.trim() === '') {
         finalAnswerContent = (t(config.lang, 'communicationError') || 'Izvinjavam se, trenutno ne mogu odgovoriti na ovo pitanje. Molimo pokušajte ponovno ili kontaktirajte nas direktno.').replace(/\u2013/g, '-');
       }
 
