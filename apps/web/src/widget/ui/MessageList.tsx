@@ -10,15 +10,31 @@ export interface Message {
   metadata?: any;
 }
 
-/** Demo heuristic: message is about novčana pomoć za novorođeno dijete */
-function matchesNovorodenoHeuristic(text: string): boolean {
-  if (!text || typeof text !== 'string') return false;
-  const n = text
+/** Known title of the novorodeno_dijete doc in the knowledge base (used when backend does not send type) */
+const NOVORODENO_DOC_TITLE = 'Novčana pomoć za novorođeno dijete';
+
+function normalizeTitle(s: string | null | undefined): string {
+  if (s == null || typeof s !== 'string') return '';
+  return s
     .toLowerCase()
     .trim()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
-  return n.includes('novorodeno') || (n.includes('novcana pomoc') && n.includes('novorodeno'));
+}
+
+/**
+ * True if the message is from assistant and has sources where at least one has type === "novorodeno_dijete".
+ * Falls back to matching the known doc title when backend does not send type.
+ */
+function assistantMessageHasNovorodenoSource(message: Message): boolean {
+  if (message.role !== 'assistant') return false;
+  const docs = message.metadata?.retrieved_docs_top3;
+  if (!Array.isArray(docs) || docs.length === 0) return false;
+  const wantTitleNorm = normalizeTitle(NOVORODENO_DOC_TITLE);
+  return docs.some((doc: { type?: string; title?: string | null }) => {
+    if (doc.type === 'novorodeno_dijete') return true;
+    return wantTitleNorm && normalizeTitle(doc.title) === wantTitleNorm;
+  });
 }
 
 interface MessageListProps {
@@ -46,7 +62,7 @@ const MessageList: React.FC<MessageListProps> = ({
 
   const lastMatchingAssistantId =
     messages
-      .filter((m) => m.role === 'assistant' && matchesNovorodenoHeuristic(m.content))
+      .filter((m) => assistantMessageHasNovorodenoSource(m))
       .map((m) => m.id)
       .pop() ?? null;
   const showCta =
