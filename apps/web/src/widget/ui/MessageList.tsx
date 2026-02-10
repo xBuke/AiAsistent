@@ -12,6 +12,10 @@ export interface Message {
 
 /** Slug title for novorodeno doc as sent in retrieved_docs_top3 (no doc.type from API) */
 const NOVORODENO_SLUG = 'novcana_pomoc_za_novorodeno_dijete';
+/** Slug for jednokratna novčana pomoć doc (match normalizeTitle(doc.title)) */
+const JEDNOKRATNA_SLUG = 'jednokratna_novcana_pomoc';
+
+export type FormCtaType = 'novorodeno_dijete' | 'jednokratna_novcana_pomoc';
 
 function normalizeTitle(s: string | null | undefined): string {
   if (s == null || typeof s !== 'string') return '';
@@ -36,14 +40,29 @@ function assistantMessageHasNovorodenoSource(message: Message): boolean {
   });
 }
 
+/**
+ * True if message is assistant and has at least one retrieved doc matching the jednokratna slug.
+ * Match on normalizeTitle(doc.title) only (no doc.type).
+ */
+function assistantMessageHasJednokratnaSource(message: Message): boolean {
+  if (message.role !== 'assistant') return false;
+  const docs = message.metadata?.retrieved_docs_top3;
+  if (!Array.isArray(docs) || docs.length === 0) return false;
+  return docs.some((doc: { title?: string | null }) => {
+    const docNorm = normalizeTitle(doc.title ?? '');
+    return docNorm === JEDNOKRATNA_SLUG;
+  });
+}
+
 interface MessageListProps {
   messages: Message[];
   showTypingIndicator: boolean;
   lang?: string;
   ctaDismissed?: boolean;
+  ctaDismissedJednokratna?: boolean;
   activeForm?: string | null;
-  onCtaDismiss?: () => void;
-  onCtaSubmit?: () => void;
+  onCtaDismiss?: (formType: FormCtaType) => void;
+  onCtaSubmit?: (formType: FormCtaType) => void;
 }
 
 const MessageList: React.FC<MessageListProps> = ({
@@ -51,6 +70,7 @@ const MessageList: React.FC<MessageListProps> = ({
   showTypingIndicator,
   lang,
   ctaDismissed = false,
+  ctaDismissedJednokratna = false,
   activeForm = null,
   onCtaDismiss,
   onCtaSubmit,
@@ -59,13 +79,39 @@ const MessageList: React.FC<MessageListProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [openCitationsId, setOpenCitationsId] = useState<string | null>(null);
 
-  const lastMatchingAssistantId =
+  const lastNovorodenoId =
     messages
       .filter((m) => assistantMessageHasNovorodenoSource(m))
       .map((m) => m.id)
       .pop() ?? null;
+  const lastJednokratnaId =
+    messages
+      .filter((m) => assistantMessageHasJednokratnaSource(m))
+      .map((m) => m.id)
+      .pop() ?? null;
+
+  const idxNovorodeno = lastNovorodenoId ? messages.findIndex((m) => m.id === lastNovorodenoId) : -1;
+  const idxJednokratna = lastJednokratnaId ? messages.findIndex((m) => m.id === lastJednokratnaId) : -1;
+  const lastMatchingAssistantId =
+    idxJednokratna > idxNovorodeno ? lastJednokratnaId : lastNovorodenoId;
+  const ctaFormType: FormCtaType | null =
+    lastMatchingAssistantId != null
+      ? idxJednokratna > idxNovorodeno
+        ? 'jednokratna_novcana_pomoc'
+        : 'novorodeno_dijete'
+      : null;
+
+  const dismissedForCurrentForm =
+    ctaFormType === 'novorodeno_dijete'
+      ? ctaDismissed
+      : ctaFormType === 'jednokratna_novcana_pomoc'
+        ? ctaDismissedJednokratna
+        : true;
   const showCta =
-    !!lastMatchingAssistantId && !ctaDismissed && !activeForm && (onCtaDismiss != null || onCtaSubmit != null);
+    !!lastMatchingAssistantId &&
+    !dismissedForCurrentForm &&
+    !activeForm &&
+    (onCtaDismiss != null || onCtaSubmit != null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -207,7 +253,7 @@ const MessageList: React.FC<MessageListProps> = ({
                 )}
               </>
             )}
-            {message.role === 'assistant' && message.id === lastMatchingAssistantId && showCta && (
+            {message.role === 'assistant' && message.id === lastMatchingAssistantId && showCta && ctaFormType != null && (
               <div
                 style={{
                   marginTop: '8px',
@@ -219,7 +265,7 @@ const MessageList: React.FC<MessageListProps> = ({
               >
                 <button
                   type="button"
-                  onClick={onCtaSubmit}
+                  onClick={() => onCtaSubmit?.(ctaFormType)}
                   style={{
                     padding: '8px 14px',
                     borderRadius: '20px',
@@ -235,7 +281,7 @@ const MessageList: React.FC<MessageListProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={onCtaDismiss}
+                  onClick={() => onCtaDismiss?.(ctaFormType)}
                   style={{
                     padding: '8px 14px',
                     borderRadius: '20px',

@@ -1,8 +1,9 @@
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import MessageList, { Message } from './MessageList';
+import MessageList, { Message, type FormCtaType } from './MessageList';
 import ContactHandoff, { ContactData } from './ContactHandoff';
 import TicketIntakeForm, { TicketIntakeData } from './TicketIntakeForm';
 import NovorodenoDijeteWizard, { type NovorodenoDijeteFormData } from './NovorodenoDijeteWizard';
+import JednokratnaNovcanaPomocWizard, { type JednokratnaNovcanaPomocFormData } from './JednokratnaNovcanaPomocWizard';
 import { t } from '../i18n';
 import type { Ticket } from '../../analytics/tickets';
 
@@ -24,9 +25,10 @@ interface ChatPanelProps {
   intakeInitialDescription?: string;
   onOpenIntakeForm?: () => void;
   ctaDismissed?: boolean;
+  ctaDismissedJednokratna?: boolean;
   activeForm?: string | null;
-  onCtaDismiss?: () => void;
-  onCtaSubmit?: () => void;
+  onCtaDismiss?: (formType: FormCtaType) => void;
+  onCtaSubmit?: (formType: FormCtaType) => void;
   novorodenoWizardStep?: number;
   novorodenoWizardData?: NovorodenoDijeteFormData;
   onNovorodenoWizardStepChange?: (step: number) => void;
@@ -34,6 +36,13 @@ interface ChatPanelProps {
   onNovorodenoSubmit?: (data: NovorodenoDijeteFormData) => Promise<{ reference_number?: string; error?: string }>;
   onNovorodenoSuccess?: (referenceNumber: string) => void;
   onNovorodenoOdustani?: () => void;
+  jednokratnaWizardStep?: number;
+  jednokratnaWizardData?: JednokratnaNovcanaPomocFormData;
+  onJednokratnaWizardStepChange?: (step: number) => void;
+  onJednokratnaWizardDataChange?: (data: JednokratnaNovcanaPomocFormData) => void;
+  onJednokratnaSubmit?: (data: JednokratnaNovcanaPomocFormData) => Promise<{ reference_number?: string; error?: string }>;
+  onJednokratnaSuccess?: (referenceNumber: string) => void;
+  onJednokratnaOdustani?: () => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -54,6 +63,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   intakeInitialDescription = '',
   onOpenIntakeForm,
   ctaDismissed = false,
+  ctaDismissedJednokratna = false,
   activeForm = null,
   onCtaDismiss,
   onCtaSubmit,
@@ -64,6 +74,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onNovorodenoSubmit,
   onNovorodenoSuccess,
   onNovorodenoOdustani,
+  jednokratnaWizardStep = 1,
+  jednokratnaWizardData,
+  onJednokratnaWizardStepChange,
+  onJednokratnaWizardDataChange,
+  onJednokratnaSubmit,
+  onJednokratnaSuccess,
+  onJednokratnaOdustani,
 }) => {
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
@@ -279,6 +296,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           showTypingIndicator={showTypingIndicator}
           lang={lang}
           ctaDismissed={ctaDismissed}
+          ctaDismissedJednokratna={ctaDismissedJednokratna}
           activeForm={activeForm}
           onCtaDismiss={onCtaDismiss}
           onCtaSubmit={onCtaSubmit}
@@ -296,6 +314,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             onSubmit={onNovorodenoSubmit}
             onSuccess={onNovorodenoSuccess}
             onOdustani={onNovorodenoOdustani}
+          />
+        )}
+
+        {/* Jednokratna novčana pomoć wizard when activeForm is jednokratna_novcana_pomoc */}
+        {activeForm === 'jednokratna_novcana_pomoc' && jednokratnaWizardData && onJednokratnaWizardStepChange && onJednokratnaWizardDataChange && (
+          <JednokratnaNovcanaPomocWizard
+            lang={lang}
+            primaryColor={primaryColor}
+            step={jednokratnaWizardStep}
+            data={jednokratnaWizardData}
+            onStepChange={onJednokratnaWizardStepChange}
+            onDataChange={onJednokratnaWizardDataChange}
+            onSubmit={onJednokratnaSubmit}
+            onSuccess={onJednokratnaSuccess}
+            onOdustani={onJednokratnaOdustani}
           />
         )}
 

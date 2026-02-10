@@ -21,8 +21,25 @@ import type { Ticket } from '../analytics/tickets';
 import type { ContactData } from './ui/ContactHandoff';
 import type { TicketIntakeData } from './ui/TicketIntakeForm';
 import { getDefaultNovorodenoData, type NovorodenoDijeteFormData } from './ui/NovorodenoDijeteWizard';
+import { getDefaultJednokratnaData, type JednokratnaNovcanaPomocFormData } from './ui/JednokratnaNovcanaPomocWizard';
 
 const NOVORODENO_WIZARD_STORAGE_KEY = 'civis_novorodeno_wizard';
+const JEDNOKRATNA_WIZARD_STORAGE_KEY = 'civis_jednokratna_wizard';
+
+/** Default attachments (no file upload) for jednokratna PDF template */
+const JEDNOKRATNA_ATTACHMENTS_DEFAULT = {
+  oi_ili_rodni_listovi: false,
+  izjava_kucanstvo: false,
+  dokaz_primanja: false,
+  potvrda_poslodavca: false,
+  odresci_mirovine: false,
+  uvjerenje_hzz: false,
+  potvrda_porezna: false,
+  potvrda_hzss: false,
+  ugovor_podstanarstvo: false,
+  lijecnicka_dokumentacija: false,
+  iban_potvrda: false,
+};
 
 /** Extract year from DD.MM.YYYY. for payload (fallback when godina_rodjenja empty) */
 function extractYearFromDatum(datum: string): string {
@@ -66,6 +83,41 @@ function buildNovorodenoSubmitPayload(
   };
 }
 
+/** Build request body for POST /forms/submit (jednokratna_novcana_pomoc) */
+function buildJednokratnaSubmitPayload(
+  citySlug: string,
+  data: JednokratnaNovcanaPomocFormData
+): { city_slug: string; type: string; data: Record<string, unknown> } {
+  const o = data.okolnosti;
+  return {
+    city_slug: citySlug,
+    type: 'jednokratna_novcana_pomoc',
+    data: {
+      podnositelj: {
+        ime_prezime: data.podnositelj.ime_prezime.trim(),
+        adresa: data.podnositelj.adresa.trim(),
+        kontakt: data.podnositelj.kontakt.trim(),
+        oib: data.identifikacija.oib.trim(),
+        iban: data.identifikacija.iban.trim(),
+      },
+      razlog_zamolbe: data.razlog_zamolbe.trim(),
+      flags: {
+        zdravstveni_razlog: o.zdravstveni_razlog === true,
+        gubitak_prihoda: o.gubitak_prihoda === true,
+        podstanar: o.podstanar === true,
+        je_podstanar: o.podstanar === true,
+      },
+      meta: {
+        mjesto_podnosenja: data.meta.mjesto_podnosenja,
+        datum_podnosenja: data.meta.datum_podnosenja,
+        ref_broj: '',
+      },
+      status_podnositelja: 'zaposlen',
+      attachments: JEDNOKRATNA_ATTACHMENTS_DEFAULT,
+    },
+  };
+}
+
 interface WidgetAppProps {
   config: WidgetConfig;
 }
@@ -88,9 +140,12 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [showIntakeForm, setShowIntakeForm] = useState(false);
   const [intakeSubmitted, setIntakeSubmitted] = useState(false);
   const [ctaDismissedSession, setCtaDismissedSession] = useState(false);
+  const [ctaDismissedJednokratnaSession, setCtaDismissedJednokratnaSession] = useState(false);
   const [activeForm, setActiveForm] = useState<string | null>(null);
   const [novorodenoWizardStep, setNovorodenoWizardStep] = useState(1);
   const [novorodenoWizardData, setNovorodenoWizardData] = useState<NovorodenoDijeteFormData>(() => getDefaultNovorodenoData());
+  const [jednokratnaWizardStep, setJednokratnaWizardStep] = useState(1);
+  const [jednokratnaWizardData, setJednokratnaWizardData] = useState<JednokratnaNovcanaPomocFormData>(() => getDefaultJednokratnaData());
 
   // Expose global API for controlling widget (for CTA buttons)
   useEffect(() => {
@@ -168,17 +223,33 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setShowIntakeForm(false);
       setIntakeSubmitted(false);
       setCtaDismissedSession(false);
+      setCtaDismissedJednokratnaSession(false);
 
-      // Restore novorodeno wizard from session if present (keep progress across widget close/reopen)
+      // Restore wizard from session if present (keep progress across widget close/reopen)
       if (typeof sessionStorage !== 'undefined') {
         try {
-          const stored = sessionStorage.getItem(NOVORODENO_WIZARD_STORAGE_KEY);
-          if (stored) {
-            const parsed = JSON.parse(stored) as { step?: number; data?: NovorodenoDijeteFormData };
+          const storedNovo = sessionStorage.getItem(NOVORODENO_WIZARD_STORAGE_KEY);
+          if (storedNovo) {
+            const parsed = JSON.parse(storedNovo) as { step?: number; data?: NovorodenoDijeteFormData };
             if (parsed?.data && typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= 4) {
               setActiveForm('novorodeno_dijete');
               setNovorodenoWizardStep(parsed.step);
               setNovorodenoWizardData(parsed.data);
+              setJednokratnaWizardStep(1);
+              setJednokratnaWizardData(getDefaultJednokratnaData());
+              emitConversationStart(cityId, newConversationId, config.apiBaseUrl);
+              return;
+            }
+          }
+          const storedJed = sessionStorage.getItem(JEDNOKRATNA_WIZARD_STORAGE_KEY);
+          if (storedJed) {
+            const parsed = JSON.parse(storedJed) as { step?: number; data?: JednokratnaNovcanaPomocFormData };
+            if (parsed?.data && typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= 4) {
+              setActiveForm('jednokratna_novcana_pomoc');
+              setJednokratnaWizardStep(parsed.step);
+              setJednokratnaWizardData(parsed.data);
+              setNovorodenoWizardStep(1);
+              setNovorodenoWizardData(getDefaultNovorodenoData());
               emitConversationStart(cityId, newConversationId, config.apiBaseUrl);
               return;
             }
@@ -190,6 +261,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setActiveForm(null);
       setNovorodenoWizardStep(1);
       setNovorodenoWizardData(getDefaultNovorodenoData());
+      setJednokratnaWizardStep(1);
+      setJednokratnaWizardData(getDefaultJednokratnaData());
 
       // Emit conversation_start event
       emitConversationStart(cityId, newConversationId, config.apiBaseUrl);
@@ -333,6 +406,16 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // ignore
       }
     }
+    if (activeForm === 'jednokratna_novcana_pomoc' && typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem(
+          JEDNOKRATNA_WIZARD_STORAGE_KEY,
+          JSON.stringify({ step: jednokratnaWizardStep, data: jednokratnaWizardData })
+        );
+      } catch {
+        // ignore
+      }
+    }
     if (conversationId) {
       emitConversationEnd(cityId, conversationId, 'user_closed');
       setConversationId(null);
@@ -378,6 +461,68 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
     if (typeof sessionStorage !== 'undefined') {
       try {
         sessionStorage.removeItem(NOVORODENO_WIZARD_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  /** On Odustani for jednokratna: exit form, clear wizard state, clear session storage */
+  const handleJednokratnaOdustani = () => {
+    setActiveForm(null);
+    setJednokratnaWizardStep(1);
+    setJednokratnaWizardData(getDefaultJednokratnaData());
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(JEDNOKRATNA_WIZARD_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  /** Submit jednokratna form to POST /forms/submit; returns ref or error for wizard */
+  const handleJednokratnaSubmit = async (
+    data: JednokratnaNovcanaPomocFormData
+  ): Promise<{ reference_number?: string; error?: string }> => {
+    const apiBaseUrl = config.apiBaseUrl;
+    if (!apiBaseUrl?.trim()) {
+      return { error: t(config.lang, 'jednokratnaSubmitError') };
+    }
+    const url = `${apiBaseUrl.replace(/\/$/, '')}/forms/submit`;
+    const body = buildJednokratnaSubmitPayload(cityId, data);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = (await response.json().catch(() => ({}))) as {
+        reference_number?: string;
+        error?: string;
+      };
+      if (response.ok && json.reference_number) {
+        return { reference_number: json.reference_number };
+      }
+      return { error: json.error || t(config.lang, 'jednokratnaSubmitError') };
+    } catch {
+      return { error: t(config.lang, 'jednokratnaSubmitError') };
+    }
+  };
+
+  /** On successful jednokratna submit: show message, exit form, clear wizard state */
+  const handleJednokratnaSuccess = (referenceNumber: string) => {
+    const content = t(config.lang, 'jednokratnaSuccessWithRef').replace('{ref}', referenceNumber);
+    setMessages((prev) => [
+      ...prev,
+      { id: `jednokratna-success-${Date.now()}`, role: 'assistant', content },
+    ]);
+    setActiveForm(null);
+    setJednokratnaWizardStep(1);
+    setJednokratnaWizardData(getDefaultJednokratnaData());
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(JEDNOKRATNA_WIZARD_STORAGE_KEY);
       } catch {
         // ignore
       }
@@ -1065,12 +1210,18 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
             setIntakeSubmitted(false);
           }}
           ctaDismissed={ctaDismissedSession}
+          ctaDismissedJednokratna={ctaDismissedJednokratnaSession}
           activeForm={activeForm}
-          onCtaDismiss={() => setCtaDismissedSession(true)}
-          onCtaSubmit={() => {
-            setActiveForm('novorodeno_dijete');
-            setNovorodenoWizardStep(1);
-            setNovorodenoWizardData(getDefaultNovorodenoData());
+          onCtaDismiss={(formType) => {
+            if (formType === 'novorodeno_dijete') setCtaDismissedSession(true);
+            else if (formType === 'jednokratna_novcana_pomoc') setCtaDismissedJednokratnaSession(true);
+          }}
+          onCtaSubmit={(formType) => {
+            setActiveForm(formType);
+            if (formType === 'novorodeno_dijete') {
+              setNovorodenoWizardStep(1);
+              setNovorodenoWizardData(getDefaultNovorodenoData());
+            }
           }}
           novorodenoWizardStep={novorodenoWizardStep}
           novorodenoWizardData={novorodenoWizardData}
@@ -1079,6 +1230,13 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           onNovorodenoSubmit={handleNovorodenoSubmit}
           onNovorodenoSuccess={handleNovorodenoSuccess}
           onNovorodenoOdustani={handleNovorodenoOdustani}
+          jednokratnaWizardStep={jednokratnaWizardStep}
+          jednokratnaWizardData={jednokratnaWizardData}
+          onJednokratnaWizardStepChange={setJednokratnaWizardStep}
+          onJednokratnaWizardDataChange={setJednokratnaWizardData}
+          onJednokratnaSubmit={handleJednokratnaSubmit}
+          onJednokratnaSuccess={handleJednokratnaSuccess}
+          onJednokratnaOdustani={handleJednokratnaOdustani}
         />
       )}
       <div
