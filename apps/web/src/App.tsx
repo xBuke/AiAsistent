@@ -2037,7 +2037,7 @@ function ChatPage() {
           }}
         >
           <a
-            href="mailto:info@mangai.hr?subject=Pilot%20projekt%20Civis"
+            href="mailto:marko@mangai.hr?subject=Pilot%20projekt%20Civis"
             style={{
               padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
               fontSize: 'clamp(1rem, 2vw, 1.125rem)',
@@ -2095,6 +2095,33 @@ function ChatPage() {
             Isprobajte demonstraciju
           </button>
         </div>
+        <p
+          style={{
+            margin: '1.5rem auto 0',
+            maxWidth: '700px',
+            textAlign: 'center',
+            fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+            color: '#4b5563',
+            lineHeight: 1.6,
+          }}
+        >
+          <a
+            href="mailto:info@mangai.hr?subject=Sastanak%20-%20prikaz%20dashboarda"
+            style={{
+              color: '#2563eb',
+              fontWeight: 500,
+              textDecoration: 'none',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.textDecoration = 'underline';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.textDecoration = 'none';
+            }}
+          >
+            Zakažite sastanak kako biste vidjeli kako izgleda dashboard.
+          </a>
+        </p>
       </section>
 
       {/* Zašto je ovo važno za grad */}
@@ -2242,6 +2269,11 @@ function ChatPage() {
           <CopyableExample
             text="Želim prijaviti problem"
             label="Primjer 2"
+            lang="hr"
+          />
+          <CopyableExample
+            text="Kako mi možeš pomoći kao AI asistent?"
+            label="Primjer 3 (općenito)"
             lang="hr"
           />
         </div>
