@@ -4,7 +4,7 @@ export const strings = {
   send: 'Pošalji',
   close: 'Zatvori',
   typing: 'Pišem…',
-  welcome: 'Kako vam mogu pomoći?',
+  welcome: 'Postavite pitanje ili pokrenite postupak.',
   fallbackError: 'Nažalost, trenutno ne mogu dohvatiti odgovor. Pokušajte ponovno.',
   serviceUnavailable: 'Usluga je trenutno nedostupna. Molimo pokušajte ponovno kasnije.',
   communicationError: 'Došlo je do pogreške u komunikaciji. Molimo pokušajte ponovno.',
