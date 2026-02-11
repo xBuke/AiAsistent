@@ -110,7 +110,12 @@ export async function chatHandler(
   reply.raw.setHeader('Vary', 'Origin');
   reply.raw.setHeader('X-Accel-Buffering', 'no');
   
-  // Send initial SSE comment to establish connection and flush headers
+  // Flush headers immediately when available (Node.js may buffer otherwise)
+  const rawRes = reply.raw as NodeJS.WritableStream & { flushHeaders?: () => void };
+  if (typeof rawRes.flushHeaders === 'function') {
+    rawRes.flushHeaders();
+  }
+  // Send initial SSE comment to establish connection
   reply.raw.write(': keep-alive\n\n');
 
   const { conversationId } = request.body || {};
@@ -393,16 +398,8 @@ export async function chatHandler(
       const fallbackMessage = 'Nemam dovoljno službenih informacija u dokumentima Grada Ploča da bih pouzdano odgovorio na to pitanje. Možete li ga malo precizirati ili pitati nešto drugo?';
       assistantResponse = fallbackMessage;
       
-      // Check if DEMO_MODE is enabled
-      const isDemoMode = process.env.DEMO_MODE === 'true';
-      
-      // In DEMO_MODE: send as single message event, otherwise stream as data
-      if (isDemoMode) {
-        writeSseEvent(reply.raw, 'message', fallbackMessage);
-      } else {
-        // Stream message token by token to match success response format
-        writeSseEvent(reply.raw, 'message', fallbackMessage);
-      }
+      // Stream fallback message as single chunk (progressive display in UI)
+      writeSseEvent(reply.raw, 'message', JSON.stringify({ content: fallbackMessage }));
       
       // Emit meta event with trace data (include needs_human explicitly)
       const latencyMs = Date.now() - traceStartTime;
@@ -647,28 +644,15 @@ export async function chatHandler(
       },
     ];
 
-    // Check if DEMO_MODE is enabled
-    const isDemoMode = process.env.DEMO_MODE === 'true';
-
     // Stream tokens from LLM with context and collect response
+    // Both DEMO_MODE and normal: emit incremental chunks for progressive UI rendering
     for await (const token of streamChat({ messages, context })) {
       assistantResponse += token;
-      // In DEMO_MODE: buffer tokens, don't stream to client
-      // In normal mode: stream tokens immediately
-      if (!isDemoMode) {
-        // Format as SSE: handle multiline tokens by prefixing each line with "data: "
-        reply.raw.write(`event: message\n`);
-        const lines = String(token).split(/\r?\n/);
-        for (const line of lines) {
-          reply.raw.write(`data: ${line}\n`);
-        }
-        reply.raw.write(`\n`);
-      }
-    }
-
-    // In DEMO_MODE: send full answer as single message event
-    if (isDemoMode) {
-      writeSseEvent(reply.raw, 'message', assistantResponse);
+      // Skip empty/whitespace-only chunks
+      const t = String(token);
+      if (t.trim() === '') continue;
+      reply.raw.write(`event: message\n`);
+      reply.raw.write(`data: ${JSON.stringify({ content: t })}\n\n`);
     }
     
     // Emit meta event with trace data (include needs_human explicitly)
@@ -828,15 +812,8 @@ export async function chatHandler(
     // Stream error message (widget expects answer/text field, so stream it as tokens)
     const errorMessage = 'Došlo je do pogreške. Pokušajte ponovno.';
     
-    // Check if DEMO_MODE is enabled
-    const isDemoMode = process.env.DEMO_MODE === 'true';
-    
-    // In DEMO_MODE: send as single message event, otherwise stream as data
-    if (isDemoMode) {
-      writeSseEvent(reply.raw, 'message', errorMessage);
-    } else {
-      writeSseEvent(reply.raw, 'message', errorMessage);
-    }
+    // Stream error message as single chunk (progressive display in UI)
+    writeSseEvent(reply.raw, 'message', JSON.stringify({ content: errorMessage }));
     
     // Emit meta event with trace data (include needs_human explicitly)
     const latencyMs = Date.now() - traceStartTime;

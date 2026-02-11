@@ -119,9 +119,7 @@ export class ApiTransport implements ChatTransport {
                 }
                 
                 // Handle message event (default event)
-                // Yield every payload exactly as received, except:
-                // - ignore the literal payload "[DONE]"
-                // - if payload starts with "[ERROR]" handle as error (existing behavior)
+                // Yield content for progressive streaming - parse JSON { content } or yield raw
                 if (payload === '[DONE]') {
                   currentEvent = '';
                   continue;
@@ -131,13 +129,31 @@ export class ApiTransport implements ChatTransport {
                   continue;
                 }
                 
-                // Debug logging (optional, controlled by localStorage)
-                if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
-                  console.log('[SSE token]', JSON.stringify(payload));
+                // Parse JSON format { content: string } for streaming chunks
+                let content: string;
+                try {
+                  const parsed = JSON.parse(payload);
+                  if (typeof parsed?.content === 'string') {
+                    content = parsed.content;
+                  } else {
+                    content = payload;
+                  }
+                } catch {
+                  content = payload;
                 }
                 
-                // Yield message payload exactly as received (no trimming)
-                yield payload;
+                // Skip empty chunks (no yield)
+                if (content === '') {
+                  currentEvent = '';
+                  continue;
+                }
+                
+                // Debug logging (optional, controlled by localStorage)
+                if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
+                  console.log('[SSE token]', JSON.stringify(content));
+                }
+                
+                yield content;
                 // Reset event type after processing data
                 currentEvent = '';
               }
@@ -147,9 +163,6 @@ export class ApiTransport implements ChatTransport {
           // Process remaining buffer
           if (buffer.startsWith('data: ')) {
             const payload = buffer.slice(6);
-            // Yield every payload exactly as received, except:
-            // - ignore the literal payload "[DONE]"
-            // - if payload starts with "[ERROR]" handle as error (existing behavior)
             if (payload === '[DONE]') {
               return;
             }
@@ -157,13 +170,23 @@ export class ApiTransport implements ChatTransport {
               return;
             }
             
-            // Debug logging (optional, controlled by localStorage)
-            if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
-              console.log('[SSE token]', JSON.stringify(payload));
+            let content: string;
+            try {
+              const parsed = JSON.parse(payload);
+              if (typeof parsed?.content === 'string') {
+                content = parsed.content;
+              } else {
+                content = payload;
+              }
+            } catch {
+              content = payload;
             }
-            
-            // Yield message payload exactly as received (no trimming)
-            yield payload;
+            if (content !== '') {
+              if (typeof localStorage !== 'undefined' && localStorage.getItem('DEBUG_SSE') === '1') {
+                console.log('[SSE token]', JSON.stringify(content));
+              }
+              yield content;
+            }
           }
         } finally {
           reader.releaseLock();

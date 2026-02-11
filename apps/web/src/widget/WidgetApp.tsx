@@ -978,9 +978,16 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
         // Normalize Unicode en-dash to hyphen for consistent rendering
         const normalizedToken = token.replace(/\u2013/g, '-');
-
-        // Accumulate token in finalAnswerContent (do not update UI per token)
         finalAnswerContent += normalizedToken;
+
+        // Progressive render: append chunk to assistant message immediately
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: msg.content + normalizedToken }
+              : msg
+          )
+        );
       }
 
       // Stream ended – check for abort (e.g. generator returned without throw)
