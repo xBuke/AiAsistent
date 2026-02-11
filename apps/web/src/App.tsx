@@ -2512,47 +2512,187 @@ function ChatPage() {
         </div>
       </section>
 
-      {/* Implementation Timeline */}
+      {/* Implementacija: 6–8 tjedana */}
       <section
         style={{
           padding: 'clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem)',
           backgroundColor: '#f9fafb',
         }}
       >
-        <div
-          style={{
-            maxWidth: '600px',
-            margin: '0 auto',
-            padding: '1.25rem 1.5rem',
-            backgroundColor: '#ffffff',
-            borderRadius: '0.5rem',
-            border: '1px solid #e5e7eb',
-          }}
-        >
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <h2
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 700,
+              color: '#111827',
+              textAlign: 'center',
+              margin: '0 0 clamp(1.5rem, 3vw, 2rem) 0',
+            }}
+          >
+            Implementacija: 6–8 tjedana
+          </h2>
           <div
             style={{
-              fontSize: '0.9375rem',
-              fontWeight: 600,
-              color: '#111827',
-              marginBottom: '1rem',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: 'clamp(1rem, 2vw, 1.5rem)',
+              maxWidth: '1000px',
+              margin: '0 auto',
             }}
           >
-            Implementacija: 6–8 tjedana od ugovora
+            {/* Phase 1 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.75rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                Prikupljanje i priprema podataka (Tjedni 1–2)
+              </div>
+              <ul
+                style={{
+                  margin: '0 0 0.75rem 0',
+                  paddingLeft: '1.25rem',
+                  fontSize: '0.875rem',
+                  color: '#4b5563',
+                  lineHeight: 1.7,
+                }}
+              >
+                <li>Prikupljanje službenih dokumenata</li>
+                <li>Strukturiranje baze znanja</li>
+                <li>Priprema za AI obradu</li>
+              </ul>
+              <div style={{ fontSize: '0.875rem', color: '#374151', lineHeight: 1.5 }}>
+                <strong>Rezultat:</strong> Sustav je spreman za konfiguraciju s podacima grada.
+              </div>
+            </div>
+
+            {/* Phase 2 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.75rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                Konfiguracija i prilagodba sustava (Tjedni 3–5)
+              </div>
+              <ul
+                style={{
+                  margin: '0 0 0.75rem 0',
+                  paddingLeft: '1.25rem',
+                  fontSize: '0.875rem',
+                  color: '#4b5563',
+                  lineHeight: 1.7,
+                }}
+              >
+                <li>Vektorizacija i indeksiranje dokumenata</li>
+                <li>Aktivacija baze znanja</li>
+                <li>Prilagodba odgovora lokalnom kontekstu</li>
+                <li>Postavljanje chat widgeta i admin sučelja</li>
+              </ul>
+              <div style={{ fontSize: '0.875rem', color: '#374151', lineHeight: 1.5 }}>
+                <strong>Rezultat:</strong> Funkcionalan sustav prilagođen specifičnostima grada.
+              </div>
+            </div>
+
+            {/* Phase 3 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.75rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                Testiranje i optimizacija (Tjedni 6–7)
+              </div>
+              <ul
+                style={{
+                  margin: '0 0 0.75rem 0',
+                  paddingLeft: '1.25rem',
+                  fontSize: '0.875rem',
+                  color: '#4b5563',
+                  lineHeight: 1.7,
+                }}
+              >
+                <li>Testiranje stvarnih scenarija</li>
+                <li>Fino podešavanje odgovora</li>
+                <li>Sigurnosna i performansna provjera</li>
+              </ul>
+              <div style={{ fontSize: '0.875rem', color: '#374151', lineHeight: 1.5 }}>
+                <strong>Rezultat:</strong> Sustav spreman za produkcijsko okruženje.
+              </div>
+            </div>
+
+            {/* Phase 4 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.75rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: '#111827',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                Puštanje u rad (Tjedan 8)
+              </div>
+              <ul
+                style={{
+                  margin: '0 0 0.75rem 0',
+                  paddingLeft: '1.25rem',
+                  fontSize: '0.875rem',
+                  color: '#4b5563',
+                  lineHeight: 1.7,
+                }}
+              >
+                <li>Aktivacija na službenoj web stranici</li>
+                <li>Edukacija administracije</li>
+                <li>Početni monitoring i analiza</li>
+              </ul>
+              <div style={{ fontSize: '0.875rem', color: '#374151', lineHeight: 1.5 }}>
+                <strong>Rezultat:</strong> Grad dobiva operativan AI sustav u svakodnevnoj upotrebi.
+              </div>
+            </div>
           </div>
-          <ul
-            style={{
-              margin: 0,
-              paddingLeft: '1.25rem',
-              fontSize: '0.875rem',
-              color: '#4b5563',
-              lineHeight: 1.75,
-            }}
-          >
-            <li>Tjedni 1–2: Prikupljanje i organizacija podataka</li>
-            <li>Tjedni 3–5: Razvoj i integracija</li>
-            <li>Tjedni 6–7: Testiranje i optimizacija</li>
-            <li>Tjedan 8: Puštanje u rad</li>
-          </ul>
         </div>
       </section>
 
