@@ -1233,7 +1233,7 @@ function FloatingChat({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
                 color: '#111827',
               }}
             >
-              Demo AI asistent
+              Demonstracija sustava
             </h3>
           </div>
           <button
@@ -1297,7 +1297,7 @@ function FloatingChat({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
                 padding: '2rem 1rem',
               }}
             >
-              Kako ti mogu pomoći?
+              Postavite pitanje za isprobavanje sustava.
             </div>
           )}
           {messages.map((msg) => (
@@ -2003,7 +2003,7 @@ function ChatPage() {
             lineHeight: 1.2,
           }}
         >
-          Civis
+          Civis – AI digitalne javne usluge za gradove
         </h1>
         <p
           style={{
@@ -2016,7 +2016,7 @@ function ChatPage() {
             marginRight: 'auto',
           }}
         >
-          Digitalni asistent koji komunicira s građanima koristeći službene dokumente grada.
+          Digitalni asistent koji odgovara iz službenih dokumenata grada i vodi građane kroz upravne postupke – 24/7.
         </p>
         <p
           style={{
@@ -2029,32 +2029,8 @@ function ChatPage() {
             marginRight: 'auto',
           }}
         >
-          Ovaj asistent bit će implementiran direktno na službenoj web stranici grada kao chat bubble, omogućujući građanima brz i jednostavan pristup informacijama o gradu.
+          Sustav se implementira direktno na službenu web stranicu grada i integrira s postojećim procesima uprave.
         </p>
-
-        {/* Notice/Disclaimer */}
-        <div
-          style={{
-            maxWidth: '700px',
-            margin: '0 auto 2rem auto',
-            padding: '1rem 1.5rem',
-            backgroundColor: '#fffbeb',
-            border: '1px solid #fde68a',
-            borderRadius: '0.5rem',
-            textAlign: 'left',
-          }}
-        >
-          <p
-            style={{
-              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
-              color: '#92400e',
-              margin: 0,
-              lineHeight: 1.6,
-            }}
-          >
-            Napomena: AI asistent trenutno koristi ograničen skup demo / testnih dokumenata i ne predstavlja službene dokumente Grada.
-          </p>
-        </div>
 
         <div
           style={{
@@ -2064,15 +2040,8 @@ function ChatPage() {
             justifyContent: 'center',
           }}
         >
-          <button
-            onClick={() => {
-              // Try to open new widget if available, otherwise fall back to old chat
-              if (typeof window !== 'undefined' && (window as any).CivisWidget?.open) {
-                (window as any).CivisWidget.open();
-              } else if (shouldShowOldChat) {
-                setIsChatOpen(true);
-              }
-            }}
+          <a
+            href="mailto:info@mangai.hr?subject=Pilot%20projekt%20Civis"
             style={{
               padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
               fontSize: 'clamp(1rem, 2vw, 1.125rem)',
@@ -2084,6 +2053,8 @@ function ChatPage() {
               cursor: 'pointer',
               transition: 'background-color 0.2s, transform 0.2s',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              textDecoration: 'none',
+              display: 'inline-block',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = '#1d4ed8';
@@ -2094,12 +2065,16 @@ function ChatPage() {
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            Iskusite kako izgleda AI asistent za građane
-          </button>
-          <a
-            href="https://civisai.mangai.hr/admin/demo"
-            target="_blank"
-            rel="noopener noreferrer"
+            Zatražite pilot projekt
+          </a>
+          <button
+            onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).CivisWidget?.open) {
+                (window as any).CivisWidget.open();
+              } else if (shouldShowOldChat) {
+                setIsChatOpen(true);
+              }
+            }}
             style={{
               padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
               fontSize: 'clamp(1rem, 2vw, 1.125rem)',
@@ -2111,8 +2086,6 @@ function ChatPage() {
               cursor: 'pointer',
               transition: 'background-color 0.2s, transform 0.2s',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              textDecoration: 'none',
-              display: 'inline-block',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = '#eff6ff';
@@ -2123,12 +2096,112 @@ function ChatPage() {
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            Admin Dashboard
-          </a>
+            Isprobajte demonstraciju
+          </button>
         </div>
       </section>
 
-      {/* What to Try Section */}
+      {/* Zašto je ovo važno za grad */}
+      <section
+        style={{
+          padding: 'clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem)',
+          backgroundColor: '#f9fafb',
+        }}
+      >
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <h2
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+              fontWeight: 700,
+              color: '#111827',
+              textAlign: 'center',
+              margin: '0 0 clamp(1.5rem, 3vw, 2rem) 0',
+            }}
+          >
+            Zašto je ovo važno za grad
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 'clamp(1rem, 2vw, 1.5rem)',
+              maxWidth: '1000px',
+              margin: '0 auto',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.5rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #2563eb',
+              }}
+            >
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
+                Smanjuje broj telefonskih i e-mail upita
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.5 }}>
+                Automatski odgovori na najčešća pitanja građana bez angažmana službenika.
+              </div>
+            </div>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.5rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #10b981',
+              }}
+            >
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
+                Rasterećuje administraciju od ponavljajućih pitanja
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.5 }}>
+                Službenici se mogu fokusirati na složenije zahtjeve.
+              </div>
+            </div>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.5rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #f59e0b',
+              }}
+            >
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
+                Omogućuje 24/7 digitalnu dostupnost usluga
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.5 }}>
+                Građani pristupaju informacijama u bilo koje vrijeme.
+              </div>
+            </div>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                padding: 'clamp(1.25rem, 2vw, 1.5rem)',
+                borderRadius: '0.5rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #9333ea',
+              }}
+            >
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
+                Centralizira komunikaciju i daje uvid u analitiku
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.5 }}>
+                Pregled tema, trendova i prioriteta u jednom sučelju.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Section */}
       <section
         style={{
           padding: 'clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem)',
@@ -2153,49 +2226,28 @@ function ChatPage() {
               margin: '0 0 1rem 0',
             }}
           >
-            Što možete probati
+            Demonstracija sustava
           </h2>
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#4b5563',
+              margin: '0 0 1rem 0',
+              lineHeight: 1.6,
+            }}
+          >
+            Primjeri ispod prikazuju kako sustav vodi građanina kroz stvarne upravne procese, korak po korak.
+          </p>
           <CopyableExample
             text="Kako ostvariti jednokratnu novčanu pomoć?"
-            label="Primjer 1 (ispuna obrasca)"
-            lang="hr"
-          />
-          <CopyableExample
-            text="Kome se mogu obratiti za komunalni problem?"
-            label="Primjer 2 (usmjeravanje)"
+            label="Primjer 1"
             lang="hr"
           />
           <CopyableExample
             text="Želim prijaviti problem"
-            label="Primjer 3 (prijava)"
+            label="Primjer 2"
             lang="hr"
           />
-          <CopyableExample
-            text="Kako mi AI može pomoći kao građaninu?"
-            label="Primjer 4 (općenito)"
-            lang="hr"
-          />
-          <p
-            style={{
-              fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
-              color: '#6b7280',
-              margin: '1rem 0 0 0',
-              lineHeight: 1.6,
-              fontStyle: 'italic',
-            }}
-          >
-            Primjeri su tu da brže isprobate asistenta.
-          </p>
-          <p
-            style={{
-              fontSize: 'clamp(0.8125rem, 1.5vw, 0.875rem)',
-              color: '#6b7280',
-              margin: '0.5rem 0 0 0',
-              lineHeight: 1.6,
-            }}
-          >
-            Ovi primjeri pokazuju kako asistent vodi građanina kroz ispunu službenih obrazaca, korak po korak.
-          </p>
         </div>
       </section>
 
@@ -2377,7 +2429,7 @@ function ChatPage() {
         </div>
       </section>
 
-      {/* Demo Notice */}
+      {/* Sigurnost i kontrola */}
       <section
         style={{
           padding: 'clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem)',
@@ -2388,23 +2440,91 @@ function ChatPage() {
           style={{
             maxWidth: '800px',
             margin: '0 auto',
-            padding: 'clamp(1.25rem, 3vw, 1.5rem)',
-            backgroundColor: '#f0f9ff',
-            border: '1px solid #bae6fd',
+            padding: 'clamp(1.5rem, 3vw, 2rem)',
+            backgroundColor: '#f9fafb',
             borderRadius: '0.5rem',
-            textAlign: 'center',
+            border: '1px solid #e5e7eb',
           }}
         >
+          <h2
+            style={{
+              fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)',
+              fontWeight: 600,
+              color: '#111827',
+              margin: '0 0 1rem 0',
+            }}
+          >
+            Sigurnost i kontrola
+          </h2>
           <p
             style={{
-              fontSize: 'clamp(0.9375rem, 2vw, 1rem)',
-              color: '#0369a1',
-              margin: 0,
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#4b5563',
+              margin: '0 0 1.25rem 0',
               lineHeight: 1.6,
             }}
           >
-            <strong>Napomena:</strong> Ovo je demonstracijska verzija sustava. U stvarnoj implementaciji, asistent je dio službene web stranice grada.
+            Civis je osmišljen tako da gradska uprava zadržava potpunu kontrolu nad informacijama i komunikacijom.
           </p>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: '1.5rem',
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#374151',
+              lineHeight: 1.8,
+            }}
+          >
+            <li>Korištenje isključivo odabranih i verificiranih dokumenata</li>
+            <li>Mogućnost ograničavanja područja znanja</li>
+            <li>Evidencija svih interakcija</li>
+            <li>Preuzimanje komunikacije od strane službenika</li>
+            <li>Konfiguracija prema internim pravilima grada</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* Implementation Timeline */}
+      <section
+        style={{
+          padding: 'clamp(2rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem)',
+          backgroundColor: '#f9fafb',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '600px',
+            margin: '0 auto',
+            padding: '1.25rem 1.5rem',
+            backgroundColor: '#ffffff',
+            borderRadius: '0.5rem',
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '0.9375rem',
+              fontWeight: 600,
+              color: '#111827',
+              marginBottom: '1rem',
+            }}
+          >
+            Implementacija: 6–8 tjedana od ugovora
+          </div>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: '1.25rem',
+              fontSize: '0.875rem',
+              color: '#4b5563',
+              lineHeight: 1.75,
+            }}
+          >
+            <li>Tjedni 1–2: Prikupljanje i organizacija podataka</li>
+            <li>Tjedni 3–5: Razvoj i integracija</li>
+            <li>Tjedni 6–7: Testiranje i optimizacija</li>
+            <li>Tjedan 8: Puštanje u rad</li>
+          </ul>
         </div>
       </section>
 
@@ -2463,6 +2583,28 @@ function ChatPage() {
           )}
         </>
       )}
+
+      {/* Disclaimer - bottom of page */}
+      <footer
+        style={{
+          padding: 'clamp(1.5rem, 3vw, 2rem) clamp(1rem, 4vw, 2rem)',
+          backgroundColor: '#ffffff',
+          borderTop: '1px solid #e5e7eb',
+        }}
+      >
+        <p
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto',
+            fontSize: '0.8125rem',
+            color: '#9ca3af',
+            lineHeight: 1.5,
+            textAlign: 'center',
+          }}
+        >
+          Napomena: Ova stranica prikazuje demonstracijsku verziju sustava s ograničenim skupom testnih dokumenata.
+        </p>
+      </footer>
     </div>
   );
 }
