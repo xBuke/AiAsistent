@@ -2031,38 +2031,9 @@ function ChatPage() {
         <div
           style={{
             display: 'flex',
-            flexWrap: 'wrap',
-            gap: '1rem',
             justifyContent: 'center',
           }}
         >
-          <a
-            href="mailto:marko@mangai.hr?subject=Pilot%20projekt%20Civis"
-            style={{
-              padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
-              fontSize: 'clamp(1rem, 2vw, 1.125rem)',
-              fontWeight: 600,
-              color: '#ffffff',
-              backgroundColor: '#2563eb',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s, transform 0.2s',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              textDecoration: 'none',
-              display: 'inline-block',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#1d4ed8';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#2563eb';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            Zatražite pilot projekt
-          </a>
           <button
             onClick={() => {
               if (typeof window !== 'undefined' && (window as any).CivisWidget?.open) {
@@ -2075,53 +2046,26 @@ function ChatPage() {
               padding: 'clamp(0.875rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem)',
               fontSize: 'clamp(1rem, 2vw, 1.125rem)',
               fontWeight: 600,
-              color: '#2563eb',
-              backgroundColor: 'transparent',
-              border: '2px solid #2563eb',
+              color: '#ffffff',
+              backgroundColor: '#2563eb',
+              border: 'none',
               borderRadius: '0.5rem',
               cursor: 'pointer',
               transition: 'background-color 0.2s, transform 0.2s',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#eff6ff';
+              e.currentTarget.style.backgroundColor = '#1d4ed8';
               e.currentTarget.style.transform = 'translateY(-2px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.backgroundColor = '#2563eb';
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
             Isprobajte demonstraciju
           </button>
         </div>
-        <p
-          style={{
-            margin: '1.5rem auto 0',
-            maxWidth: '700px',
-            textAlign: 'center',
-            fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
-            color: '#4b5563',
-            lineHeight: 1.6,
-          }}
-        >
-          <a
-            href="mailto:info@mangai.hr?subject=Sastanak%20-%20prikaz%20dashboarda"
-            style={{
-              color: '#2563eb',
-              fontWeight: 500,
-              textDecoration: 'none',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.textDecoration = 'underline';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.textDecoration = 'none';
-            }}
-          >
-            Zakažite sastanak kako biste vidjeli kako izgleda dashboard.
-          </a>
-        </p>
       </section>
 
       {/* Zašto je ovo važno za grad */}
@@ -2455,6 +2399,33 @@ function ChatPage() {
             </div>
           </div>
         </div>
+        <p
+          style={{
+            margin: '1.5rem auto 0',
+            maxWidth: '700px',
+            textAlign: 'center',
+            fontSize: '0.875rem',
+            color: '#6b7280',
+            lineHeight: 1.5,
+          }}
+        >
+          <a
+            href="mailto:info@mangai.hr?subject=Sastanak%20-%20prikaz%20dashboarda"
+            style={{
+              color: '#2563eb',
+              fontWeight: 500,
+              textDecoration: 'none',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.textDecoration = 'underline';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.textDecoration = 'none';
+            }}
+          >
+            Zakažite sastanak kako biste vidjeli kako izgleda dashboard.
+          </a>
+        </p>
       </section>
 
       {/* Sigurnost i kontrola */}
