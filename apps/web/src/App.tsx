@@ -1630,54 +1630,6 @@ function EnglishLandingPage() {
           A citizen-facing AI assistant and an admin inbox for municipalities.
         </p>
 
-        {/* Notice/Disclaimer */}
-        <div
-          style={{
-            maxWidth: '700px',
-            margin: '0 auto 2rem auto',
-            padding: '1rem 1.5rem',
-            backgroundColor: '#f0f9ff',
-            border: '1px solid #bae6fd',
-            borderRadius: '0.5rem',
-            textAlign: 'left',
-          }}
-        >
-          <p
-            style={{
-              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
-              color: '#0369a1',
-              margin: 0,
-              lineHeight: 1.6,
-            }}
-          >
-            <strong>Note:</strong> This demo reflects workflows shaped by Croatian public-sector standards and operating practices.
-          </p>
-        </div>
-
-        {/* Document Scope Note */}
-        <div
-          style={{
-            maxWidth: '700px',
-            margin: '0 auto 2rem auto',
-            padding: '1rem 1.5rem',
-            backgroundColor: '#fffbeb',
-            border: '1px solid #fde68a',
-            borderRadius: '0.5rem',
-            textAlign: 'left',
-          }}
-        >
-          <p
-            style={{
-              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
-              color: '#92400e',
-              margin: 0,
-              lineHeight: 1.6,
-            }}
-          >
-            The assistant uses a small set of demo/mock documents for demonstration purposes.
-          </p>
-        </div>
-
         {/* Testing Instructions */}
         <div
           style={{
@@ -1741,16 +1693,12 @@ function EnglishLandingPage() {
             label="Example 1 (form submission)"
           />
           <CopyableExample
-            text="Who should I contact about a communal issue?"
-            label="Example 2 (service guidance)"
-          />
-          <CopyableExample
             text="I need to report a problem"
-            label="Example 3 (ticket flow)"
+            label="Example 2 (ticket flow)"
           />
           <CopyableExample
-            text="How can AI help me as a citizen?"
-            label="Example 4 (general info)"
+            text="Who should I contact about a communal issue?"
+            label="Example 3 (service guidance)"
           />
           <p
             style={{
@@ -1796,6 +1744,54 @@ function EnglishLandingPage() {
             }}
           >
             <strong>Important:</strong> The chat and admin UI are currently in Croatian.
+          </p>
+        </div>
+
+        {/* Notice/Disclaimer - repositioned below testing instructions */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1rem 1.5rem',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#0369a1',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            <strong>Note:</strong> This demo reflects workflows shaped by Croatian public-sector standards and operating practices.
+          </p>
+        </div>
+
+        {/* Document Scope Note - repositioned below testing instructions */}
+        <div
+          style={{
+            maxWidth: '700px',
+            margin: '0 auto 2rem auto',
+            padding: '1rem 1.5rem',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '0.5rem',
+            textAlign: 'left',
+          }}
+        >
+          <p
+            style={{
+              fontSize: 'clamp(0.9375rem, 1.5vw, 1rem)',
+              color: '#92400e',
+              margin: 0,
+              lineHeight: 1.6,
+            }}
+          >
+            The assistant uses a small set of demo/mock documents for demonstration purposes.
           </p>
         </div>
 
