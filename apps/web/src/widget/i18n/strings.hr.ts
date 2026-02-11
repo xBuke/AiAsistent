@@ -133,4 +133,9 @@ export const strings = {
   attachmentsInvalidCategory: 'Za ovu kategoriju potrebno je prenijeti barem jedan prilog.',
   attachmentsLimitReached: 'Maksimalno 10 priloga ukupno.',
   attachmentsInvalidFileTypeOrSize: 'Dozvoljeni su PDF/JPG/PNG do 5MB.',
+  // Form success (PDF link)
+  formSuccessTitle: 'Zahtjev je uspješno poslan.',
+  referenceNumberLabel: 'Referentni broj',
+  pdfLinkLabel: '📄 Preuzmi PDF',
+  referenceHelperText: 'Sačuvajte referentni broj za praćenje zahtjeva.',
 } as const;

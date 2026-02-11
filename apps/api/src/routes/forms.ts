@@ -505,8 +505,55 @@ export async function formsAttachmentsUploadHandler(
   });
 }
 
+/**
+ * GET /forms/:reference_number/pdf
+ * Citizen-accessible: returns PDF only when status = 'submitted'.
+ * Reuses same data source as admin route (form_requests.pdf_base64).
+ */
+export async function getFormPdfHandler(
+  request: FastifyRequest<{ Params: { reference_number: string } }>,
+  reply: FastifyReply
+) {
+  const { reference_number } = request.params;
+  if (!reference_number || !reference_number.trim()) {
+    return reply.status(404).send({ error: 'Not found' });
+  }
+
+  const { data: row, error } = await supabase
+    .from('form_requests')
+    .select('status, pdf_base64')
+    .eq('reference_number', reference_number.trim())
+    .single();
+
+  if (error || !row) {
+    return reply.status(404).send({ error: 'Not found' });
+  }
+  if (row.status !== 'submitted') {
+    return reply.status(409).send({ error: 'PDF is available after submission' });
+  }
+  if (row.pdf_base64 == null || row.pdf_base64 === '') {
+    request.log.error({ reference_number }, 'Submitted row missing pdf_base64');
+    return reply.status(500).send({ error: 'Unexpected error' });
+  }
+
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(row.pdf_base64, 'base64');
+  } catch (e) {
+    request.log.error({ err: e }, 'form PDF base64 decode failed');
+    return reply.status(500).send({ error: 'Unexpected error' });
+  }
+
+  const filename = `${reference_number}.pdf`;
+  return reply
+    .header('Content-Type', 'application/pdf')
+    .header('Content-Disposition', `inline; filename="${filename}"`)
+    .send(buffer);
+}
+
 export async function registerFormsRoutes(server: FastifyInstance) {
   server.post('/forms/submit', formsSubmitHandler);
   server.post('/forms/draft', formsDraftHandler);
+  server.get('/forms/:reference_number/pdf', getFormPdfHandler);
   server.post('/forms/:reference_number/attachments', formsAttachmentsUploadHandler);
 }

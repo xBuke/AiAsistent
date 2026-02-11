@@ -530,10 +530,19 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
   /** On successful jednokratna submit: show message, exit form, clear wizard state */
   const handleJednokratnaSuccess = (referenceNumber: string) => {
-    const content = t(config.lang, 'jednokratnaSuccessWithRef').replace('{ref}', referenceNumber);
+    const baseUrl = config.apiBaseUrl?.trim();
+    const pdfUrl = baseUrl
+      ? `${baseUrl.replace(/\/$/, '')}/forms/${encodeURIComponent(referenceNumber)}/pdf`
+      : null;
+    const content = t(config.lang, 'formSuccessTitle');
     setMessages((prev) => [
       ...prev,
-      { id: `jednokratna-success-${Date.now()}`, role: 'assistant', content },
+      {
+        id: `jednokratna-success-${Date.now()}`,
+        role: 'assistant',
+        content,
+        metadata: { formSuccess: true, referenceNumber, pdfUrl },
+      },
     ]);
     setActiveForm(null);
     setJednokratnaWizardStep(1);
@@ -549,10 +558,19 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
 
   /** On successful submit: show message, exit form, clear wizard state */
   const handleNovorodenoSuccess = (referenceNumber: string) => {
-    const content = t(config.lang, 'novorodenoSuccessWithRef').replace('{ref}', referenceNumber);
+    const baseUrl = config.apiBaseUrl?.trim();
+    const pdfUrl = baseUrl
+      ? `${baseUrl.replace(/\/$/, '')}/forms/${encodeURIComponent(referenceNumber)}/pdf`
+      : null;
+    const content = t(config.lang, 'formSuccessTitle');
     setMessages((prev) => [
       ...prev,
-      { id: `novorodeno-success-${Date.now()}`, role: 'assistant', content },
+      {
+        id: `novorodeno-success-${Date.now()}`,
+        role: 'assistant',
+        content,
+        metadata: { formSuccess: true, referenceNumber, pdfUrl },
+      },
     ]);
     setActiveForm(null);
     setNovorodenoWizardStep(1);

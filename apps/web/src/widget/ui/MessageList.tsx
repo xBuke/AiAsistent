@@ -140,26 +140,55 @@ const MessageList: React.FC<MessageListProps> = ({
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
-                {linkifyText(message.content).map((token, index) => {
-                  if (token.type === 'text') {
-                    return <span key={index}>{token.value}</span>;
-                  }
-                  // token.type === 'link'
-                  const linkColor = message.role === 'user' ? '#a8d5ff' : '#0b3a6e';
-                  return (
-                    <a
-                      key={index}
-                      href={token.href}
-                      target={token.kind === 'url' ? '_blank' : undefined}
-                      rel={token.kind === 'url' ? 'noreferrer' : undefined}
-                      style={{
-                        color: linkColor,
-                      }}
-                    >
-                      {token.value}
-                    </a>
-                  );
-                })}
+                {message.role === 'assistant' &&
+                message.metadata?.formSuccess === true &&
+                message.metadata?.referenceNumber ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontWeight: 600 }}>{message.content}</div>
+                    <div>
+                      {t(lang, 'referenceNumberLabel')}:{' '}
+                      <strong>{message.metadata.referenceNumber}</strong>
+                    </div>
+                    {message.metadata.pdfUrl && (
+                      <a
+                        href={message.metadata.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: '#0b3a6e',
+                          fontWeight: 500,
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        {t(lang, 'pdfLinkLabel')}
+                      </a>
+                    )}
+                    <div style={{ fontSize: '13px', color: '#666' }}>
+                      {t(lang, 'referenceHelperText')}
+                    </div>
+                  </div>
+                ) : (
+                  linkifyText(message.content).map((token, index) => {
+                    if (token.type === 'text') {
+                      return <span key={index}>{token.value}</span>;
+                    }
+                    // token.type === 'link'
+                    const linkColor = message.role === 'user' ? '#a8d5ff' : '#0b3a6e';
+                    return (
+                      <a
+                        key={index}
+                        href={token.href}
+                        target={token.kind === 'url' ? '_blank' : undefined}
+                        rel={token.kind === 'url' ? 'noreferrer' : undefined}
+                        style={{
+                          color: linkColor,
+                        }}
+                      >
+                        {token.value}
+                      </a>
+                    );
+                  })
+                )}
               </div>
             </div>
             {hasCitations && (

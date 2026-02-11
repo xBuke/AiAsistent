@@ -133,4 +133,9 @@ export const strings = {
   attachmentsInvalidCategory: 'At least one file is required for this category.',
   attachmentsLimitReached: 'Maximum 10 attachments in total.',
   attachmentsInvalidFileTypeOrSize: 'Allowed: PDF/JPG/PNG up to 5MB.',
+  // Form success (PDF link)
+  formSuccessTitle: 'Request submitted successfully.',
+  referenceNumberLabel: 'Reference number',
+  pdfLinkLabel: '📄 Download PDF',
+  referenceHelperText: 'Save the reference number to track your request.',
 } as const;
