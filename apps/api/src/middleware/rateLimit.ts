@@ -17,15 +17,12 @@ export const EVENTS_RATE_LIMIT = {
 };
 
 /**
- * Login rate limit (DEMO_MODE only)
- * Only active when DEMO_MODE === 'true', otherwise undefined (no rate limiting)
+ * Login rate limit
  */
-export const LOGIN_RATE_LIMIT = process.env.DEMO_MODE === 'true'
-  ? {
-      max: parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '5', 10),
-      timeWindow: parseInt(process.env.RATE_LIMIT_LOGIN_WINDOW_MS || '900000', 10), // 15 minutes
-    }
-  : undefined;
+export const LOGIN_RATE_LIMIT = {
+  max: parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '5', 10),
+  timeWindow: parseInt(process.env.RATE_LIMIT_LOGIN_WINDOW_MS || '900000', 10), // 15 minutes
+};
 
 /**
  * Register @fastify/rate-limit once. Global: false → only routes with config.rateLimit
