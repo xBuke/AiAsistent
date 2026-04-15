@@ -17,6 +17,7 @@ const NAV_ITEMS: { id: AdminTabId; label: string }[] = [
 interface SidebarNavProps {
   activeTab: AdminTabId;
   onSelect: (tab: AdminTabId) => void;
+  onLogout?: () => void;
 }
 
 function NavIcon({ tabId }: { tabId: AdminTabId }) {
@@ -70,7 +71,7 @@ function NavIcon({ tabId }: { tabId: AdminTabId }) {
   }
 }
 
-export function SidebarNav({ activeTab, onSelect }: SidebarNavProps) {
+export function SidebarNav({ activeTab, onSelect, onLogout }: SidebarNavProps) {
   return (
     <nav className="admin-sidebar-nav" aria-label="Admin sidebar">
       <div className="admin-sidebar-nav__wordmark">Civis</div>
@@ -98,8 +99,8 @@ export function SidebarNav({ activeTab, onSelect }: SidebarNavProps) {
 
       <div className="admin-sidebar-nav__footer">
         <div className="admin-sidebar-nav__city">Sarajevo</div>
-        <button type="button" className="admin-sidebar-nav__logout">
-          Logout
+        <button type="button" className="admin-sidebar-nav__logout" onClick={onLogout}>
+          Odjava
         </button>
       </div>
     </nav>

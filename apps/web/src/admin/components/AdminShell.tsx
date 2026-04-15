@@ -51,6 +51,7 @@ export function AdminShell({
       <aside className={`admin-shell__sidebar ${isMobile ? 'admin-shell__sidebar--mobile' : ''} ${isMobile && sidebarOpen ? 'admin-shell__sidebar--open' : ''}`}>
         <SidebarNav
           activeTab={activeTab}
+          onLogout={onLogout}
           onSelect={(tab) => {
             onTabChange(tab);
             if (isMobile) {

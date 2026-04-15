@@ -1,0 +1,95 @@
+.inbox-kpi-bar {
+  width: 100%;
+  background-color: #fafafa;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.inbox-kpi-grid {
+  display: grid;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.inbox-list-scroll,
+.inbox-table-wrap {
+  min-height: 0;
+}
+
+.inbox-table-wrap .admin-table {
+  table-layout: fixed;
+}
+
+.inbox-table-wrap .admin-table th:not(:first-child),
+.inbox-table-wrap .admin-table td:not(:first-child) {
+  display: none;
+}
+
+.inbox-table-wrap .admin-table th,
+.inbox-table-wrap .admin-table td {
+  padding: 8px 10px;
+}
+
+.inbox-ticket-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 56px;
+  max-height: 72px;
+}
+
+.inbox-ticket-title-line {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.inbox-ticket-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inbox-ticket-status-pill,
+.inbox-ticket-category-pill,
+.inbox-ticket-date-pill {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.inbox-ticket-status-pill {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  flex: 0 0 auto;
+}
+
+.inbox-ticket-category-pill {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.inbox-ticket-date-pill {
+  flex: 0 0 auto;
+}
+
+.inbox-ticket-preview {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}

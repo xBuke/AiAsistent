@@ -296,6 +296,10 @@ export function AdminApp() {
         {activeTab === "Dashboard" && (
           <Dashboard
             events={events}
+            period={period}
+            onPeriodChange={setPeriod}
+            liveEnabled={liveEnabled}
+            onLiveChange={setLiveEnabled}
             onViewAllTickets={() => setActiveTab('Ticketi')}
             onViewAllQuestions={() => setActiveTab('Reports')}
           />

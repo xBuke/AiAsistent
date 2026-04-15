@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { StatCard } from './components/StatCard';
 import { LineChart } from './components/LineChart';
 import { BarChart } from './components/BarChart';
-import { FiltersBar } from './components/FiltersBar';
 import { Drawer } from './components/Drawer';
 import {
   fetchDashboardSummary,
@@ -19,6 +18,7 @@ import { getAllCategories } from './utils/analytics';
 import type { FilterState } from './utils/analytics';
 import { formatDateTime } from './utils/dateFormat';
 import { categoryDisplayLabel } from './utils/categories';
+import type { PeriodOption } from './components/TopHeader';
 import './Dashboard.css';
 
 const PREVIEW_TICKETS_COUNT = 5;
@@ -26,11 +26,25 @@ const PREVIEW_QUESTIONS_COUNT = 5;
 
 interface DashboardProps {
   events: any[];
+  period: PeriodOption;
+  onPeriodChange: (period: PeriodOption) => void;
+  liveEnabled: boolean;
+  onLiveChange: (enabled: boolean) => void;
   onViewAllTickets?: () => void;
   onViewAllQuestions?: () => void;
 }
 
-export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: DashboardProps) {
+const PERIOD_OPTIONS: PeriodOption[] = ['7D', 'Monthly', 'Yearly'];
+
+export function Dashboard({
+  events,
+  period,
+  onPeriodChange,
+  liveEnabled,
+  onLiveChange,
+  onViewAllTickets,
+  onViewAllQuestions,
+}: DashboardProps) {
   const { cityId } = useParams<{ cityId: string }>();
   const [filters, setFilters] = useState<FilterState>({
     dateRange: '7d',
@@ -142,34 +156,83 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
     : '—';
   const previewTickets = summary?.tickets_preview?.slice(0, PREVIEW_TICKETS_COUNT) ?? [];
   const previewQuestions = summary?.top_questions?.slice(0, PREVIEW_QUESTIONS_COUNT) ?? [];
+  const unresolvedKnowledgeGaps = useMemo(
+    () =>
+      (summary?.knowledge_gaps ?? [])
+        .filter((gap) => gap.status !== 'resolved' && gap.status !== 'closed')
+        .slice(0, 3),
+    [summary]
+  );
 
   return (
     <div className="admin-dashboard">
-      {/* Filter bar — full-width control section */}
-      <div className="admin-dashboard__filters">
-        <div className="admin-dashboard__filters-inner">
-          <FiltersBar
-            filters={filters}
-            onFiltersChange={setFilters}
-            categories={categoriesFromSummary}
-          />
+      <div className="admin-dashboard__header">
+        <div className="admin-dashboard__header-copy">
+          <h1 className="admin-dashboard__title">Uvid u komunikaciju s građanima</h1>
+          <p className="admin-dashboard__subtitle">
+            Pregled trendova, upita i praznina znanja koje treba pokriti novim sadržajem.
+          </p>
+        </div>
+        <div className="admin-dashboard__header-controls">
+          <div className="admin-dashboard__period-group" role="group" aria-label="Razdoblje">
+            {PERIOD_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onPeriodChange(option);
+                  setFilters((prev) => ({
+                    ...prev,
+                    dateRange: option === '7D' ? '7d' : option === 'Monthly' ? '30d' : '30d',
+                  }));
+                }}
+                className={`admin-dashboard__period-btn ${period === option ? 'is-active' : ''}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <label className="admin-dashboard__live-toggle">
+            <input type="checkbox" checked={liveEnabled} onChange={(e) => onLiveChange(e.target.checked)} />
+            <span>Live</span>
+          </label>
         </div>
       </div>
 
-      {/* Loading State */}
+      <div className="admin-dashboard__filters">
+        <select
+          className="admin-select admin-dashboard__filter-select"
+          value={filters.category}
+          onChange={(e) => setFilters((prev) => ({ ...prev, category: e.target.value }))}
+        >
+          <option value="All">Sve kategorije</option>
+          {categoriesFromSummary.map((cat) => (
+            <option key={cat} value={cat}>
+              {categoryDisplayLabel(cat)}
+            </option>
+          ))}
+        </select>
+        <input
+          className="admin-input admin-dashboard__filter-input"
+          placeholder="Pretraži po pitanju..."
+          value={filters.searchQuery}
+          onChange={(e) => setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))}
+        />
+      </div>
+
       {loading && (
-        <div className="admin-dashboard__state">Loading dashboard...</div>
+        <div className="admin-dashboard__empty-state">
+          <div className="admin-dashboard__empty-icon" aria-hidden="true">◌</div>
+          <p>Učitavanje nadzorne ploče...</p>
+        </div>
       )}
 
-      {/* Error State */}
       {error && !loading && (
-        <div className="admin-dashboard__error">Error: {error}</div>
+        <div className="admin-dashboard__error">Greška pri učitavanju: {error}</div>
       )}
 
-      {/* Dashboard Content */}
       {!loading && !error && summary && (
         <>
-          {/* ROW 1 — KPI Summary (full width) */}
           <div className="admin-dashboard__kpi-grid">
             <StatCard title="Ukupan broj razgovora" value={summary.kpis.conversations_total} />
             <StatCard title="Upiti za koje je potrebna reakcija Grada" value={summary.kpis.tickets_open} />
@@ -177,16 +240,13 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
             <StatCard title="Raspoloženje građana" value="Stabilno" />
           </div>
 
-          {/* ROW 2 — Hero: Charts above the fold (8 / 4) */}
           <div className="admin-dashboard__charts-grid">
-            {/* Left (8 cols): Pitanja po danu */}
             <div className="admin-card admin-dashboard__chart-card">
               <h3 className="admin-dashboard__section-title">Pitanja po danu</h3>
               <div className="admin-dashboard__chart-content">
-                <LineChart data={summary.charts.questions_per_day} width={600} height={200} />
+                <LineChart data={summary.charts.questions_per_day} width={560} height={220} />
               </div>
             </div>
-            {/* Right (4 cols): Top kategorije */}
             <div className="admin-card admin-dashboard__chart-card">
               <h3 className="admin-dashboard__section-title">Top kategorije</h3>
               <div className="admin-dashboard__chart-content">
@@ -195,14 +255,13 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
                     category: categoryDisplayLabel(c.category),
                     count: c.count,
                   }))}
-                  width={280}
-                  height={200}
+                  width={560}
+                  height={220}
                 />
               </div>
             </div>
           </div>
 
-          {/* ROW 3 — O čemu građani najviše pitaju (preview) */}
           <div className="admin-card admin-dashboard__panel">
             <div className="admin-dashboard__panel-header">
               <h2 className="admin-dashboard__section-title">
@@ -219,33 +278,33 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
               )}
             </div>
             {previewQuestions.length === 0 ? (
-              <p className="admin-dashboard__muted">Nema dostupnih podataka za odabrani period.</p>
+              <div className="admin-dashboard__empty-state admin-dashboard__empty-state--compact">
+                <div className="admin-dashboard__empty-icon" aria-hidden="true">◌</div>
+                <p>Nema dostupnih podataka za odabrano razdoblje.</p>
+              </div>
             ) : (
-              <div className="admin-dashboard__list">
+              <ol className="admin-dashboard__ranked-list">
                 {previewQuestions.map((q, idx) => (
-                  <div
+                  <li
                     key={idx}
                     onClick={() => handleQuestionClick(q.question)}
-                    className="admin-dashboard__list-item"
+                    className="admin-dashboard__ranked-item"
                   >
-                    <span className="admin-dashboard__list-item-title" title={q.question}>{q.question}</span>
-                    <span className="admin-dashboard__list-item-count">{q.count}×</span>
-                  </div>
+                    <span className="admin-dashboard__ranked-question" title={q.question}>{q.question}</span>
+                    <span className="admin-dashboard__ranked-badge">{q.count}</span>
+                  </li>
                 ))}
-              </div>
+              </ol>
             )}
           </div>
 
-          {/* ROW 4 — Insight + Signal (6 / 6) */}
           <div className="admin-dashboard__charts-grid">
-            {/* Left (6 cols): Sažetak komunikacije */}
             <div className="admin-card admin-dashboard__panel">
               <h3 className="admin-dashboard__section-title">Sažetak komunikacije – zadnjih 7 dana</h3>
               <p className="admin-dashboard__text">
                 Većina upita odnosi se na komunalne teme i administrativne informacije. Dio upita zahtijeva daljnju obradu od strane gradske uprave.
               </p>
             </div>
-            {/* Right (6 cols): Upiti za koje je potrebna reakcija Grada */}
             <div className="admin-card admin-dashboard__panel">
               <div className="admin-dashboard__panel-header">
                 <h3 className="admin-dashboard__section-title">Upiti za koje je potrebna reakcija Grada</h3>
@@ -277,36 +336,66 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
               )}
             </div>
           </div>
+
+          <div className="admin-card admin-dashboard__panel">
+            <div className="admin-dashboard__panel-header">
+              <h3 className="admin-dashboard__section-title">Knowledge gaps</h3>
+              {onViewAllQuestions && (
+                <button type="button" onClick={onViewAllQuestions} className="admin-dashboard__link-btn">
+                  Vidi sve →
+                </button>
+              )}
+            </div>
+            {unresolvedKnowledgeGaps.length === 0 ? (
+              <div className="admin-dashboard__empty-state admin-dashboard__empty-state--compact">
+                <div className="admin-dashboard__empty-icon" aria-hidden="true">◌</div>
+                <p>Trenutno nema neriješenih praznina znanja.</p>
+              </div>
+            ) : (
+              <div className="admin-dashboard__list">
+                {unresolvedKnowledgeGaps.map((gap) => (
+                  <button
+                    key={gap.id}
+                    type="button"
+                    className="admin-dashboard__list-item admin-dashboard__list-item--button"
+                    onClick={() => handleKnowledgeGapClick(gap.id)}
+                  >
+                    <span className="admin-dashboard__list-item-title">{gap.question}</span>
+                    <span className="admin-dashboard__list-item-count">{gap.count}x</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
 
-      {/* Drawer */}
       <Drawer
         isOpen={drawerType !== null}
         onClose={closeDrawer}
         title={
           drawerType === 'question'
-            ? 'Question Examples'
+            ? 'Primjeri pitanja'
             : drawerType === 'knowledge-gap'
-            ? 'Knowledge Gap Details'
-            : 'Ticket Details'
+            ? 'Detalji praznine znanja'
+            : 'Detalji ticketa'
         }
       >
         {drawerLoading ? (
-          <div className="admin-dashboard__drawer-state">Loading...</div>
+          <div className="admin-dashboard__drawer-state">Učitavanje...</div>
         ) : drawerData ? (
           <>
             {drawerType === 'question' && (
               <div className="admin-dashboard__drawer-stack">
                 <div>
-                  <h4 className="admin-dashboard__drawer-title">Normalized Question</h4>
+                  <h4 className="admin-dashboard__drawer-title">Normalizirano pitanje</h4>
                   <p className="admin-dashboard__drawer-text">
                     {(drawerData as QuestionExamples).question}
                   </p>
                 </div>
                 <div>
                   <h4 className="admin-dashboard__drawer-title">
-                    Examples ({((drawerData as QuestionExamples).examples || []).length})
+                    Primjeri ({((drawerData as QuestionExamples).examples || []).length})
                   </h4>
                   <div className="admin-dashboard__drawer-stack-sm">
                     {((drawerData as QuestionExamples).examples || []).map((ex, idx) => (
@@ -322,25 +411,25 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
             {drawerType === 'knowledge-gap' && (
               <div className="admin-dashboard__drawer-stack">
                 <div>
-                  <h4 className="admin-dashboard__drawer-title">Question</h4>
+                  <h4 className="admin-dashboard__drawer-title">Pitanje</h4>
                   <p className="admin-dashboard__drawer-text">
                     {(drawerData as KnowledgeGapDetail).question}
                   </p>
                 </div>
                 {(drawerData as KnowledgeGapDetail).reason && (
                   <div>
-                    <h4 className="admin-dashboard__drawer-title">Reason</h4>
+                    <h4 className="admin-dashboard__drawer-title">Razlog</h4>
                     <p className="admin-dashboard__drawer-text">
                       {(drawerData as KnowledgeGapDetail).reason}
                     </p>
                   </div>
                 )}
                 <div>
-                  <h4 className="admin-dashboard__drawer-title">Occurrences: {(drawerData as KnowledgeGapDetail).occurrences}</h4>
+                  <h4 className="admin-dashboard__drawer-title">Ponavljanja: {(drawerData as KnowledgeGapDetail).occurrences}</h4>
                 </div>
                 {((drawerData as KnowledgeGapDetail).examples || []).length > 0 && (
                   <div>
-                    <h4 className="admin-dashboard__drawer-title">Examples</h4>
+                    <h4 className="admin-dashboard__drawer-title">Primjeri</h4>
                     <div className="admin-dashboard__drawer-stack-sm">
                       {((drawerData as KnowledgeGapDetail).examples || []).map((ex, idx) => (
                         <div key={idx} className="admin-dashboard__drawer-item">
@@ -371,7 +460,7 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
                 )}
                 <div>
                   <h4 className="admin-dashboard__drawer-title">
-                    Messages ({((drawerData as ApiConversationDetail).messages || []).length})
+                    Poruke ({((drawerData as ApiConversationDetail).messages || []).length})
                   </h4>
                   <div className="admin-dashboard__drawer-scroll">
                     {((drawerData as ApiConversationDetail).messages || []).map((msg) => (
@@ -380,7 +469,7 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
                         className={`admin-dashboard__drawer-item ${msg.role === 'user' ? 'admin-dashboard__drawer-item--user' : ''}`}
                       >
                         <div className="admin-dashboard__drawer-meta admin-dashboard__drawer-meta--strong">
-                          {msg.role === 'user' ? 'User' : 'Assistant'}
+                          {msg.role === 'user' ? 'Građanin' : 'Asistent'}
                         </div>
                         <div className="admin-dashboard__drawer-text">{msg.content_redacted || '-'}</div>
                         <div className="admin-dashboard__drawer-meta">{formatDateTime(msg.created_at)}</div>
@@ -392,7 +481,7 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
             )}
           </>
         ) : (
-          <div className="admin-dashboard__drawer-state">No data available</div>
+          <div className="admin-dashboard__drawer-state">Nema podataka za prikaz.</div>
         )}
       </Drawer>
     </div>

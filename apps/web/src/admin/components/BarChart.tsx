@@ -18,7 +18,7 @@ export function BarChart({ data, width = 600, height = 200 }: BarChartProps) {
           fontSize: '0.875rem',
         }}
       >
-        No data available
+        Nema dostupnih podataka
       </div>
     );
   }

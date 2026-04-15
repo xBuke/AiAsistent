@@ -11,6 +11,7 @@ import {
 import { usePolling } from './hooks/usePolling';
 import { formatDateTime, formatMessageTime, formatRelativeTime } from './utils/dateFormat';
 import { DataTable, type DataTableColumn } from './components/DataTable';
+import './Inbox.css';
 
 type WorkflowStatus = 'open' | 'resolved';
 
@@ -57,6 +58,13 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const [conversationDetail, setConversationDetail] = useState<ApiConversationDetail | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [statusChip, setStatusChip] = useState<StatusChip>('all');
+  const [filtersCollapsed, setFiltersCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+  const userToggledFilters = useRef(false);
   const [urgentFilterOnly, setUrgentFilterOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -70,15 +78,6 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const [detailError, setDetailError] = useState<string | null>(null);
   // Track if detail fetch is in progress to prevent overlapping requests
   const detailFetchInFlightRef = useRef(false);
-  const [filtersCollapsed, setFiltersCollapsed] = useState(() => {
-    // Collapsed by default on mobile, expanded on desktop
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 768;
-    }
-    return false;
-  });
-  // Track if user has manually toggled filters (prevents auto-reset on resize/polling)
-  const userToggledFilters = useRef(false);
 
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>('open');
   const [workflowDepartment, setWorkflowDepartment] = useState<string>('');
@@ -619,8 +618,6 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      // Auto-collapse filters on mobile, expand on desktop
-      // BUT only if user hasn't manually toggled filters
       if (!userToggledFilters.current) {
         if (mobile && !filtersCollapsed) {
           setFiltersCollapsed(true);
@@ -628,7 +625,6 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
           setFiltersCollapsed(false);
         }
       }
-      // Reset mobileView when switching to desktop
       if (!mobile) {
         setMobileView('list');
       }
@@ -747,30 +743,20 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     () => [
       {
         key: 'title',
-        label: 'Ticket',
+        label: 'Razgovori',
         render: (conv) => (
-          <div>
-            <div>{getTicketTitle(conv)}</div>
+          <div className="inbox-ticket-cell">
+            <div className="inbox-ticket-title-line">{getTicketTitle(conv)}</div>
+            <div className="inbox-ticket-meta-row">
+              <span className="inbox-ticket-status-pill">{getStatusLabel(conv.status)}</span>
+              <span className="inbox-ticket-category-pill">{conv.category ?? '—'}</span>
+              <span className="inbox-ticket-date-pill">{conv.last_activity_at ? formatRelativeTime(conv.last_activity_at) : '—'}</span>
+            </div>
             {getListPreview(conv) && (
-              <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>{getListPreview(conv)}</div>
+              <div className="inbox-ticket-preview">{getListPreview(conv)}</div>
             )}
           </div>
         ),
-      },
-      {
-        key: 'status',
-        label: 'Status',
-        render: (conv) => getStatusLabel(conv.status),
-      },
-      {
-        key: 'category',
-        label: 'Kategorija',
-        render: (conv) => conv.category ?? '—',
-      },
-      {
-        key: 'last_activity_at',
-        label: 'Aktivnost',
-        render: (conv) => (conv.last_activity_at ? formatRelativeTime(conv.last_activity_at) : '—'),
       },
     ],
     [getListPreview, getTicketTitle]
@@ -789,16 +775,18 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          height: isMobile ? 'auto' : 'calc(100vh - 200px)',
-          gap: '1rem',
+          height: isMobile ? 'auto' : 'calc(100vh - 136px)',
+          gap: '0.75rem',
+          overflow: 'hidden',
+          padding: '0 0.75rem 0.75rem',
         }}
       >
       {/* Left sidebar - Conversation list */}
       <div
         style={{
-          width: isMobile ? '100%' : '400px',
-          minWidth: isMobile ? 'auto' : '400px',
-          maxWidth: isMobile ? '100%' : '400px',
+          width: isMobile ? '100%' : '320px',
+          minWidth: isMobile ? 'auto' : '320px',
+          maxWidth: isMobile ? '100%' : '320px',
           height: isMobile ? '50vh' : 'auto',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
@@ -822,7 +810,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               border: '1px solid #d1d5db',
               borderRadius: '0.375rem',
               fontSize: '0.875rem',
-              marginBottom: '0.75rem',
+              marginBottom: '0.5rem',
+              minHeight: '34px',
             }}
           />
 
@@ -983,11 +972,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             {/* Tag filter */}
             {allTags.length > 0 && (
               <select
-                multiple
-                value={selectedTags}
+                value={selectedTags[0] ?? ''}
                 onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                  setSelectedTags(selected);
+                  const value = e.target.value;
+                  setSelectedTags(value ? [value] : []);
                 }}
                 style={{
                   width: '100%',
@@ -996,9 +984,11 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   borderRadius: '0.375rem',
                   fontSize: '0.875rem',
                   backgroundColor: '#ffffff',
-                  minHeight: '80px',
+                  minHeight: '36px',
+                  maxHeight: '36px',
                 }}
               >
+                <option value="">Sve kategorije</option>
                 {allTags.map((tag) => (
                   <option key={tag} value={tag}>
                     {tag}
@@ -1011,7 +1001,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         </div>
 
         {/* Conversation list */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="inbox-list-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {conversationsLoading ? (
             <div
               style={{
@@ -1060,13 +1050,15 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               </button>
             </div>
           ) : (
-            <DataTable
-              columns={inboxColumns}
-              data={filteredConversations}
-              isLoading={conversationsLoading}
-              emptyMessage="Nema ticketa u inboxu."
-              onRowClick={(row) => setSelectedConversationId(row.conversation_id)}
-            />
+            <div className="inbox-table-wrap">
+              <DataTable
+                columns={inboxColumns}
+                data={filteredConversations}
+                isLoading={conversationsLoading}
+                emptyMessage="Nema ticketa u inboxu."
+                onRowClick={(row) => setSelectedConversationId(row.conversation_id)}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -1076,13 +1068,14 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         style={{
           flex: 1,
           minWidth: 0,
-          height: isMobile ? (mobileView === 'detail' ? 'calc(100vh - 120px)' : '50vh') : 'auto',
+          height: isMobile ? (mobileView === 'detail' ? 'calc(100vh - 120px)' : '50vh') : '100%',
           backgroundColor: '#ffffff',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
           display: isMobile && mobileView === 'list' && !selectedConversationId ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          minHeight: 0,
         }}
       >
         {selectedConversationId && conversationDetail ? (
@@ -1090,9 +1083,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             {/* Header: title prominent, metadata secondary, status calm, controls reduced weight */}
             <div
               style={{
-                padding: '1rem 1.25rem',
+                padding: '0.5rem 0.75rem',
                 borderBottom: '1px solid #e5e7eb',
                 flexShrink: 0,
+                maxHeight: '56px',
               }}
             >
               {/* Back button for mobile */}
@@ -1130,19 +1124,22 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   <span>Nazad na listu</span>
                 </button>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600, color: '#111827', lineHeight: '1.3', marginBottom: conversationDetail.conversation.summary ? '0.25rem' : 0 }}>
+                  <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#111827', lineHeight: '1.2', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                     {conversationDetail.conversation.title || (() => {
                       const conv = conversations.find(c => c.conversation_id === selectedConversationId);
                       return conv ? getConversationTitleFull(conv) : 'Razgovor';
                     })()}
                   </h2>
-                  {conversationDetail.conversation.summary && (
-                    <div style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: '1.4' }}>
-                      {conversationDetail.conversation.summary}
-                    </div>
-                  )}
+                  <div style={{ fontSize: '0.6875rem', color: '#9ca3af', display: 'flex', gap: '0.5rem', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                    <span>ID: {conversationDetail.conversation.id.substring(0, 8)}...</span>
+                    {(() => {
+                      const ticket = conversations.find(c => c.conversation_id === selectedConversationId);
+                      if (ticket?.ticket_ref) return <span>Ref: {ticket.ticket_ref}</span>;
+                      return null;
+                    })()}
+                  </div>
                 </div>
                 <span
                   style={{
@@ -1157,21 +1154,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   {getStatusLabel(conversationDetail.conversation.status)}
                 </span>
               </div>
-              <div style={{ fontSize: '0.6875rem', color: '#9ca3af', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                <span>ID: {conversationDetail.conversation.id.substring(0, 8)}...</span>
-                {conversationDetail.conversation.submitted_at && (
-                  <span>Predano: {formatDateTime(conversationDetail.conversation.submitted_at)}</span>
-                )}
-                {conversationDetail.conversation.last_activity_at && (
-                  <span>Zadnja aktivnost: {formatDateTime(conversationDetail.conversation.last_activity_at)}</span>
-                )}
-                {(() => {
-                  const ticket = conversations.find(c => c.conversation_id === selectedConversationId);
-                  if (ticket?.ticket_ref) return <span>Ref: {ticket.ticket_ref}</span>;
-                  return null;
-                })()}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', fontSize: '0.75rem', color: '#6b7280' }}>
+              <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '0.375rem', alignItems: 'center', fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <span>Status:</span>
                   <select
@@ -1279,8 +1262,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               style={{
                 flex: 1,
                 overflowY: 'auto',
-                padding: '1rem 1.5rem',
-                paddingBottom: isMobile ? 'calc(1rem + 80px)' : '1rem', // Extra padding on mobile to avoid widget overlap
+                padding: '0.75rem 1rem',
+                paddingBottom: '0.75rem',
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: 0,
@@ -1581,7 +1564,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             {/* Note composer - sticky bottom, compact */}
             <div
               style={{
-                padding: '1rem',
+                padding: '0.75rem',
                 borderTop: '1px solid #e5e7eb',
                 backgroundColor: '#ffffff',
                 flexShrink: 0,

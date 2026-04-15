@@ -3,7 +3,7 @@ import { getConversations, getConversationTranscript, type ConversationSummary, 
 import type { Category } from '../analytics/categorize';
 import { getEventsByCity } from '../analytics/store';
 import { categoryLabel, categoryOrder } from './utils/categories';
-import { formatDateTime, formatMessageTime, formatRelativeTime } from './utils/dateFormat';
+import { formatDateTime, formatRelativeTime } from './utils/dateFormat';
 import {
   fetchConversations as fetchConversationsApi,
   fetchMessages as fetchMessagesApi,
@@ -397,36 +397,6 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
     }
   }, [preFilteredConversations, categoryFilter, sortOption]);
 
-  const conversationColumns: Array<DataTableColumn<ConversationItem>> = useMemo(
-    () => [
-      {
-        key: 'title',
-        label: 'Razgovor',
-        render: (conv) => (
-          <div>
-            <div>{getConversationTitle(conv)}</div>
-            {getConversationSubtitle(conv) && (
-              <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>
-                {getConversationSubtitle(conv)}
-              </div>
-            )}
-          </div>
-        ),
-      },
-      {
-        key: 'category',
-        label: 'Kategorija',
-        render: (conv) => categoryLabel(conv.category),
-      },
-      {
-        key: 'lastActivityAt',
-        label: 'Aktivnost',
-        render: (conv) => (conv.lastActivityAt ? formatRelativeTime(conv.lastActivityAt) : formatDate(conv.startTime)),
-      },
-    ],
-    [getConversationTitle, getConversationSubtitle]
-  );
-
   // Selected conversation with transcript
   const selectedConversation = useMemo(() => {
     if (!selectedConversationId) return null;
@@ -524,6 +494,36 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
     }
     return null;
   }, []);
+
+  const conversationColumns: Array<DataTableColumn<ConversationItem>> = useMemo(
+    () => [
+      {
+        key: 'title',
+        label: 'Razgovor',
+        render: (conv) => (
+          <div>
+            <div>{getConversationTitle(conv)}</div>
+            {getConversationSubtitle(conv) && (
+              <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>
+                {getConversationSubtitle(conv)}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: 'category',
+        label: 'Kategorija',
+        render: (conv) => categoryLabel(conv.category),
+      },
+      {
+        key: 'lastActivityAt',
+        label: 'Aktivnost',
+        render: (conv) => (conv.lastActivityAt ? formatRelativeTime(conv.lastActivityAt) : formatDate(conv.startTime)),
+      },
+    ],
+    [getConversationTitle, getConversationSubtitle]
+  );
 
   // Conversation list item component
   function ConversationListItem({

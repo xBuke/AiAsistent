@@ -7,23 +7,13 @@ interface LineChartProps {
 export function LineChart({ data, width = 600, height = 200 }: LineChartProps) {
   if (data.length === 0) {
     return (
-      <div
-        style={{
-          width,
-          height,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#6b7280',
-          fontSize: '0.875rem',
-        }}
-      >
-        No data available
+      <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: '13px' }}>
+        Nema dostupnih podataka
       </div>
     );
   }
 
-  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const padding = { top: 20, right: 44, bottom: 40, left: 50 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 

@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { AnalyticsEvent } from '../analytics/types';
 import type { FilterState } from './utils/analytics';
 import { normalizeQuestion } from './utils/normalize';
 import { exportAsJSON, exportAsCSV, exportEventsAsJSON, exportEventsAsCSV } from './utils/export';
 import { getDateRangeStart } from './utils/analytics';
 import { categoryDisplayLabel } from './utils/categories';
+import './Reports.css';
 
 interface ReportsProps {
   events: AnalyticsEvent[];
@@ -25,10 +26,12 @@ interface TrendData {
 interface KnowledgeGap {
   id: string;
   timestamp: number;
+  firstSeen: number;
   question: string;
-  sessionId: string;
+  category: string;
+  frequency: number;
   reason: 'fallback' | 'low_confidence';
-  confidence?: string;
+  status: 'open' | 'resolved';
 }
 
 /**
@@ -115,34 +118,37 @@ function getTrends(events: AnalyticsEvent[], filters: FilterState): TrendData {
  * Get knowledge gaps (fallbacks + low confidence questions)
  */
 function getKnowledgeGaps(events: AnalyticsEvent[]): KnowledgeGap[] {
-  const gaps: KnowledgeGap[] = [];
-
+  const grouped = new Map<string, KnowledgeGap>();
   events.forEach(event => {
-    // Include all fallback events
-    if (event.type === 'fallback') {
-      gaps.push({
-        id: event.id,
-        timestamp: event.timestamp,
-        question: event.question,
-        sessionId: event.sessionId,
-        reason: 'fallback',
-      });
+    const isGap = event.type === 'fallback' || (event.type === 'question' && event.confidence === 'low');
+    if (!isGap) return;
+    const normalized = normalizeQuestion(event.question);
+    const category = event.category ? categoryDisplayLabel(event.category) : 'Općenito';
+    const existing = grouped.get(normalized);
+    if (existing) {
+      existing.frequency += 1;
+      if (event.timestamp > existing.timestamp) {
+        existing.timestamp = event.timestamp;
+      }
+      if (event.timestamp < existing.firstSeen) {
+        existing.firstSeen = event.timestamp;
+      }
+      return;
     }
-    // Include low confidence questions if confidence exists
-    else if (event.type === 'question' && event.confidence === 'low') {
-      gaps.push({
-        id: event.id,
-        timestamp: event.timestamp,
-        question: event.question,
-        sessionId: event.sessionId,
-        reason: 'low_confidence',
-        confidence: event.confidence,
-      });
-    }
+
+    grouped.set(normalized, {
+      id: event.id,
+      timestamp: event.timestamp,
+      firstSeen: event.timestamp,
+      question: event.question,
+      category,
+      frequency: 1,
+      reason: event.type === 'fallback' ? 'fallback' : 'low_confidence',
+      status: 'open',
+    });
   });
 
-  // Sort by timestamp (most recent first)
-  return gaps.sort((a, b) => b.timestamp - a.timestamp);
+  return Array.from(grouped.values()).sort((a, b) => b.frequency - a.frequency || b.timestamp - a.timestamp);
 }
 
 /**
@@ -366,6 +372,7 @@ export function Reports({ events, filters }: ReportsProps) {
   const topQuestions = useMemo(() => getTopQuestions(events), [events]);
   const trends = useMemo(() => getTrends(events, filters), [events, filters]);
   const knowledgeGaps = useMemo(() => getKnowledgeGaps(events), [events]);
+  const [resolvedGapIds, setResolvedGapIds] = useState<Set<string>>(new Set());
 
   const handleExportJSON = () => {
     const reportData = {
@@ -396,10 +403,12 @@ export function Reports({ events, filters }: ReportsProps) {
     // Also export knowledge gaps
     const gapsCSV = knowledgeGaps.map(gap => ({
       timestamp: new Date(gap.timestamp).toISOString(),
+      first_seen: new Date(gap.firstSeen).toISOString(),
       question: gap.question,
+      category: gap.category,
+      frequency: gap.frequency,
       reason: gap.reason,
-      confidence: gap.confidence || '',
-      session_id: gap.sessionId.substring(0, 8) + '...',
+      status: gap.status,
     }));
     exportAsCSV(gapsCSV, `knowledge-gaps-${new Date().toISOString().split('T')[0]}.csv`);
   };
@@ -414,225 +423,53 @@ export function Reports({ events, filters }: ReportsProps) {
     });
   };
 
+  const groupedKnowledgeGaps = useMemo(() => {
+    const grouped = new Map<string, KnowledgeGap[]>();
+    knowledgeGaps.forEach((gap) => {
+      const key = gap.category || 'Općenito';
+      const list = grouped.get(key) ?? [];
+      list.push(gap);
+      grouped.set(key, list);
+    });
+    return Array.from(grouped.entries()).sort((a, b) => b[1].length - a[1].length);
+  }, [knowledgeGaps]);
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem',
-      }}
-    >
-      {/* Export Buttons */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-          display: 'flex',
-          gap: '1rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        <button
-          onClick={handleExportJSON}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.375rem',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'background-color 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#2563eb';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#3b82f6';
-          }}
-        >
-          Export JSON
-        </button>
-        <button
-          onClick={handleExportCSV}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.375rem',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'background-color 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#059669';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#10b981';
-          }}
-        >
-          Export CSV
-        </button>
-        <button
-          onClick={handlePrintView}
-          style={{
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#6b7280',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.375rem',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'background-color 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#4b5563';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#6b7280';
-          }}
-        >
-          Print View
-        </button>
+    <div className="admin-reports">
+      <div className="admin-reports__toolbar admin-card">
+        <h1 className="admin-reports__title">Što građani ne mogu pronaći</h1>
+        <div className="admin-reports__toolbar-actions">
+          <button onClick={handleExportJSON} className="admin-btn-primary">Izvoz JSON</button>
+          <button onClick={handleExportCSV} className="admin-btn-secondary">Izvoz CSV</button>
+          <button onClick={handlePrintView} className="admin-btn-secondary">Ispis</button>
+        </div>
       </div>
 
-      {/* D1: Top 20 Questions */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        }}
-      >
-        <h3
-          style={{
-            margin: '0 0 1rem 0',
-            fontSize: '1.125rem',
-            fontWeight: 600,
-            color: '#111827',
-          }}
-        >
-          D1: Top 20 Questions
-        </h3>
+      <div className="admin-card admin-reports__section">
+        <h3 className="admin-reports__section-title">Najčešća pitanja</h3>
         {topQuestions.length === 0 ? (
-          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No questions found</p>
+          <div className="admin-reports__empty">
+            <span className="admin-reports__empty-icon" aria-hidden="true">◌</span>
+            <p>Nema pronađenih pitanja.</p>
+          </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '0.875rem',
-              }}
-            >
+          <div className="admin-reports__table-wrap">
+            <table className="admin-reports__table">
               <thead>
-                <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Rank
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Normalized Question
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Count
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Sample Variants
-                  </th>
+                <tr>
+                  <th>#</th>
+                  <th>Normalizirano pitanje</th>
+                  <th>Broj</th>
+                  <th>Varijante</th>
                 </tr>
               </thead>
               <tbody>
                 {topQuestions.map((q, idx) => (
-                  <tr
-                    key={idx}
-                    style={{
-                      borderBottom: '1px solid #e5e7eb',
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#6b7280',
-                      }}
-                    >
-                      {idx + 1}
-                    </td>
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#111827',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      {q.normalized}
-                    </td>
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#3b82f6',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {q.count}
-                    </td>
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#6b7280',
-                        fontSize: '0.8125rem',
-                        maxWidth: '400px',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {q.samples.join('; ')}
-                    </td>
+                  <tr key={idx}>
+                    <td>{idx + 1}</td>
+                    <td><em>{q.normalized}</em></td>
+                    <td><span className="admin-reports__count">{q.count}</span></td>
+                    <td>{q.samples.join('; ')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -641,100 +478,23 @@ export function Reports({ events, filters }: ReportsProps) {
         )}
       </div>
 
-      {/* D2: Trends */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        }}
-      >
-        <h3
-          style={{
-            margin: '0 0 1rem 0',
-            fontSize: '1.125rem',
-            fontWeight: 600,
-            color: '#111827',
-          }}
-        >
-          D2: Trends
-        </h3>
-        
-        <div style={{ marginBottom: '2rem' }}>
-          <h4
-            style={{
-              margin: '0 0 0.75rem 0',
-              fontSize: '1rem',
-              fontWeight: 500,
-              color: '#374151',
-            }}
-          >
-            Questions per Day
-          </h4>
-          <div style={{ overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '0.875rem',
-              }}
-            >
+      <div className="admin-card admin-reports__section">
+        <h3 className="admin-reports__section-title">Trendovi</h3>
+        <div className="admin-reports__subsection">
+          <h4 className="admin-reports__subheading">Pitanja po danu</h4>
+          <div className="admin-reports__table-wrap">
+            <table className="admin-reports__table">
               <thead>
-                <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Date
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Count
-                  </th>
+                <tr>
+                  <th>Datum</th>
+                  <th>Broj</th>
                 </tr>
               </thead>
               <tbody>
                 {trends.questionsPerDay.map((day, idx) => (
-                  <tr
-                    key={idx}
-                    style={{
-                      borderBottom: '1px solid #e5e7eb',
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#111827',
-                      }}
-                    >
-                      {day.date}
-                    </td>
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#3b82f6',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {day.count}
-                    </td>
+                  <tr key={idx}>
+                    <td>{day.date}</td>
+                    <td><span className="admin-reports__count">{day.count}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -742,83 +502,27 @@ export function Reports({ events, filters }: ReportsProps) {
           </div>
         </div>
 
-        <div>
-          <h4
-            style={{
-              margin: '0 0 0.75rem 0',
-              fontSize: '1rem',
-              fontWeight: 500,
-              color: '#374151',
-            }}
-          >
-            Top Categories
-          </h4>
+        <div className="admin-reports__subsection">
+          <h4 className="admin-reports__subheading">Top kategorije</h4>
           {trends.topCategories.length === 0 ? (
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No categories found</p>
+            <div className="admin-reports__empty admin-reports__empty--compact">
+              <span className="admin-reports__empty-icon" aria-hidden="true">◌</span>
+              <p>Nema kategorija za odabrano razdoblje.</p>
+            </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '0.875rem',
-                }}
-              >
+            <div className="admin-reports__table-wrap">
+              <table className="admin-reports__table">
                 <thead>
-                  <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                    <th
-                      style={{
-                        textAlign: 'left',
-                        padding: '0.75rem 1rem',
-                        fontWeight: 600,
-                        color: '#374151',
-                        fontSize: '0.75rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
-                      Category
-                    </th>
-                    <th
-                      style={{
-                        textAlign: 'left',
-                        padding: '0.75rem 1rem',
-                        fontWeight: 600,
-                        color: '#374151',
-                        fontSize: '0.75rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
-                      Count
-                    </th>
+                  <tr>
+                    <th>Kategorija</th>
+                    <th>Broj</th>
                   </tr>
                 </thead>
                 <tbody>
                   {trends.topCategories.map((cat, idx) => (
-                    <tr
-                      key={idx}
-                      style={{
-                        borderBottom: '1px solid #e5e7eb',
-                      }}
-                    >
-                      <td
-                        style={{
-                          padding: '0.75rem 1rem',
-                          color: '#111827',
-                        }}
-                      >
-                        {categoryDisplayLabel(cat.category)}
-                      </td>
-                      <td
-                        style={{
-                          padding: '0.75rem 1rem',
-                          color: '#3b82f6',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {cat.count}
-                      </td>
+                    <tr key={idx}>
+                      <td>{categoryDisplayLabel(cat.category)}</td>
+                      <td><span className="admin-reports__count">{cat.count}</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -828,151 +532,64 @@ export function Reports({ events, filters }: ReportsProps) {
         </div>
       </div>
 
-      {/* D3: Knowledge Gaps */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: '0.5rem',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        }}
-      >
-        <h3
-          style={{
-            margin: '0 0 1rem 0',
-            fontSize: '1.125rem',
-            fontWeight: 600,
-            color: '#111827',
-          }}
-        >
-          D3: Knowledge Gaps ({knowledgeGaps.length})
-        </h3>
+      <div className="admin-card admin-reports__section">
+        <h3 className="admin-reports__section-title">Praznine znanja ({knowledgeGaps.length})</h3>
         {knowledgeGaps.length === 0 ? (
-          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No knowledge gaps found</p>
+          <div className="admin-reports__empty">
+            <span className="admin-reports__empty-icon" aria-hidden="true">◌</span>
+            <p>Nema zabilježenih praznina znanja.</p>
+          </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '0.875rem',
-              }}
-            >
-              <thead>
-                <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Timestamp
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Question
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Reason
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      fontSize: '0.75rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Session ID
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {knowledgeGaps.map((gap) => (
-                  <tr
-                    key={gap.id}
-                    style={{
-                      borderBottom: '1px solid #e5e7eb',
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#6b7280',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {new Date(gap.timestamp).toLocaleString()}
-                    </td>
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#111827',
-                        maxWidth: '400px',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {gap.question}
-                    </td>
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                      }}
-                    >
-                      <span
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          backgroundColor: gap.reason === 'fallback' ? '#fee2e2' : '#fef3c7',
-                          color: gap.reason === 'fallback' ? '#991b1b' : '#92400e',
-                          borderRadius: '0.25rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {gap.reason === 'fallback' ? 'Fallback' : 'Low Confidence'}
-                      </span>
-                    </td>
-                    <td
-                      style={{
-                        padding: '0.75rem 1rem',
-                        color: '#6b7280',
-                        fontFamily: 'monospace',
-                        fontSize: '0.8125rem',
-                      }}
-                    >
-                      {gap.sessionId.length > 12 ? `${gap.sessionId.substring(0, 12)}...` : gap.sessionId}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="admin-reports__gaps">
+            {groupedKnowledgeGaps.map(([category, gaps]) => {
+              const content = (
+                <div className="admin-reports__gap-list">
+                  {gaps.map((gap) => {
+                    const isResolved = resolvedGapIds.has(gap.id) || gap.status === 'resolved';
+                    return (
+                      <div key={gap.id} className={`admin-reports__gap-row ${isResolved ? 'is-resolved' : ''}`}>
+                        <div className="admin-reports__gap-main">
+                          <p className="admin-reports__gap-question">{gap.question}</p>
+                          <p className="admin-reports__gap-meta">
+                            Zadnje viđeno: {new Date(gap.timestamp).toLocaleDateString('hr-HR')}
+                          </p>
+                        </div>
+                        <div className="admin-reports__gap-actions">
+                          <span className="admin-reports__gap-badge">{gap.frequency}</span>
+                          <button
+                            type="button"
+                            className="admin-btn-secondary admin-reports__resolve-btn"
+                            disabled={isResolved}
+                            onClick={() => {
+                              if (isResolved) return;
+                              setResolvedGapIds((prev) => new Set(prev).add(gap.id));
+                            }}
+                          >
+                            {isResolved ? 'Riješeno' : 'Označi kao riješeno'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+
+              if (gaps.length >= 5) {
+                return (
+                  <details key={category} className="admin-reports__category" open>
+                    <summary>{category} ({gaps.length})</summary>
+                    {content}
+                  </details>
+                );
+              }
+
+              return (
+                <section key={category} className="admin-reports__category">
+                  <h4>{category} ({gaps.length})</h4>
+                  {content}
+                </section>
+              );
+            })}
           </div>
         )}
       </div>
