@@ -604,13 +604,12 @@ export async function chatHandler(
             await supabase
               .from('knowledge_gaps')
               .insert({
-                conversation_id: conversationUuid,
                 question: message,
                 occurrences: 1,
                 reason: 'no_sources',
                 status: 'open',
+                first_seen_at: now,
                 last_seen_at: now,
-                created_at: now,
               });
           }
         } catch (error) {

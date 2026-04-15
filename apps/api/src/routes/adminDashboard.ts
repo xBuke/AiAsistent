@@ -244,8 +244,8 @@ export async function getDashboardSummaryHandler(
       const { count } = await supabase
         .from('knowledge_gaps')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', timeFrom.toISOString())
-        .lte('created_at', timeTo.toISOString());
+        .gte('last_seen_at', timeFrom.toISOString())
+        .lte('last_seen_at', timeTo.toISOString());
       knowledge_gaps_total = count || 0;
     } catch (error) {
       // Table may not exist, handle gracefully
@@ -284,9 +284,9 @@ export async function getDashboardSummaryHandler(
     try {
       let gapsQuery = supabase
         .from('knowledge_gaps')
-        .select('id, question, occurrences, status, last_seen_at, reason, created_at')
-        .gte('created_at', timeFrom.toISOString())
-        .lte('created_at', timeTo.toISOString())
+        .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason')
+        .gte('last_seen_at', timeFrom.toISOString())
+        .lte('last_seen_at', timeTo.toISOString())
         .order('occurrences', { ascending: false })
         .limit(20);
 
@@ -300,7 +300,7 @@ export async function getDashboardSummaryHandler(
         question: gap.question,
         count: gap.occurrences || 1,
         status: gap.status || 'open',
-        last_seen_at: gap.last_seen_at || (gap as any).created_at,
+        last_seen_at: gap.last_seen_at || (gap as any).first_seen_at,
         reason: gap.reason || null,
       }));
     } catch (error) {
@@ -611,9 +611,9 @@ export async function getKnowledgeGapsListHandler(
     try {
       let gapsQuery = supabase
         .from('knowledge_gaps')
-        .select('id, question, occurrences, status, last_seen_at, reason, created_at')
-        .gte('created_at', timeFrom.toISOString())
-        .lte('created_at', timeTo.toISOString())
+        .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason')
+        .gte('last_seen_at', timeFrom.toISOString())
+        .lte('last_seen_at', timeTo.toISOString())
         .order('occurrences', { ascending: false })
         .limit(100);
 
@@ -634,7 +634,7 @@ export async function getKnowledgeGapsListHandler(
         question: gap.question,
         count: gap.occurrences || 1,
         status: gap.status || 'open',
-        last_seen_at: gap.last_seen_at || gap.created_at,
+        last_seen_at: gap.last_seen_at || gap.first_seen_at,
         reason: gap.reason || null,
       }));
 
@@ -683,7 +683,7 @@ export async function getKnowledgeGapDetailHandler(
     try {
       const { data: gap, error: gapError } = await supabase
         .from('knowledge_gaps')
-        .select('id, question, occurrences, status, last_seen_at, reason, created_at, conversation_id')
+        .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason')
         .eq('id', id)
         .single();
 
@@ -716,7 +716,7 @@ export async function getKnowledgeGapDetailHandler(
         question: gap.question,
         count: gap.occurrences || 1,
         status: gap.status || 'open',
-        last_seen_at: gap.last_seen_at || gap.created_at,
+        last_seen_at: gap.last_seen_at || gap.first_seen_at,
         reason: gap.reason || null,
         examples,
       });

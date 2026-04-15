@@ -27,7 +27,6 @@ interface PatchTicketBody {
   status?: 'open' | 'in_progress' | 'resolved';
   department?: string | null;
   urgent?: boolean;
-  internal_note?: string | null;
 }
 
 interface PostNoteBody {
@@ -49,11 +48,6 @@ function mapStatusToStored(input: string): string {
   if (t === 'resolved') return 'closed';
   return t;
 }
-
-/*
- * Migration: add internal_note to tickets (run if missing).
- * alter table public.tickets add column if not exists internal_note text;
- */
 
 /**
  * Helper to get and validate session from cookie
@@ -1211,7 +1205,6 @@ export async function patchTicketHandler(
     }
     if (body.department !== undefined) updates.department = body.department;
     if (body.urgent !== undefined) updates.urgent = body.urgent;
-    if (body.internal_note !== undefined) updates.internal_note = body.internal_note;
 
     const { error: updateError } = await supabase
       .from('tickets')
