@@ -11,6 +11,7 @@ import { registerAdminReadRoutes } from './routes/adminRead.js';
 import { registerAdminDashboardRoutes } from './routes/adminDashboard.js';
 import { registerAdminDocumentRoutes } from './routes/adminDocuments.js';
 import { registerFormsRoutes } from './routes/forms.js';
+import { registerSentimentRoutes } from './sentimentRouter.js';
 
 export async function buildServer() {
   const server = Fastify({
@@ -71,6 +72,8 @@ export async function buildServer() {
   await registerAdminDocumentRoutes(server);
 
   await registerFormsRoutes(server);
+
+  await registerSentimentRoutes(server);
 
   // Dev-only debug route for PDF testing
   if (process.env.NODE_ENV !== 'production') {

@@ -381,11 +381,38 @@ export interface DashboardSummary {
   }>;
 }
 
+export interface SentimentByCategory {
+  category: string;
+  positive: number;
+  neutral: number;
+  negative: number;
+  total: number;
+}
+
+export interface SentimentTrendPoint {
+  week: string;
+  positive: number;
+  neutral: number;
+  negative: number;
+  avgScore: number;
+}
+
+export interface SentimentStats {
+  byCategory: SentimentByCategory[];
+  trend: SentimentTrendPoint[];
+  overall: {
+    positive: number;
+    neutral: number;
+    negative: number;
+    avgScore: number;
+  };
+}
+
 /**
  * GET /admin/dashboard/summary — get dashboard summary with filters.
  */
 export async function fetchDashboardSummary(
-  cityCode: string,
+  _cityCode: string,
   params?: { range?: '24h' | '7d' | '30d'; category?: string; search?: string }
 ): Promise<DashboardSummary> {
   const queryParams = new URLSearchParams();
@@ -403,6 +430,32 @@ export async function fetchDashboardSummary(
     method: 'GET',
   });
   if (!res.ok) throw new Error(`Dashboard summary: ${res.status}`);
+  return await res.json();
+}
+
+/**
+ * GET /admin/sentiment/stats — sentiment breakdown and trend.
+ */
+export async function getSentimentStats(days: number): Promise<SentimentStats> {
+  const query = new URLSearchParams();
+  query.set('days', String(days));
+  const res = await fetch(`${BASE}/admin/sentiment/stats?${query.toString()}`, {
+    ...defaultOpts,
+    method: 'GET',
+  });
+  if (!res.ok) throw new Error(`Sentiment stats: ${res.status}`);
+  return await res.json();
+}
+
+/**
+ * POST /admin/sentiment/backfill — classify existing summaries.
+ */
+export async function triggerBackfill(): Promise<{ processed: number; failed: number }> {
+  const res = await fetch(`${BASE}/admin/sentiment/backfill`, {
+    ...defaultOpts,
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Sentiment backfill: ${res.status}`);
   return await res.json();
 }
 

@@ -4,6 +4,8 @@ import { StatCard } from './components/StatCard';
 import { LineChart } from './components/LineChart';
 import { BarChart } from './components/BarChart';
 import { Drawer } from './components/Drawer';
+import { SentimentMap } from './SentimentMap';
+import * as adminClient from './api/adminClient';
 import {
   fetchDashboardSummary,
   fetchQuestionExamples,
@@ -240,6 +242,7 @@ export function Dashboard({
             <StatCard title="Najčešća tema razgovora" value={topCategoryLabel} />
             <StatCard title="Raspoloženje građana" value="Stabilno" />
           </div>
+          {cityId && <SentimentMap cityId={cityId} adminClient={adminClient} />}
 
           <div className="admin-dashboard__charts-grid">
             <div className="admin-card admin-dashboard__chart-card">
