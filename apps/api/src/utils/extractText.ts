@@ -1,5 +1,7 @@
-import pdfParse from "pdf-parse";
+import * as pdfParseModule from "pdf-parse";
 import mammoth from "mammoth";
+
+const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
 
 export async function extractText(
   buffer: Buffer,
