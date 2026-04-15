@@ -45,7 +45,8 @@ export function Dashboard({
   onViewAllTickets,
   onViewAllQuestions,
 }: DashboardProps) {
-  const { cityId } = useParams<{ cityId: string }>();
+  const { cityCode } = useParams<{ cityCode: string }>();
+  const cityId = cityCode;
   const [filters, setFilters] = useState<FilterState>({
     dateRange: '7d',
     category: 'All',
