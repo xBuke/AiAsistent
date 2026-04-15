@@ -148,7 +148,10 @@ export async function chatHandler(
       
       if (codeError || !cityByCode) {
         request.log.warn({ cityId }, 'City not found');
-        return reply.status(404).send({ error: 'unknown_city' });
+        writeSseEvent(reply.raw, 'error', JSON.stringify({ error: 'unknown_city' }));
+        reply.raw.write('data: [DONE]\n\n');
+        reply.raw.end();
+        return;
       }
       city = cityByCode;
     }
@@ -325,7 +328,10 @@ export async function chatHandler(
     // Retrieve relevant documents (scoped by city_id)
     if (!cityUuid) {
       request.log.error({ cityId }, 'City UUID not resolved, cannot retrieve documents');
-      return reply.status(500).send({ error: 'City resolution failed' });
+      writeSseEvent(reply.raw, 'error', JSON.stringify({ error: 'city_resolution_failed' }));
+      reply.raw.write('data: [DONE]\n\n');
+      reply.raw.end();
+      return;
     }
     
     // DEMO_MODE or DEBUG_RETRIEVAL: Log city resolution
@@ -349,11 +355,13 @@ export async function chatHandler(
         errorType: error instanceof Error ? error.constructor.name : typeof error,
         errorMessage: error instanceof Error ? error.message : String(error),
       }, 'CRITICAL: Document retrieval failed - embedding generation or database query error');
-      // Return HTTP 500 - do NOT silently return empty array
-      return reply.status(500).send({ 
-        error: 'Embedding or retrieval service unavailable',
-        details: error instanceof Error ? error.message : String(error)
-      });
+      writeSseEvent(reply.raw, 'error', JSON.stringify({
+        error: 'retrieval_failed',
+        details: error instanceof Error ? error.message : String(error),
+      }));
+      reply.raw.write('data: [DONE]\n\n');
+      reply.raw.end();
+      return;
     }
     
     const context = buildContext(documents);
