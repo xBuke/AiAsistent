@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import { registerRateLimit } from './middleware/rateLimit.js';
+import { registerOriginValidation } from './middleware/originValidation.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerEventsRoutes } from './routes/events.js';
@@ -19,17 +20,17 @@ export async function buildServer() {
   // Register plugins
   await server.register(cors, {
     origin: (origin, callback) => {
-      // Always allow http://localhost:5173 for admin frontend (required when credentials: true)
+      // Always allow admin dev frontend
       if (origin === 'http://localhost:5173') {
         callback(null, true);
         return;
       }
-      // DEMO_MODE: Explicitly allow production admin frontend origin
-      if (process.env.DEMO_MODE === 'true' && origin === 'https://gradai.mangai.hr') {
+      // Always allow admin prod frontend
+      if (origin === 'https://gradai.mangai.hr') {
         callback(null, true);
         return;
       }
-      // Allow all other origins for widget endpoints (maintains existing behavior)
+      // Allow all other origins; route middleware handles protected-origin blocking
       callback(null, true);
     },
     credentials: true,
@@ -43,6 +44,7 @@ export async function buildServer() {
   await server.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB per file
 
   await registerRateLimit(server);
+  await registerOriginValidation(server);
 
   // Health check endpoint
   server.get('/health', async (request, reply) => {
