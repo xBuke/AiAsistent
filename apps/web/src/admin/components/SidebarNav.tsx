@@ -6,12 +6,12 @@
 export type AdminTabId = 'Dashboard' | 'Ticketi' | 'Svi razgovori' | 'Reports' | 'Obrasci' | 'Dokumenti';
 
 const NAV_ITEMS: { id: AdminTabId; label: string }[] = [
-  { id: 'Dashboard', label: 'Dashboard' },
-  { id: 'Ticketi', label: 'Upiti koji traze reakciju' },
-  { id: 'Svi razgovori', label: 'Razgovori' },
-  { id: 'Reports', label: 'Reports' },
-  { id: 'Obrasci', label: 'Obrasci / Zahtjevi' },
+  { id: 'Svi razgovori', label: 'Konverzacije' },
+  { id: 'Ticketi', label: 'Ticketi' },
+  { id: 'Obrasci', label: 'Forme' },
   { id: 'Dokumenti', label: 'Dokumenti' },
+  { id: 'Dashboard', label: 'Knowledge Gaps' },
+  { id: 'Reports', label: 'Izvještaji' },
 ];
 
 interface SidebarNavProps {
@@ -19,57 +19,89 @@ interface SidebarNavProps {
   onSelect: (tab: AdminTabId) => void;
 }
 
+function NavIcon({ tabId }: { tabId: AdminTabId }) {
+  switch (tabId) {
+    case 'Svi razgovori':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M7 18l-4 3V7a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2H7z" />
+        </svg>
+      );
+    case 'Ticketi':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 8h18v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+          <path d="M7 8V6a2 2 0 012-2h6a2 2 0 012 2v2" />
+        </svg>
+      );
+    case 'Obrasci':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M7 3h7l5 5v13a1 1 0 01-1 1H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+          <path d="M14 3v5h5" />
+          <path d="M9 13h6M9 17h6" />
+        </svg>
+      );
+    case 'Dokumenti':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+        </svg>
+      );
+    case 'Dashboard':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M9 18h6" />
+          <path d="M10 22h4" />
+          <path d="M12 3a7 7 0 014.8 12.1A4.4 4.4 0 0015.4 18h-6.8A4.4 4.4 0 007.2 15.1 7 7 0 0112 3z" />
+        </svg>
+      );
+    case 'Reports':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 20V9" />
+          <path d="M10 20V4" />
+          <path d="M16 20v-7" />
+          <path d="M22 20v-11" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 export function SidebarNav({ activeTab, onSelect }: SidebarNavProps) {
   return (
-    <nav
-      style={{
-        width: '240px',
-        flexShrink: 0,
-        backgroundColor: '#ffffff',
-        borderRight: '1px solid #e5e7eb',
-        padding: '1rem 0',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-      }}
-    >
-      {NAV_ITEMS.map(({ id, label }) => {
-        const isActive = activeTab === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onSelect(id)}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '0.625rem 1.25rem',
-              textAlign: 'left',
-              fontSize: '0.875rem',
-              fontWeight: isActive ? 600 : 500,
-              color: isActive ? '#111827' : '#4b5563',
-              backgroundColor: isActive ? '#f3f4f6' : 'transparent',
-              border: 'none',
-              borderLeft: isActive ? '3px solid #374151' : '3px solid transparent',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              transition: 'background-color 0.15s, color 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.backgroundColor = '#f9fafb';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
-            }}
-          >
-            {label}
-          </button>
-        );
-      })}
+    <nav className="admin-sidebar-nav" aria-label="Admin sidebar">
+      <div className="admin-sidebar-nav__wordmark">Civis</div>
+      <div className="admin-sidebar-nav__divider" />
+
+      <ul className="admin-sidebar-nav__list">
+        {NAV_ITEMS.map(({ id, label }) => {
+          const isActive = activeTab === id;
+          return (
+            <li key={id}>
+              <button
+                type="button"
+                onClick={() => onSelect(id)}
+                className={`admin-sidebar-nav__item ${isActive ? 'admin-sidebar-nav__item--active' : ''}`}
+              >
+                <span className="admin-sidebar-nav__icon">
+                  <NavIcon tabId={id} />
+                </span>
+                <span>{label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="admin-sidebar-nav__footer">
+        <div className="admin-sidebar-nav__city">Sarajevo</div>
+        <button type="button" className="admin-sidebar-nav__logout">
+          Logout
+        </button>
+      </div>
     </nav>
   );
 }

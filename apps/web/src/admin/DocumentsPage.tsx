@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { DataTable, type DataTableColumn } from './components/DataTable';
 
 interface DocumentsPageProps {
   cityId: string;
@@ -68,6 +69,10 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const cityCode = cityId;
 
@@ -148,6 +153,8 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
     if (!selectedFile || uploading) return;
 
     setUploading(true);
+    setUploadSuccess(false);
+    setUploadError(null);
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
@@ -175,116 +182,124 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
 
       setDocuments((prev) => [created, ...prev]);
       setSelectedFile(null);
+      setUploadSuccess(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Greška pri uploadu dokumenta';
+      setUploadError(message);
       alert(message);
     } finally {
       setUploading(false);
     }
   };
 
+  const columns: Array<DataTableColumn<DocumentItem>> = [
+    { key: 'filename', label: 'Naziv datoteke' },
+    { key: 'file_type', label: 'Tip', render: (row) => row.file_type ?? '—' },
+    { key: 'file_size', label: 'Veličina', render: (row) => formatFileSize(row.file_size) },
+    { key: 'chunk_count', label: 'Broj chunkova', render: (row) => row.chunk_count ?? '—' },
+    { key: 'uploaded_at', label: 'Uploadano', render: (row) => formatUploadedAt(row.uploaded_at) },
+    {
+      key: 'actions',
+      label: '',
+      width: '120px',
+      render: (row) => (
+        <button type="button" className="admin-btn-danger" onClick={() => handleDelete(row)}>
+          Obriši
+        </button>
+      ),
+    },
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          flexWrap: 'wrap',
-          backgroundColor: '#ffffff',
-          border: '1px solid #e5e7eb',
-          borderRadius: '0.5rem',
-          padding: '1rem',
-        }}
-      >
-        <input
-          type="file"
-          accept=".pdf,.docx,.txt,.md"
-          onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-          style={{ fontSize: '0.875rem' }}
-        />
-        <button
-          type="button"
-          disabled={!selectedFile || uploading}
-          onClick={handleUpload}
-          style={{
-            padding: '0.5rem 0.875rem',
-            backgroundColor: !selectedFile || uploading ? '#9ca3af' : '#2563eb',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '0.375rem',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            cursor: !selectedFile || uploading ? 'not-allowed' : 'pointer',
+    <div className="admin-documents">
+      <div className="admin-card">
+        <div
+          className={`admin-upload-zone ${isDragOver ? 'admin-upload-zone--dragover' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!uploading) setIsDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            if (uploading) return;
+            const file = e.dataTransfer.files?.[0] ?? null;
+            if (file) {
+              setSelectedFile(file);
+              setUploadSuccess(false);
+              setUploadError(null);
+            }
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }
           }}
         >
-          {uploading ? 'Uploading...' : 'Upload dokumenta'}
-        </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.txt,.md"
+            onChange={(e) => {
+              setSelectedFile(e.target.files?.[0] ?? null);
+              setUploadSuccess(false);
+              setUploadError(null);
+            }}
+            className="admin-upload-zone__input"
+          />
+          <div className="admin-upload-zone__title">Povuci dokument ovdje ili klikni za odabir</div>
+          <div className="admin-upload-zone__subtitle">Podržano: PDF, DOCX, TXT, MD</div>
+        </div>
+
+        {selectedFile && (
+          <div className="admin-upload-selected">
+            <div>
+              <div className="admin-upload-selected__name">{selectedFile.name}</div>
+              <div className="admin-upload-selected__meta">{formatFileSize(selectedFile.size)}</div>
+            </div>
+            <button
+              type="button"
+              className="admin-upload-selected__remove"
+              onClick={() => {
+                setSelectedFile(null);
+                setUploadSuccess(false);
+                setUploadError(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+              aria-label="Ukloni odabranu datoteku"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {uploading && <progress className="admin-progress" />}
+
+        <div className="admin-upload-actions">
+          <button type="button" disabled={!selectedFile || uploading} onClick={handleUpload} className="admin-btn-primary">
+            {uploading ? 'Uploading...' : 'Upload dokumenta'}
+          </button>
+        </div>
+
+        {uploadSuccess && <div className="admin-upload-status admin-upload-status--success">✓ Dokument uspješno dodan</div>}
+        {uploadError && <div className="admin-upload-status admin-upload-status--error">{uploadError}</div>}
       </div>
 
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          border: '1px solid #e5e7eb',
-          borderRadius: '0.5rem',
-          overflow: 'hidden',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#374151' }}>Naziv datoteke</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#374151' }}>Tip</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#374151' }}>Veličina</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#374151' }}>Broj chunkova</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#374151' }}>Uploadano</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#374151' }} />
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280' }}>
-                  Učitavanje...
-                </td>
-              </tr>
-            ) : sortedDocuments.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280' }}>
-                  Nema uploadanih dokumenata
-                </td>
-              </tr>
-            ) : (
-              sortedDocuments.map((doc) => (
-                <tr key={doc.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{doc.filename}</td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{doc.file_type ?? '—'}</td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{formatFileSize(doc.file_size)}</td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{doc.chunk_count ?? '—'}</td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{formatUploadedAt(doc.uploaded_at)}</td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(doc)}
-                      style={{
-                        padding: '0.375rem 0.625rem',
-                        fontSize: '0.8125rem',
-                        fontWeight: 500,
-                        color: '#b91c1c',
-                        backgroundColor: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        borderRadius: '0.375rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Obriši
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="admin-card">
+        <DataTable
+          columns={columns}
+          data={sortedDocuments}
+          isLoading={loading}
+          emptyMessage="Nema uploadanih dokumenata"
+        />
       </div>
     </div>
   );

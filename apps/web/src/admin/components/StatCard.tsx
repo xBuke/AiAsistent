@@ -1,49 +1,21 @@
+import './StatCard.css';
+
 interface StatCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
+  trend?: number;
 }
 
-export function StatCard({ title, value, subtitle }: StatCardProps) {
+export function StatCard({ title, value, subtitle, trend }: StatCardProps) {
   return (
-    <div
-      style={{
-        backgroundColor: '#ffffff',
-        padding: '1.5rem',
-        borderRadius: '0.5rem',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e5e7eb',
-      }}
-    >
-      <div
-        style={{
-          fontSize: '0.875rem',
-          fontWeight: 500,
-          color: '#6b7280',
-          marginBottom: '0.5rem',
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          fontSize: '2rem',
-          fontWeight: 600,
-          color: '#111827',
-          lineHeight: 1.2,
-        }}
-      >
-        {value}
-      </div>
-      {subtitle && (
-        <div
-          style={{
-            fontSize: '0.75rem',
-            color: '#9ca3af',
-            marginTop: '0.25rem',
-          }}
-        >
-          {subtitle}
+    <div className="admin-card admin-stat-card">
+      <div className="admin-stat-card__title">{title}</div>
+      <div className="admin-stat-card__value">{value}</div>
+      {subtitle && <div className="admin-stat-card__subtitle">{subtitle}</div>}
+      {typeof trend === 'number' && (
+        <div className={`admin-stat-card__trend ${trend >= 0 ? 'admin-stat-card__trend--positive' : 'admin-stat-card__trend--negative'}`}>
+          {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
         </div>
       )}
     </div>

@@ -19,6 +19,7 @@ import { getAllCategories } from './utils/analytics';
 import type { FilterState } from './utils/analytics';
 import { formatDateTime } from './utils/dateFormat';
 import { categoryDisplayLabel } from './utils/categories';
+import './Dashboard.css';
 
 const PREVIEW_TICKETS_COUNT = 5;
 const PREVIEW_QUESTIONS_COUNT = 5;
@@ -143,31 +144,10 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
   const previewQuestions = summary?.top_questions?.slice(0, PREVIEW_QUESTIONS_COUNT) ?? [];
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.25rem',
-      }}
-    >
+    <div className="admin-dashboard">
       {/* Filter bar — full-width control section */}
-      <div
-        style={{
-          width: '100%',
-          backgroundColor: '#f9fafb',
-          borderBottom: '1px solid #e5e7eb',
-          paddingTop: '1rem',
-          paddingBottom: '1rem',
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1280,
-            margin: '0 auto',
-            paddingLeft: '1.5rem',
-            paddingRight: '1.5rem',
-          }}
-        >
+      <div className="admin-dashboard__filters">
+        <div className="admin-dashboard__filters-inner">
           <FiltersBar
             filters={filters}
             onFiltersChange={setFilters}
@@ -178,45 +158,19 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
 
       {/* Loading State */}
       {loading && (
-        <div
-          style={{
-            padding: '3rem',
-            textAlign: 'center',
-            color: '#6b7280',
-            fontSize: '0.875rem',
-          }}
-        >
-          Loading dashboard...
-        </div>
+        <div className="admin-dashboard__state">Loading dashboard...</div>
       )}
 
       {/* Error State */}
       {error && !loading && (
-        <div
-          style={{
-            padding: '1rem',
-            backgroundColor: '#fee2e2',
-            color: '#991b1b',
-            borderRadius: '0.5rem',
-            fontSize: '0.875rem',
-          }}
-        >
-          Error: {error}
-        </div>
+        <div className="admin-dashboard__error">Error: {error}</div>
       )}
 
       {/* Dashboard Content */}
       {!loading && !error && summary && (
         <>
           {/* ROW 1 — KPI Summary (full width) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
-              gap: '1rem',
-              alignItems: 'stretch',
-            }}
-          >
+          <div className="admin-dashboard__kpi-grid">
             <StatCard title="Ukupan broj razgovora" value={summary.kpis.conversations_total} />
             <StatCard title="Upiti za koje je potrebna reakcija Grada" value={summary.kpis.tickets_open} />
             <StatCard title="Najčešća tema razgovora" value={topCategoryLabel} />
@@ -224,47 +178,18 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
           </div>
 
           {/* ROW 2 — Hero: Charts above the fold (8 / 4) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
-              gap: '1.25rem',
-              alignItems: 'stretch',
-            }}
-          >
+          <div className="admin-dashboard__charts-grid">
             {/* Left (8 cols): Pitanja po danu */}
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '1.25rem 1.5rem',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.08)',
-                border: '1px solid #e5e7eb',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-              }}
-            >
-              <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.0625rem', fontWeight: 600, color: '#111827' }}>Pitanja po danu</h3>
-              <div style={{ flex: 1, minHeight: 0 }}>
+            <div className="admin-card admin-dashboard__chart-card">
+              <h3 className="admin-dashboard__section-title">Pitanja po danu</h3>
+              <div className="admin-dashboard__chart-content">
                 <LineChart data={summary.charts.questions_per_day} width={600} height={200} />
               </div>
             </div>
             {/* Right (4 cols): Top kategorije */}
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '1.25rem 1.5rem',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.08)',
-                border: '1px solid #e5e7eb',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-              }}
-            >
-              <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.0625rem', fontWeight: 600, color: '#111827' }}>Top kategorije</h3>
-              <div style={{ flex: 1, minHeight: 0 }}>
+            <div className="admin-card admin-dashboard__chart-card">
+              <h3 className="admin-dashboard__section-title">Top kategorije</h3>
+              <div className="admin-dashboard__chart-content">
                 <BarChart
                   data={summary.charts.top_categories.map((c) => ({
                     category: categoryDisplayLabel(c.category),
@@ -278,68 +203,33 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
           </div>
 
           {/* ROW 3 — O čemu građani najviše pitaju (preview) */}
-          <div
-            style={{
-              backgroundColor: '#ffffff',
-              padding: '1.25rem 1.5rem',
-              borderRadius: '0.5rem',
-              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.08)',
-              border: '1px solid #e5e7eb',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>
+          <div className="admin-card admin-dashboard__panel">
+            <div className="admin-dashboard__panel-header">
+              <h2 className="admin-dashboard__section-title">
                 O čemu građani najviše pitaju
               </h2>
               {onViewAllQuestions && (
                 <button
                   type="button"
                   onClick={onViewAllQuestions}
-                  style={{
-                    padding: '0.375rem 0.75rem',
-                    fontSize: '0.8125rem',
-                    fontWeight: 500,
-                    color: '#374151',
-                    backgroundColor: '#f3f4f6',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '0.375rem',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#e5e7eb'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+                  className="admin-btn-secondary"
                 >
                   Pogledaj sve
                 </button>
               )}
             </div>
             {previewQuestions.length === 0 ? (
-              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>Nema dostupnih podataka za odabrani period.</p>
+              <p className="admin-dashboard__muted">Nema dostupnih podataka za odabrani period.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', flex: 1, minHeight: 0 }}>
+              <div className="admin-dashboard__list">
                 {previewQuestions.map((q, idx) => (
                   <div
                     key={idx}
                     onClick={() => handleQuestionClick(q.question)}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s, border-color 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      minHeight: 0,
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; e.currentTarget.style.borderColor = '#d1d5db'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                    className="admin-dashboard__list-item"
                   >
-                    <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={q.question}>{q.question}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#9ca3af', flexShrink: 0 }}>{q.count}×</span>
+                    <span className="admin-dashboard__list-item-title" title={q.question}>{q.question}</span>
+                    <span className="admin-dashboard__list-item-count">{q.count}×</span>
                   </div>
                 ))}
               </div>
@@ -347,88 +237,40 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
           </div>
 
           {/* ROW 4 — Insight + Signal (6 / 6) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '1.25rem',
-              alignItems: 'stretch',
-            }}
-          >
+          <div className="admin-dashboard__charts-grid">
             {/* Left (6 cols): Sažetak komunikacije */}
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '1rem 1.5rem',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.08)',
-                border: '1px solid #e5e7eb',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.0625rem', fontWeight: 600, color: '#111827' }}>Sažetak komunikacije – zadnjih 7 dana</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151', lineHeight: 1.5 }}>
+            <div className="admin-card admin-dashboard__panel">
+              <h3 className="admin-dashboard__section-title">Sažetak komunikacije – zadnjih 7 dana</h3>
+              <p className="admin-dashboard__text">
                 Većina upita odnosi se na komunalne teme i administrativne informacije. Dio upita zahtijeva daljnju obradu od strane gradske uprave.
               </p>
             </div>
             {/* Right (6 cols): Upiti za koje je potrebna reakcija Grada */}
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                padding: '1rem 1.5rem',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.08)',
-                border: '1px solid #e5e7eb',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.0625rem', fontWeight: 600, color: '#111827' }}>Upiti za koje je potrebna reakcija Grada</h3>
+            <div className="admin-card admin-dashboard__panel">
+              <div className="admin-dashboard__panel-header">
+                <h3 className="admin-dashboard__section-title">Upiti za koje je potrebna reakcija Grada</h3>
                 {onViewAllTickets && (
                   <button
                     type="button"
                     onClick={onViewAllTickets}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      fontSize: '0.875rem',
-                      fontWeight: 500,
-                      color: '#374151',
-                      backgroundColor: '#f3f4f6',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '0.375rem',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#e5e7eb'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+                    className="admin-btn-secondary"
                   >
                     Pogledaj sve
                   </button>
                 )}
               </div>
               {previewTickets.length === 0 ? (
-                <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>Nema upita za koje je potrebna reakcija Grada.</p>
+                <p className="admin-dashboard__muted">Nema upita za koje je potrebna reakcija Grada.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minHeight: 0 }}>
+                <div className="admin-dashboard__list">
                   {previewTickets.map((ticket) => (
                     <div
                       key={ticket.id}
                       onClick={() => handleTicketClick(ticket.id)}
-                      style={{
-                        padding: '0.75rem 1rem',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '0.375rem',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                      className="admin-dashboard__list-item"
                     >
-                      <div style={{ fontSize: '0.875rem', color: '#111827', marginBottom: '0.25rem' }}>{ticket.question || '—'}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatDateTime(ticket.created_at)}{ticket.status ? ` · ${ticket.status}` : ''}</div>
+                      <div className="admin-dashboard__list-item-title">{ticket.question || '—'}</div>
+                      <div className="admin-dashboard__list-item-meta">{formatDateTime(ticket.created_at)}{ticket.status ? ` · ${ticket.status}` : ''}</div>
                     </div>
                   ))}
                 </div>
@@ -451,42 +293,26 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
         }
       >
         {drawerLoading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-            Loading...
-          </div>
+          <div className="admin-dashboard__drawer-state">Loading...</div>
         ) : drawerData ? (
           <>
             {drawerType === 'question' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="admin-dashboard__drawer-stack">
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                    Normalized Question
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                  <h4 className="admin-dashboard__drawer-title">Normalized Question</h4>
+                  <p className="admin-dashboard__drawer-text">
                     {(drawerData as QuestionExamples).question}
                   </p>
                 </div>
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                  <h4 className="admin-dashboard__drawer-title">
                     Examples ({((drawerData as QuestionExamples).examples || []).length})
                   </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="admin-dashboard__drawer-stack-sm">
                     {((drawerData as QuestionExamples).examples || []).map((ex, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: '0.75rem',
-                          backgroundColor: '#f9fafb',
-                          borderRadius: '0.375rem',
-                          border: '1px solid #e5e7eb',
-                        }}
-                      >
-                        <div style={{ fontSize: '0.875rem', color: '#111827', marginBottom: '0.25rem' }}>
-                          {ex.content}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                          {formatDateTime(ex.created_at)}
-                        </div>
+                      <div key={idx} className="admin-dashboard__drawer-item">
+                        <div className="admin-dashboard__drawer-text">{ex.content}</div>
+                        <div className="admin-dashboard__drawer-meta">{formatDateTime(ex.created_at)}</div>
                       </div>
                     ))}
                   </div>
@@ -494,52 +320,32 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
               </div>
             )}
             {drawerType === 'knowledge-gap' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="admin-dashboard__drawer-stack">
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                    Question
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                  <h4 className="admin-dashboard__drawer-title">Question</h4>
+                  <p className="admin-dashboard__drawer-text">
                     {(drawerData as KnowledgeGapDetail).question}
                   </p>
                 </div>
                 {(drawerData as KnowledgeGapDetail).reason && (
                   <div>
-                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                      Reason
-                    </h4>
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                    <h4 className="admin-dashboard__drawer-title">Reason</h4>
+                    <p className="admin-dashboard__drawer-text">
                       {(drawerData as KnowledgeGapDetail).reason}
                     </p>
                   </div>
                 )}
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                    Occurrences: {(drawerData as KnowledgeGapDetail).occurrences}
-                  </h4>
+                  <h4 className="admin-dashboard__drawer-title">Occurrences: {(drawerData as KnowledgeGapDetail).occurrences}</h4>
                 </div>
                 {((drawerData as KnowledgeGapDetail).examples || []).length > 0 && (
                   <div>
-                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                      Examples
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <h4 className="admin-dashboard__drawer-title">Examples</h4>
+                    <div className="admin-dashboard__drawer-stack-sm">
                       {((drawerData as KnowledgeGapDetail).examples || []).map((ex, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            padding: '0.75rem',
-                            backgroundColor: '#f9fafb',
-                            borderRadius: '0.375rem',
-                            border: '1px solid #e5e7eb',
-                          }}
-                        >
-                          <div style={{ fontSize: '0.875rem', color: '#111827', marginBottom: '0.25rem' }}>
-                            {ex.content}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                            {formatDateTime(ex.created_at)}
-                          </div>
+                        <div key={idx} className="admin-dashboard__drawer-item">
+                          <div className="admin-dashboard__drawer-text">{ex.content}</div>
+                          <div className="admin-dashboard__drawer-meta">{formatDateTime(ex.created_at)}</div>
                         </div>
                       ))}
                     </div>
@@ -548,49 +354,36 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
               </div>
             )}
             {drawerType === 'ticket' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="admin-dashboard__drawer-stack">
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                    Status
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                  <h4 className="admin-dashboard__drawer-title">Status</h4>
+                  <p className="admin-dashboard__drawer-text">
                     {(drawerData as ApiConversationDetail).conversation.status || 'open'}
                   </p>
                 </div>
                 {(drawerData as ApiConversationDetail).conversation.category && (
                   <div>
-                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                      Kategorija
-                    </h4>
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>
+                    <h4 className="admin-dashboard__drawer-title">Kategorija</h4>
+                    <p className="admin-dashboard__drawer-text">
                       {categoryDisplayLabel((drawerData as ApiConversationDetail).conversation.category)}
                     </p>
                   </div>
                 )}
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                  <h4 className="admin-dashboard__drawer-title">
                     Messages ({((drawerData as ApiConversationDetail).messages || []).length})
                   </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '400px', overflowY: 'auto' }}>
+                  <div className="admin-dashboard__drawer-scroll">
                     {((drawerData as ApiConversationDetail).messages || []).map((msg) => (
                       <div
                         key={msg.id}
-                        style={{
-                          padding: '0.75rem',
-                          backgroundColor: msg.role === 'user' ? '#f0f9ff' : '#f9fafb',
-                          borderRadius: '0.375rem',
-                          border: '1px solid #e5e7eb',
-                        }}
+                        className={`admin-dashboard__drawer-item ${msg.role === 'user' ? 'admin-dashboard__drawer-item--user' : ''}`}
                       >
-                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>
+                        <div className="admin-dashboard__drawer-meta admin-dashboard__drawer-meta--strong">
                           {msg.role === 'user' ? 'User' : 'Assistant'}
                         </div>
-                        <div style={{ fontSize: '0.875rem', color: '#111827' }}>
-                          {msg.content_redacted || '-'}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>
-                          {formatDateTime(msg.created_at)}
-                        </div>
+                        <div className="admin-dashboard__drawer-text">{msg.content_redacted || '-'}</div>
+                        <div className="admin-dashboard__drawer-meta">{formatDateTime(msg.created_at)}</div>
                       </div>
                     ))}
                   </div>
@@ -599,9 +392,7 @@ export function Dashboard({ events, onViewAllTickets, onViewAllQuestions }: Dash
             )}
           </>
         ) : (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-            No data available
-          </div>
+          <div className="admin-dashboard__drawer-state">No data available</div>
         )}
       </Drawer>
     </div>

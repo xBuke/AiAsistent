@@ -10,6 +10,7 @@ import {
 } from './api/adminClient';
 import { usePolling } from './hooks/usePolling';
 import { formatDateTime, formatMessageTime, formatRelativeTime } from './utils/dateFormat';
+import { DataTable, type DataTableColumn } from './components/DataTable';
 
 type WorkflowStatus = 'open' | 'resolved';
 
@@ -742,6 +743,39 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     </div>
   );
 
+  const inboxColumns: Array<DataTableColumn<ApiInboxItem>> = useMemo(
+    () => [
+      {
+        key: 'title',
+        label: 'Ticket',
+        render: (conv) => (
+          <div>
+            <div>{getTicketTitle(conv)}</div>
+            {getListPreview(conv) && (
+              <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>{getListPreview(conv)}</div>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        render: (conv) => getStatusLabel(conv.status),
+      },
+      {
+        key: 'category',
+        label: 'Kategorija',
+        render: (conv) => conv.category ?? '—',
+      },
+      {
+        key: 'last_activity_at',
+        label: 'Aktivnost',
+        render: (conv) => (conv.last_activity_at ? formatRelativeTime(conv.last_activity_at) : '—'),
+      },
+    ],
+    [getListPreview, getTicketTitle]
+  );
+
   return (
     <div
       style={{
@@ -1025,136 +1059,14 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 Pokušaj ponovno
               </button>
             </div>
-          ) : filteredConversations.length === 0 ? (
-            <div
-              style={{
-                padding: '2rem',
-                textAlign: 'center',
-                color: '#6b7280',
-                fontSize: '0.875rem',
-              }}
-            >
-              Nema ticketa u inboxu.
-            </div>
           ) : (
-            filteredConversations.map((conv) => {
-              const isSelected = selectedConversationId === conv.conversation_id;
-              const ticketTitle = getTicketTitle(conv);
-              const preview = getListPreview(conv);
-              const lastActivityRelative = conv.last_activity_at ? formatRelativeTime(conv.last_activity_at) : null;
-
-              return (
-                <div
-                  key={conv.conversation_id}
-                  onClick={() => setSelectedConversationId(conv.conversation_id)}
-                  style={{
-                    padding: '0.875rem 1rem',
-                    borderBottom: '1px solid #e5e7eb',
-                    borderLeft: isSelected ? '3px solid #3b82f6' : '3px solid transparent',
-                    backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s, border-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = '#f9fafb';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = '#ffffff';
-                    }
-                  }}
-                >
-                  {/* Primary: ticket title (trigger message / first user message / fallback). No citizen name. */}
-                  <div
-                    style={{
-                      fontSize: '0.9375rem',
-                      fontWeight: 600,
-                      color: '#111827',
-                      marginBottom: preview ? '0.25rem' : '0.375rem',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      lineHeight: '1.35',
-                    }}
-                  >
-                    {ticketTitle}
-                  </div>
-                  {/* Secondary: one-line muted context preview */}
-                  {preview && (
-                    <div
-                      style={{
-                        fontSize: '0.8125rem',
-                        color: '#6b7280',
-                        marginBottom: '0.5rem',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 1,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        lineHeight: '1.4',
-                      }}
-                    >
-                      {preview}
-                    </div>
-                  )}
-                  {/* Secondary: relative time + pills */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.375rem 0.5rem' }}>
-                    {lastActivityRelative && (
-                      <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-                        {lastActivityRelative}
-                      </span>
-                    )}
-                    {conv.status && (
-                      <span
-                        style={{
-                          padding: '0.125rem 0.5rem',
-                          borderRadius: '9999px',
-                          fontSize: '0.6875rem',
-                          fontWeight: 500,
-                          ...(conv.status === 'open' || conv.status === 'in_progress'
-                            ? { backgroundColor: '#fef3c7', color: '#92400e' }
-                            : conv.status === 'resolved' || conv.status === 'closed'
-                            ? { backgroundColor: '#e5e7eb', color: '#374151' }
-                            : { backgroundColor: '#f3f4f6', color: '#6b7280' }),
-                        }}
-                      >
-                        {getStatusLabel(conv.status)}
-                      </span>
-                    )}
-                    {conv.category && conv.category !== 'issue_reporting' && (
-                      <span
-                        style={{
-                          padding: '0.125rem 0.5rem',
-                          backgroundColor: '#e0e7ff',
-                          color: '#3730a3',
-                          borderRadius: '9999px',
-                          fontSize: '0.6875rem',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {conv.category}
-                      </span>
-                    )}
-                    {conv.urgent && (
-                      <span
-                        style={{
-                          padding: '0.125rem 0.5rem',
-                          backgroundColor: '#fee2e2',
-                          color: '#991b1b',
-                          borderRadius: '9999px',
-                          fontSize: '0.6875rem',
-                          fontWeight: 500,
-                        }}
-                      >
-                        Hitno
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+            <DataTable
+              columns={inboxColumns}
+              data={filteredConversations}
+              isLoading={conversationsLoading}
+              emptyMessage="Nema ticketa u inboxu."
+              onRowClick={(row) => setSelectedConversationId(row.conversation_id)}
+            />
           )}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AdminApp } from './admin/AdminApp';
+import { LandingPage } from './landing/LandingPage';
 
 type Message = {
   id: string;
@@ -2755,7 +2756,7 @@ function App() {
       <Route path="/admin/login" element={<Navigate to="/admin/demo" replace />} />
       <Route path="/admin" element={<Navigate to="/admin/demo" replace />} />
       <Route path="/en" element={<EnglishLandingPage />} />
-      <Route path="/" element={<ChatPage />} />
+      <Route path="/" element={<LandingPage />} />
     </Routes>
   );
 }

@@ -8,6 +8,7 @@ import {
   type ApiAttachment,
 } from './api/adminClient';
 import { Drawer } from './components/Drawer';
+import { DataTable, type DataTableColumn } from './components/DataTable';
 import { formatDateTime } from './utils/dateFormat';
 
 function formatSize(bytes: number): string {
@@ -85,14 +86,6 @@ export function Forms() {
     return list.filter((row) => (row.reference_number ?? '').toLowerCase().includes(q));
   }, [list, filterRef]);
 
-  if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
-        Učitavanje...
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div
@@ -108,6 +101,36 @@ export function Forms() {
       </div>
     );
   }
+
+  const columns: Array<DataTableColumn<ApiFormRequest>> = [
+    { key: 'created_at', label: 'Datum', render: (row) => formatDateTime(row.created_at) },
+    { key: 'type', label: 'Tip', render: (row) => formTypeLabel(row.type) },
+    { key: 'status', label: 'Status', render: (row) => row.status ?? '—' },
+    { key: 'reference_number', label: 'Ref broj' },
+    {
+      key: 'attachments',
+      label: 'Prilozi',
+      render: (row) => {
+        const count = attachmentsByRef[row.reference_number]?.length;
+        const countDisplay = count !== undefined ? String(count) : '—';
+        return (
+          <button type="button" className="admin-btn-secondary" onClick={() => setSelectedRef(row.reference_number)}>
+            Prilozi ({countDisplay})
+          </button>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      label: '',
+      width: '140px',
+      render: (row) => (
+        <a href={getAdminFormPdfUrl(row.reference_number)} target="_blank" rel="noreferrer" className="admin-btn-secondary">
+          Otvori PDF
+        </a>
+      ),
+    },
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -126,86 +149,8 @@ export function Forms() {
           }}
         />
       </div>
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          border: '1px solid #e5e7eb',
-          borderRadius: '0.5rem',
-          overflow: 'hidden',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Datum</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Tip</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Status</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Ref broj</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Prilozi</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: '#374151' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: '1.5rem', color: '#6b7280', textAlign: 'center' }}>
-                  Nema zahtjeva.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((row) => {
-                const count = attachmentsByRef[row.reference_number]?.length;
-                const countDisplay = count !== undefined ? String(count) : '—';
-                return (
-                  <tr key={row.reference_number} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{formatDateTime(row.created_at)}</td>
-                    <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{formTypeLabel(row.type)}</td>
-                    <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{row.status ?? '—'}</td>
-                    <td style={{ padding: '0.75rem 1rem', color: '#374151' }}>{row.reference_number}</td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRef(row.reference_number)}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.8125rem',
-                          fontWeight: 500,
-                          color: '#374151',
-                          backgroundColor: '#f3f4f6',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '0.375rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Prilozi ({countDisplay})
-                      </button>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      <a
-                        href={getAdminFormPdfUrl(row.reference_number)}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          padding: '0.375rem 0.75rem',
-                          fontSize: '0.8125rem',
-                          fontWeight: 500,
-                          color: '#2563eb',
-                          textDecoration: 'none',
-                          border: '1px solid #93c5fd',
-                          borderRadius: '0.375rem',
-                          backgroundColor: '#eff6ff',
-                          display: 'inline-block',
-                        }}
-                      >
-                        Otvori PDF
-                      </a>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+      <div className="admin-card">
+        <DataTable columns={columns} data={filtered} isLoading={loading} emptyMessage="Nema zahtjeva." />
       </div>
 
       <Drawer

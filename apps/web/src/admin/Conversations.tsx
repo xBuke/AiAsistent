@@ -11,6 +11,7 @@ import {
   type ApiMessage,
 } from './api/adminClient';
 import { usePolling } from './hooks/usePolling';
+import { DataTable, type DataTableColumn } from './components/DataTable';
 
 /** Unified conversation item (API or mock). */
 type ConversationItem = ConversationSummary & {
@@ -396,22 +397,35 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
     }
   }, [preFilteredConversations, categoryFilter, sortOption]);
 
-  // Group conversations by date sections
-  const groupedConversations = useMemo(() => {
-    const groups: Record<string, ConversationSummary[]> = {
-      today: [],
-      yesterday: [],
-      thisWeek: [],
-      older: [],
-    };
-
-    filteredConversations.forEach(conv => {
-      const section = getDateSection(conv.endTime ?? conv.startTime);
-      groups[section].push(conv);
-    });
-
-    return groups;
-  }, [filteredConversations]);
+  const conversationColumns: Array<DataTableColumn<ConversationItem>> = useMemo(
+    () => [
+      {
+        key: 'title',
+        label: 'Razgovor',
+        render: (conv) => (
+          <div>
+            <div>{getConversationTitle(conv)}</div>
+            {getConversationSubtitle(conv) && (
+              <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>
+                {getConversationSubtitle(conv)}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: 'category',
+        label: 'Kategorija',
+        render: (conv) => categoryLabel(conv.category),
+      },
+      {
+        key: 'lastActivityAt',
+        label: 'Aktivnost',
+        render: (conv) => (conv.lastActivityAt ? formatRelativeTime(conv.lastActivityAt) : formatDate(conv.startTime)),
+      },
+    ],
+    [getConversationTitle, getConversationSubtitle]
+  );
 
   // Selected conversation with transcript
   const selectedConversation = useMemo(() => {
@@ -932,151 +946,14 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                 Pokušaj ponovno
               </button>
             </div>
-          ) : filteredConversations.length === 0 ? (
-            <div
-              style={{
-                padding: '2rem',
-                textAlign: 'center',
-                color: '#6b7280',
-                fontSize: '0.875rem',
-              }}
-            >
-              Nema razgovora
-            </div>
           ) : (
-            <>
-              {/* Today section */}
-              {groupedConversations.today.length > 0 && (
-                <>
-                  <div
-                    style={{
-                      padding: '0.75rem 1rem',
-                      backgroundColor: '#f9fafb',
-                      borderBottom: '1px solid #e5e7eb',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Danas
-                  </div>
-                  {groupedConversations.today.map(conv => (
-                    <ConversationListItem
-                      key={conv.conversationId}
-                      conv={conv}
-                      isSelected={selectedConversationId === conv.conversationId}
-                      onClick={() => setSelectedConversationId(conv.conversationId)}
-                      hideSpam={hideSpam}
-                      formatCategoryLabel={categoryLabel}
-                      getFallbackCount={() => (typeof (conv as ConversationItem).fallbackCount === 'number' ? (conv as ConversationItem).fallbackCount! : getFallbackCountMock(cityId, conv.conversationId, conv.sessionId, conv.startTime, conv.endTime))}
-                      getConversationTitle={getConversationTitle}
-                      getConversationSubtitle={getConversationSubtitle}
-                    />
-                  ))}
-                </>
-              )}
-
-              {/* Yesterday section */}
-              {groupedConversations.yesterday.length > 0 && (
-                <>
-                  <div
-                    style={{
-                      padding: '0.75rem 1rem',
-                      backgroundColor: '#f9fafb',
-                      borderBottom: '1px solid #e5e7eb',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Jučer
-                  </div>
-                  {groupedConversations.yesterday.map(conv => (
-                    <ConversationListItem
-                      key={conv.conversationId}
-                      conv={conv}
-                      isSelected={selectedConversationId === conv.conversationId}
-                      onClick={() => setSelectedConversationId(conv.conversationId)}
-                      hideSpam={hideSpam}
-                      formatCategoryLabel={categoryLabel}
-                      getFallbackCount={() => (typeof (conv as ConversationItem).fallbackCount === 'number' ? (conv as ConversationItem).fallbackCount! : getFallbackCountMock(cityId, conv.conversationId, conv.sessionId, conv.startTime, conv.endTime))}
-                      getConversationTitle={getConversationTitle}
-                      getConversationSubtitle={getConversationSubtitle}
-                    />
-                  ))}
-                </>
-              )}
-
-              {/* This week section */}
-              {groupedConversations.thisWeek.length > 0 && (
-                <>
-                  <div
-                    style={{
-                      padding: '0.75rem 1rem',
-                      backgroundColor: '#f9fafb',
-                      borderBottom: '1px solid #e5e7eb',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Ovaj tjedan
-                  </div>
-                  {groupedConversations.thisWeek.map(conv => (
-                    <ConversationListItem
-                      key={conv.conversationId}
-                      conv={conv}
-                      isSelected={selectedConversationId === conv.conversationId}
-                      onClick={() => setSelectedConversationId(conv.conversationId)}
-                      hideSpam={hideSpam}
-                      formatCategoryLabel={categoryLabel}
-                      getFallbackCount={() => (typeof (conv as ConversationItem).fallbackCount === 'number' ? (conv as ConversationItem).fallbackCount! : getFallbackCountMock(cityId, conv.conversationId, conv.sessionId, conv.startTime, conv.endTime))}
-                      getConversationTitle={getConversationTitle}
-                      getConversationSubtitle={getConversationSubtitle}
-                    />
-                  ))}
-                </>
-              )}
-
-              {/* Older section */}
-              {groupedConversations.older.length > 0 && (
-                <>
-                  <div
-                    style={{
-                      padding: '0.75rem 1rem',
-                      backgroundColor: '#f9fafb',
-                      borderBottom: '1px solid #e5e7eb',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: '#374151',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    Starije
-                  </div>
-                  {groupedConversations.older.map(conv => (
-                    <ConversationListItem
-                      key={conv.conversationId}
-                      conv={conv}
-                      isSelected={selectedConversationId === conv.conversationId}
-                      onClick={() => setSelectedConversationId(conv.conversationId)}
-                      hideSpam={hideSpam}
-                      formatCategoryLabel={categoryLabel}
-                      getFallbackCount={() => (typeof (conv as ConversationItem).fallbackCount === 'number' ? (conv as ConversationItem).fallbackCount! : getFallbackCountMock(cityId, conv.conversationId, conv.sessionId, conv.startTime, conv.endTime))}
-                      getConversationTitle={getConversationTitle}
-                      getConversationSubtitle={getConversationSubtitle}
-                    />
-                  ))}
-                </>
-              )}
-            </>
+            <DataTable
+              columns={conversationColumns}
+              data={filteredConversations}
+              isLoading={conversationsLoading}
+              emptyMessage="Nema razgovora"
+              onRowClick={(row) => setSelectedConversationId(row.conversationId)}
+            />
           )}
         </div>
       </div>

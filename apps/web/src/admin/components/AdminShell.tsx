@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { SidebarNav, type AdminTabId } from './SidebarNav';
 import { TopHeader, type PeriodOption } from './TopHeader';
+import './AdminShell.css';
 
 interface AdminShellProps {
   activeTab: AdminTabId;
@@ -44,85 +45,33 @@ export function AdminShell({
   }, []);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        backgroundColor: '#f9fafb',
-      }}
-    >
-      <TopHeader
-        period={period}
-        onPeriodChange={onPeriodChange}
-        liveEnabled={liveEnabled}
-        onLiveChange={onLiveChange}
-        onLogout={onLogout}
-        onMenuClick={isMobile ? () => setSidebarOpen(!sidebarOpen) : undefined}
-      />
-      <div
-        style={{
-          display: 'flex',
-          flex: 1,
-          minHeight: 0,
-          position: 'relative',
-        }}
-      >
-        {/* Mobile sidebar overlay */}
-        {isMobile && sidebarOpen && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 998,
-            }}
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-        <div
-          style={{
-            width: isMobile ? (sidebarOpen ? '240px' : '0') : '240px',
-            flexShrink: 0,
-            transition: 'width 0.3s ease',
-            overflow: 'hidden',
-            position: isMobile ? 'fixed' : 'relative',
-            left: isMobile ? (sidebarOpen ? 0 : '-240px') : 0,
-            top: isMobile ? 0 : 'auto',
-            bottom: isMobile ? 0 : 'auto',
-            height: isMobile ? '100vh' : 'auto',
-            zIndex: isMobile ? 999 : 'auto',
-            backgroundColor: '#ffffff',
-            borderRight: '1px solid #e5e7eb',
+    <div className="admin-shell">
+      {isMobile && sidebarOpen && <div className="admin-shell__overlay" onClick={() => setSidebarOpen(false)} />}
+
+      <aside className={`admin-shell__sidebar ${isMobile ? 'admin-shell__sidebar--mobile' : ''} ${isMobile && sidebarOpen ? 'admin-shell__sidebar--open' : ''}`}>
+        <SidebarNav
+          activeTab={activeTab}
+          onSelect={(tab) => {
+            onTabChange(tab);
+            if (isMobile) {
+              setSidebarOpen(false);
+            }
           }}
-        >
-          <SidebarNav
-            activeTab={activeTab}
-            onSelect={(tab) => {
-              onTabChange(tab);
-              if (isMobile) {
-                setSidebarOpen(false);
-              }
-            }}
+        />
+      </aside>
+
+      <div className={`admin-shell__main-layout ${isMobile ? 'admin-shell__main-layout--mobile' : ''}`}>
+        <header className="admin-shell__header">
+          <TopHeader
+            period={period}
+            onPeriodChange={onPeriodChange}
+            liveEnabled={liveEnabled}
+            onLiveChange={onLiveChange}
+            onLogout={onLogout}
+            onMenuClick={isMobile ? () => setSidebarOpen(!sidebarOpen) : undefined}
           />
-        </div>
-        <main
-          style={{
-            flex: 1,
-            minWidth: 0,
-            padding: isMobile ? '1rem' : '1.5rem',
-            overflow: 'auto',
-            backgroundColor: '#f9fafb',
-            width: isMobile && sidebarOpen ? 0 : 'auto',
-            transition: 'width 0.3s ease',
-          }}
-        >
-          {children}
-        </main>
+        </header>
+        <main className="admin-shell__content">{children}</main>
       </div>
     </div>
   );

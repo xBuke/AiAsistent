@@ -1,0 +1,39 @@
+.admin-stat-card {
+  padding: var(--space-6);
+}
+
+.admin-stat-card__title {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.admin-stat-card__value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.admin-stat-card__subtitle {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.admin-stat-card__trend {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.admin-stat-card__trend--positive {
+  color: var(--color-success);
+}
+
+.admin-stat-card__trend--negative {
+  color: var(--color-danger);
+}
