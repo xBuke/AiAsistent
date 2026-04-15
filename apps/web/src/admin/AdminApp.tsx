@@ -10,6 +10,7 @@ import { Conversations } from './Conversations';
 import { Reports } from './Reports';
 import { Inbox } from './Inbox';
 import { Forms } from './Forms';
+import { DocumentsPage } from './DocumentsPage';
 import { Filters } from './components/Filters';
 import { AdminShell } from './components/AdminShell';
 import type { AdminTabId } from './components/SidebarNav';
@@ -321,6 +322,7 @@ export function AdminApp() {
           <ReportsTabContent events={events} filters={reportsFilters} onFiltersChange={setReportsFilters} />
         )}
         {activeTab === "Obrasci" && <Forms />}
+        {activeTab === "Dokumenti" && cityId && <DocumentsPage cityId={cityId} />}
       </div>
     </AdminShell>
   );

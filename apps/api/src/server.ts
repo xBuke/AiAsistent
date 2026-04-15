@@ -9,6 +9,7 @@ import { registerChatRoutes } from './routes/chat.js';
 import { registerEventsRoutes } from './routes/events.js';
 import { registerAdminReadRoutes } from './routes/adminRead.js';
 import { registerAdminDashboardRoutes } from './routes/adminDashboard.js';
+import { registerAdminDocumentRoutes } from './routes/adminDocuments.js';
 import { registerFormsRoutes } from './routes/forms.js';
 
 export async function buildServer() {
@@ -65,6 +66,9 @@ export async function buildServer() {
 
   // Register admin dashboard routes
   await registerAdminDashboardRoutes(server);
+
+  // Register admin document routes
+  await registerAdminDocumentRoutes(server);
 
   await registerFormsRoutes(server);
 
