@@ -1,6 +1,8 @@
 export function chunkText(text: string): string[] {
-  const paragraphs = text
-    .split(/\n\s*\n/)
+  const normalizedText = text.replace(/\r\n/g, "\n");
+
+  const paragraphs = normalizedText
+    .split(/\n+/)
     .map((paragraph) => paragraph.trim())
     .filter((paragraph) => paragraph.length >= 20);
 
