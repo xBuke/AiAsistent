@@ -22,6 +22,8 @@ export function LandingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [copiedChip, setCopiedChip] = useState<string | null>(null);
+  const [showPasteHint, setShowPasteHint] = useState(false);
   const [formData, setFormData] = useState<DemoFormData>({
     ime: '',
     grad: '',
@@ -69,22 +71,84 @@ export function LandingPage() {
     return () => body.classList.remove('lp-modal-open');
   }, [modalOpen]);
 
-  const handleDemoChipClick = (text: string) => {
-    const globalWidget = (window as any).CivisWidget;
-    if (globalWidget && typeof globalWidget.sendMessage === 'function') {
-      globalWidget.sendMessage(text);
-      globalWidget.open?.();
-      return;
+  const handleDemoChipClick = async (text: string) => {
+    const globalWidget =
+      (window as any).CivisWidget || (window as any).civis || (window as any).GradWidget || (window as any).gradWidget;
+
+    if (globalWidget) {
+      const openMethod =
+        typeof globalWidget.open === 'function'
+          ? globalWidget.open.bind(globalWidget)
+          : typeof globalWidget.show === 'function'
+            ? globalWidget.show.bind(globalWidget)
+            : null;
+      const sendMethod =
+        typeof globalWidget.sendMessage === 'function'
+          ? globalWidget.sendMessage.bind(globalWidget)
+          : typeof globalWidget.ask === 'function'
+            ? globalWidget.ask.bind(globalWidget)
+            : typeof globalWidget.send === 'function'
+              ? globalWidget.send.bind(globalWidget)
+              : null;
+
+      if (openMethod) openMethod();
+      if (sendMethod) {
+        sendMethod(text);
+        return;
+      }
     }
 
-    const iframe =
-      document.querySelector<HTMLIFrameElement>('iframe[data-civis-widget], iframe[src*="widget"]') ||
-      null;
-
+    const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="civis"], iframe[src*="widget"]');
     if (iframe?.contentWindow) {
       iframe.contentWindow.postMessage({ type: 'SEND_MESSAGE', text }, '*');
       globalWidget?.open?.();
       return;
+    }
+
+    const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+    const host = document.querySelector<HTMLElement>('#grad-widget-host');
+    const shadowRoot = host?.shadowRoot ?? null;
+
+    if (shadowRoot) {
+      const toggleButton =
+        shadowRoot.querySelector<HTMLButtonElement>('button[aria-label*="Open chat"]') ||
+        shadowRoot.querySelector<HTMLButtonElement>('button[aria-label*="chat"]');
+      toggleButton?.click();
+
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const inputEl =
+          shadowRoot.querySelector<HTMLInputElement>('textarea[placeholder*="Upišite"]') ||
+          shadowRoot.querySelector<HTMLInputElement>('textarea[placeholder*="Type"]') ||
+          shadowRoot.querySelector<HTMLInputElement>('input[placeholder*="Upišite"]') ||
+          shadowRoot.querySelector<HTMLInputElement>('input[placeholder*="Type"]') ||
+          shadowRoot.querySelector<HTMLInputElement>('textarea, input');
+
+        if (inputEl) {
+          const setter =
+            Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set ||
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          if (setter) {
+            setter.call(inputEl, text);
+          } else {
+            inputEl.value = text;
+          }
+          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+          inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+          return;
+        }
+
+        await wait(120);
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedChip(text);
+      setShowPasteHint(true);
+      window.setTimeout(() => setCopiedChip((current) => (current === text ? null : current)), 1500);
+    } catch {
+      setShowPasteHint(true);
     }
 
     globalWidget?.open?.();
@@ -93,6 +157,10 @@ export function LandingPage() {
   const openModal = () => {
     setModalOpen(true);
     setSubmitError('');
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -142,7 +210,9 @@ export function LandingPage() {
     <div className="lp-page">
       <header className="lp-header">
         <div className="lp-container lp-header-inner">
-          <div className="lp-wordmark">Civis</div>
+          <button type="button" className="lp-wordmark" onClick={scrollToTop} aria-label="Povratak na vrh stranice">
+            Civis
+          </button>
           {renderDemoButton('lp-btn lp-btn-outline')}
         </div>
       </header>
@@ -199,10 +269,11 @@ export function LandingPage() {
             <div className="lp-chip-row" data-animate>
               {demoQuestions.map((question) => (
                 <button key={question} type="button" className="lp-chip" onClick={() => handleDemoChipClick(question)}>
-                  {question}
+                  {copiedChip === question ? 'Kopirano!' : question}
                 </button>
               ))}
             </div>
+            {showPasteHint ? <p className="lp-note">Kliknite pitanje, zatim ga zalijepite u chat →</p> : null}
           </div>
         </section>
 

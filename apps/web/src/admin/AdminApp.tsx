@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { adminLogin } from './api/adminClient';
 import { getEvents, subscribe } from '../analytics/store';
@@ -42,7 +42,8 @@ function ReportsTabContent({ events, filters, onFiltersChange }: ReportsTabConte
 }
 
 export function AdminApp() {
-  const { cityId } = useParams<{ cityId: string }>();
+  const { cityCode } = useParams<{ cityCode: string }>();
+  const cityId = cityCode;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -133,29 +134,7 @@ export function AdminApp() {
   }, [dataSource, cityId, isAuthenticated, useMock]);
 
   if (!cityId) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        }}
-      >
-        <div
-          style={{
-            padding: '2rem',
-            backgroundColor: '#fee2e2',
-            color: '#991b1b',
-            borderRadius: '0.5rem',
-            fontSize: '0.9375rem',
-          }}
-        >
-          Invalid city ID
-        </div>
-      </div>
-    );
+    return <Navigate to="/admin/demo" replace />;
   }
 
   const handleLogin = async (password: string) => {

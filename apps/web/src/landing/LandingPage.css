@@ -27,7 +27,16 @@
   background: rgba(10, 15, 30, 0.7);
 }
 .lp-header-inner { height: 80px; display: flex; align-items: center; justify-content: space-between; }
-.lp-wordmark { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+.lp-wordmark {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
 
 .lp-btn {
   border: 0; cursor: pointer; border-radius: 999px; font-weight: 600;
@@ -150,7 +159,7 @@
 .lp-eu-box p { margin: 0; color: #dbeafe; line-height: 1.55; font-size: 0.92rem; }
 .lp-pricing-cta { margin-top: 16px; width: 100%; }
 
-.lp-cta-section .lp-btn { margin-top: 8px; }
+.lp-cta-section .lp-btn { display: block; margin: 8px auto 0; }
 
 .lp-footer { text-align: center; color: var(--lp-muted); padding: 32px 0 42px; border-top: 1px solid var(--lp-border); }
 
