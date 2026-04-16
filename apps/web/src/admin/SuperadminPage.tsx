@@ -8,6 +8,11 @@ import {
 } from './api/adminClient';
 
 type CityUserRole = Exclude<AdminRole, 'superadmin'>;
+type SuperadminCityView = SuperadminCity & { allowed_domains: string[]; code?: string };
+
+const API_BASE = import.meta.env.PROD
+  ? '/api'
+  : ((import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || 'http://localhost:3000');
 
 const ROLE_OPTIONS: Array<{ value: CityUserRole; label: string }> = [
   { value: 'admin', label: 'Admin' },
@@ -21,12 +26,56 @@ interface SuperadminPageProps {
   onLogout: () => void;
 }
 
+function normalizeCroatian(value: string): string {
+  return value
+    .replace(/č/g, 'c')
+    .replace(/ć/g, 'c')
+    .replace(/đ/g, 'd')
+    .replace(/š/g, 's')
+    .replace(/ž/g, 'z')
+    .replace(/Č/g, 'C')
+    .replace(/Ć/g, 'C')
+    .replace(/Đ/g, 'D')
+    .replace(/Š/g, 'S')
+    .replace(/Ž/g, 'Z');
+}
+
+function toSlug(name: string): string {
+  return normalizeCroatian(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+function toCode(name: string): string {
+  const normalized = normalizeCroatian(name).toLowerCase().replace(/[^a-z]/g, '');
+  const consonants = normalized.replace(/[aeiou]/g, '');
+  if (consonants.length >= 3) return consonants.slice(0, 3).toUpperCase();
+  if (consonants.length >= 2) return consonants.slice(0, 2).toUpperCase();
+  return normalized.slice(0, 2).toUpperCase();
+}
+
 export function SuperadminPage({ onLogout }: SuperadminPageProps) {
-  const [cities, setCities] = useState<SuperadminCity[]>([]);
+  const [cities, setCities] = useState<SuperadminCityView[]>([]);
   const [expandedSlug, setExpandedSlug] = useState<string>('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, { name: string; password: string; role: CityUserRole }>>({});
+  const [createName, setCreateName] = useState('');
+  const [createSlug, setCreateSlug] = useState('');
+  const [createCode, setCreateCode] = useState('');
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [createDomainInput, setCreateDomainInput] = useState('');
+  const [createDomains, setCreateDomains] = useState<string[]>([]);
+  const [createError, setCreateError] = useState('');
+  const [createSuccess, setCreateSuccess] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [cityDomainDrafts, setCityDomainDrafts] = useState<Record<string, string>>({});
+  const [savingCityDomains, setSavingCityDomains] = useState<Record<string, boolean>>({});
+  const [copiedCity, setCopiedCity] = useState('');
 
   const citiesSorted = useMemo(() => [...cities].sort((a, b) => a.name.localeCompare(b.name, 'hr')), [cities]);
 
@@ -35,7 +84,14 @@ export function SuperadminPage({ onLogout }: SuperadminPageProps) {
     setError('');
     try {
       const data = await fetchSuperadminCities();
-      setCities(data);
+      setCities(
+        data.map((city) => ({
+          ...city,
+          allowed_domains: Array.isArray((city as { allowed_domains?: unknown }).allowed_domains)
+            ? ((city as { allowed_domains?: unknown }).allowed_domains as string[]).filter((d) => typeof d === 'string')
+            : [],
+        }))
+      );
     } catch {
       setError('Neuspjelo učitavanje gradova.');
     } finally {
@@ -51,6 +107,123 @@ export function SuperadminPage({ onLogout }: SuperadminPageProps) {
 
   const setDraft = (slug: string, update: Partial<{ name: string; password: string; role: CityUserRole }>) => {
     setDrafts((prev) => ({ ...prev, [slug]: { ...ensureDraft(slug), ...update } }));
+  };
+
+  const handleCreateNameChange = (value: string) => {
+    setCreateName(value);
+    if (!slugTouched) setCreateSlug(toSlug(value));
+    if (!codeTouched) setCreateCode(toCode(value));
+  };
+
+  const addCreateDomain = () => {
+    const next = createDomainInput.trim().toLowerCase();
+    if (!next || createDomains.includes(next)) return;
+    setCreateDomains((prev) => [...prev, next]);
+    setCreateDomainInput('');
+  };
+
+  const removeCreateDomain = (domain: string) => {
+    setCreateDomains((prev) => prev.filter((d) => d !== domain));
+  };
+
+  const handleCreateCity = async () => {
+    if (!createName.trim() || !createSlug.trim() || !createCode.trim()) {
+      setCreateError('Naziv, slug i code su obavezni.');
+      return;
+    }
+    setCreateError('');
+    setCreateSuccess('');
+    setCreating(true);
+    try {
+      const res = await fetch(`${API_BASE}/superadmin/cities`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: createName.trim(),
+          slug: createSlug.trim(),
+          code: createCode.trim(),
+          allowed_domains: createDomains,
+        }),
+      });
+      const payload = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) {
+        if (res.status === 409) {
+          setCreateError('Slug već postoji.');
+        } else {
+          setCreateError(payload.error || 'Neuspjelo kreiranje grada.');
+        }
+        return;
+      }
+      setCreateName('');
+      setCreateSlug('');
+      setCreateCode('');
+      setCreateDomains([]);
+      setCreateDomainInput('');
+      setSlugTouched(false);
+      setCodeTouched(false);
+      setCreateSuccess('Grad uspješno kreiran');
+      await loadCities();
+      window.setTimeout(() => setCreateSuccess(''), 2000);
+    } catch {
+      setCreateError('Neuspjelo kreiranje grada.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const patchCityDomains = async (cityId: string, nextDomains: string[]) => {
+    const previousCities = cities;
+    setSavingCityDomains((prev) => ({ ...prev, [cityId]: true }));
+    setCities((prev) => prev.map((city) => (city.id === cityId ? { ...city, allowed_domains: nextDomains } : city)));
+    try {
+      const res = await fetch(`${API_BASE}/superadmin/cities/${encodeURIComponent(cityId)}/domains`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowed_domains: nextDomains }),
+      });
+      if (!res.ok) throw new Error('patch domains failed');
+    } catch {
+      setCities(previousCities);
+      setError('Neuspjelo spremanje domena.');
+    } finally {
+      setSavingCityDomains((prev) => ({ ...prev, [cityId]: false }));
+    }
+  };
+
+  const addCityDomain = async (cityId: string) => {
+    const draft = (cityDomainDrafts[cityId] || '').trim().toLowerCase();
+    if (!draft) return;
+    const city = cities.find((c) => c.id === cityId);
+    if (!city || city.allowed_domains.includes(draft)) return;
+    setCityDomainDrafts((prev) => ({ ...prev, [cityId]: '' }));
+    await patchCityDomains(cityId, [...city.allowed_domains, draft]);
+  };
+
+  const removeCityDomain = async (cityId: string, domain: string) => {
+    const city = cities.find((c) => c.id === cityId);
+    if (!city) return;
+    await patchCityDomains(
+      cityId,
+      city.allowed_domains.filter((d) => d !== domain)
+    );
+  };
+
+  const copySnippet = async (citySlug: string) => {
+    const snippet = `<script 
+  src="https://civisai.mangai.hr/widget.js" 
+  data-city-id="${citySlug}"
+  data-api-base="https://asistent-api-nine.vercel.app/api"
+  defer>
+</script>`;
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopiedCity(citySlug);
+      window.setTimeout(() => setCopiedCity(''), 1500);
+    } catch {
+      setError('Neuspjelo kopiranje snippet-a.');
+    }
   };
 
   const handleAdd = async (citySlug: string) => {
@@ -106,6 +279,90 @@ export function SuperadminPage({ onLogout }: SuperadminPageProps) {
         </button>
       </header>
 
+      <section
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 16,
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Kreiraj novi grad</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <input
+            className="admin-input"
+            placeholder="Naziv grada"
+            value={createName}
+            onChange={(e) => handleCreateNameChange(e.target.value)}
+          />
+          <input
+            className="admin-input"
+            placeholder="Slug"
+            value={createSlug}
+            onChange={(e) => {
+              setSlugTouched(true);
+              setCreateSlug(e.target.value);
+            }}
+          />
+          <input
+            className="admin-input"
+            placeholder="Code"
+            value={createCode}
+            onChange={(e) => {
+              setCodeTouched(true);
+              setCreateCode(e.target.value.toUpperCase());
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
+          <input
+            className="admin-input"
+            placeholder="Allowed domain (npr. zagreb.hr)"
+            value={createDomainInput}
+            onChange={(e) => setCreateDomainInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addCreateDomain();
+              }
+            }}
+          />
+          <button type="button" className="admin-btn-secondary" onClick={addCreateDomain}>
+            Dodaj
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          {createDomains.map((domain) => (
+            <button
+              key={domain}
+              type="button"
+              className="admin-btn-secondary"
+              onClick={() => removeCreateDomain(domain)}
+              style={{ padding: '4px 10px' }}
+            >
+              {domain} ×
+            </button>
+          ))}
+        </div>
+
+        {createError && <div style={{ color: '#ef4444', marginTop: 10 }}>{createError}</div>}
+        {createSuccess && <div style={{ color: 'var(--accent)', marginTop: 10 }}>{createSuccess}</div>}
+
+        <div style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            className="admin-btn-primary"
+            onClick={() => void handleCreateCity()}
+            disabled={creating || !createName.trim() || !createSlug.trim() || !createCode.trim()}
+          >
+            Kreiraj grad
+          </button>
+        </div>
+      </section>
+
       <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 20 }}>
         <h2 style={{ marginTop: 0 }}>Gradovi</h2>
         {error && <div style={{ color: '#ef4444', marginBottom: 12 }}>{error}</div>}
@@ -157,6 +414,49 @@ export function SuperadminPage({ onLogout }: SuperadminPageProps) {
                       ))}
                     </div>
 
+                    <div style={{ marginTop: 18 }}>
+                      <h3 style={{ margin: '0 0 8px 0', fontSize: 16 }}>Dozvoljene domene</h3>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                        {city.allowed_domains.map((domain) => (
+                          <button
+                            key={domain}
+                            type="button"
+                            className="admin-btn-secondary"
+                            disabled={Boolean(savingCityDomains[city.id])}
+                            onClick={() => void removeCityDomain(city.id, domain)}
+                            style={{ padding: '4px 10px' }}
+                          >
+                            {domain} ×
+                          </button>
+                        ))}
+                        {city.allowed_domains.length === 0 && (
+                          <span style={{ color: 'var(--text-secondary)' }}>Nema dodanih domena.</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <input
+                          className="admin-input"
+                          placeholder="Dodaj domenu"
+                          value={cityDomainDrafts[city.id] || ''}
+                          onChange={(e) => setCityDomainDrafts((prev) => ({ ...prev, [city.id]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void addCityDomain(city.id);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="admin-btn-secondary"
+                          disabled={Boolean(savingCityDomains[city.id])}
+                          onClick={() => void addCityDomain(city.id)}
+                        >
+                          Dodaj domenu
+                        </button>
+                      </div>
+                    </div>
+
                     <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 10 }}>
                       <input
                         className="admin-input"
@@ -190,6 +490,34 @@ export function SuperadminPage({ onLogout }: SuperadminPageProps) {
                       >
                         Dodaj
                       </button>
+                    </div>
+
+                    <div style={{ marginTop: 18 }}>
+                      <h3 style={{ margin: '0 0 8px 0', fontSize: 16 }}>Embed snippet</h3>
+                      <pre
+                        style={{
+                          margin: 0,
+                          padding: 12,
+                          borderRadius: 8,
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-primary)',
+                          overflowX: 'auto',
+                          color: 'var(--text-primary)',
+                        }}
+                      >
+{`<script 
+  src="https://civisai.mangai.hr/widget.js" 
+  data-city-id="${city.slug}"
+  data-api-base="https://asistent-api-nine.vercel.app/api"
+  defer>
+</script>`}
+                      </pre>
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <button type="button" className="admin-btn-secondary" onClick={() => void copySnippet(city.slug)}>
+                          Kopiraj snippet
+                        </button>
+                        {copiedCity === city.slug && <span style={{ color: 'var(--accent)' }}>Kopirano!</span>}
+                      </div>
                     </div>
                   </div>
                 )}
