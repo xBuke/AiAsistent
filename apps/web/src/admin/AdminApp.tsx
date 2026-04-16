@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { adminLogin } from './api/adminClient';
 import { getEvents, subscribe } from '../analytics/store';
@@ -45,13 +45,13 @@ function ReportsTabContent({ events, filters, onFiltersChange }: ReportsTabConte
 }
 
 export function AdminApp() {
-  const { cityCode } = useParams<{ cityCode: string }>();
+  const { cityCode } = useParams<{ cityCode?: string }>();
   const cityId = cityCode;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<AdminRole>('admin');
   const [userName, setUserName] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
-  const [selectedCityCode, setSelectedCityCode] = useState(cityCode || 'demo');
+  const [selectedCityCode, setSelectedCityCode] = useState(cityCode || '');
   const [error, setError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const useMock = (import.meta as { env?: { VITE_ADMIN_USE_MOCK?: string } }).env?.VITE_ADMIN_USE_MOCK === 'true';
@@ -79,7 +79,7 @@ export function AdminApp() {
     setRole('admin');
     setUserName('');
     setCurrentUserId('');
-    setSelectedCityCode(cityId || 'demo');
+    setSelectedCityCode(cityId || '');
     setError('');
     // Load live setting for new city
     if (cityId) {
@@ -151,10 +151,6 @@ export function AdminApp() {
     }
   }, [dataSource, selectedCityCode, isAuthenticated, useMock]);
 
-  if (!cityId) {
-    return <Navigate to="/admin/demo" replace />;
-  }
-
   const handleLogin = async (loginCityCode: string, password: string) => {
     setError('');
     setIsLoggingIn(true);
@@ -222,7 +218,7 @@ export function AdminApp() {
             onSubmit={handleLogin}
             error={error}
             isLoading={isLoggingIn}
-            cityCode={cityId || 'demo'}
+            cityCode={cityId || ''}
           />
         </div>
       </div>

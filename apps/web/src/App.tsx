@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { AdminApp } from './admin/AdminApp';
 import { LandingPage } from './landing/LandingPage';
 
@@ -2752,9 +2752,9 @@ function ChatPage() {
 function App() {
   return (
     <Routes>
+      <Route path="/admin" element={<AdminApp />} />
       <Route path="/admin/:cityCode" element={<AdminApp />} />
-      <Route path="/admin/login" element={<Navigate to="/admin/demo" replace />} />
-      <Route path="/admin" element={<Navigate to="/admin/demo" replace />} />
+      <Route path="/admin/login" element={<AdminApp />} />
       <Route path="/en" element={<EnglishLandingPage />} />
       <Route path="/" element={<LandingPage />} />
     </Routes>
