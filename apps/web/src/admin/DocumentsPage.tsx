@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DataTable, type DataTableColumn } from './components/DataTable';
+import { ToggleSwitch } from './components/ToggleSwitch';
 
 interface DocumentsPageProps {
   cityId: string;
@@ -12,6 +12,7 @@ interface DocumentItem {
   file_size: number | null;
   chunk_count: number | null;
   uploaded_at: string | null;
+  is_active: boolean;
 }
 
 const BASE = import.meta.env.PROD
@@ -46,6 +47,7 @@ function normalizeDoc(input: unknown): DocumentItem | null {
     file_size: typeof item.file_size === 'number' ? item.file_size : null,
     chunk_count: typeof item.chunk_count === 'number' ? item.chunk_count : null,
     uploaded_at: typeof item.uploaded_at === 'string' ? item.uploaded_at : null,
+    is_active: item.is_active === undefined ? true : Boolean(item.is_active),
   };
 }
 
@@ -72,6 +74,8 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+  const [togglingIds, setTogglingIds] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const cityCode = cityId;
@@ -126,6 +130,58 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
     });
   }, [documents]);
 
+  const handleToggleActive = async (doc: DocumentItem) => {
+    const previousActive = doc.is_active;
+    setToggleError(null);
+
+    setDocuments((prev) =>
+      prev.map((item) =>
+        item.id === doc.id
+          ? {
+              ...item,
+              is_active: !item.is_active,
+            }
+          : item
+      )
+    );
+    setTogglingIds((prev) => ({ ...prev, [doc.id]: true }));
+
+    try {
+      const res = await fetch(
+        `${BASE}/admin/document-files/${encodeURIComponent(doc.id)}/toggle`,
+        {
+          ...defaultOpts,
+          method: 'PATCH',
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Toggle: ${res.status}`);
+      }
+    } catch (_err) {
+      setDocuments((prev) =>
+        prev.map((item) =>
+          item.id === doc.id
+            ? {
+                ...item,
+                is_active: previousActive,
+              }
+            : item
+        )
+      );
+      setToggleError('Neuspješno ažuriranje statusa dokumenta.');
+      window.setTimeout(() => {
+        setToggleError(null);
+      }, 2500);
+    } finally {
+      setTogglingIds((prev) => {
+        const next = { ...prev };
+        delete next[doc.id];
+        return next;
+      });
+    }
+  };
+
   const handleDelete = async (doc: DocumentItem) => {
     const confirmed = window.confirm(`Obrisati dokument "${doc.filename}"?`);
     if (!confirmed) return;
@@ -178,6 +234,7 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
         file_size: selectedFile.size,
         chunk_count: typeof data.chunk_count === 'number' ? data.chunk_count : null,
         uploaded_at: new Date().toISOString(),
+        is_active: true,
       };
 
       setDocuments((prev) => [created, ...prev]);
@@ -192,27 +249,78 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
     }
   };
 
-  const columns: Array<DataTableColumn<DocumentItem>> = [
-    { key: 'filename', label: 'Naziv datoteke' },
-    { key: 'file_type', label: 'Tip', render: (row) => row.file_type ?? '—' },
-    { key: 'file_size', label: 'Veličina', render: (row) => formatFileSize(row.file_size) },
-    { key: 'chunk_count', label: 'Broj chunkova', render: (row) => row.chunk_count ?? '—' },
-    { key: 'uploaded_at', label: 'Uploadano', render: (row) => formatUploadedAt(row.uploaded_at) },
-    {
-      key: 'actions',
-      label: '',
-      width: '120px',
-      render: (row) => (
-        <button type="button" className="admin-btn-danger" onClick={() => handleDelete(row)}>
-          Obriši
-        </button>
-      ),
-    },
-  ];
-
   return (
     <div className="admin-documents">
-      <div className="admin-card">
+      <div className="admin-documents__grid">
+        <div className="admin-documents__features">
+          <article className="admin-feature-card">
+            <div className="admin-feature-card__icon" aria-hidden="true">
+              📄
+            </div>
+            <h3 className="admin-feature-card__title">Selektivni pristup dokumentima</h3>
+            <p className="admin-feature-card__desc">
+              Uploadajte dokumente, ali widgetu dajte pristup samo onima koje odaberete — npr. samo komunalne usluge i
+              radno vrijeme, ne interni akti.
+            </p>
+          </article>
+          <article className="admin-feature-card">
+            <div className="admin-feature-card__icon" aria-hidden="true">
+              ⚡
+            </div>
+            <h3 className="admin-feature-card__title">Ažuriranje u realnom vremenu</h3>
+            <p className="admin-feature-card__desc">
+              Promijenite koji dokumenti su aktivni iz admin sučelja u bilo kojem trenutku. Widget odmah reflektira
+              promjenu — bez tehničke intervencije.
+            </p>
+          </article>
+          <article className="admin-feature-card">
+            <div className="admin-feature-card__icon" aria-hidden="true">
+              🔒
+            </div>
+            <h3 className="admin-feature-card__title">Vaši podaci, vaša pravila</h3>
+            <p className="admin-feature-card__desc">
+              Svaki grad ima potpuno izoliranu bazu. Nitko drugi nema pristup vašim dokumentima, upitima niti podacima
+              građana.
+            </p>
+          </article>
+        </div>
+
+        <section className="admin-documents-active">
+          <h2 className="admin-documents-active__title">Aktivni dokumenti</h2>
+          {toggleError && <div className="admin-upload-status admin-upload-status--error">{toggleError}</div>}
+          {loading ? (
+            <div className="admin-documents-active__empty">Učitavanje dokumenata...</div>
+          ) : sortedDocuments.length === 0 ? (
+            <div className="admin-documents-active__empty">Nema uploadanih dokumenata</div>
+          ) : (
+            <ul className="admin-documents-active__list">
+              {sortedDocuments.map((doc) => (
+                <li key={doc.id} className="admin-documents-active__row">
+                  <ToggleSwitch
+                    checked={doc.is_active}
+                    disabled={Boolean(togglingIds[doc.id])}
+                    onChange={() => handleToggleActive(doc)}
+                  />
+                  <div className="admin-documents-active__name-wrap">
+                    <div className="admin-documents-active__name">{doc.filename}</div>
+                    <div className="admin-upload-selected__meta">
+                      {formatFileSize(doc.file_size)} · {doc.chunk_count ?? '—'} chunkova · {formatUploadedAt(doc.uploaded_at)}
+                    </div>
+                  </div>
+                  <div className="admin-documents-active__actions">
+                    <span className="admin-documents-active__badge">{(doc.file_type ?? 'UNK').toUpperCase()}</span>
+                    <button type="button" className="admin-btn-danger" onClick={() => handleDelete(doc)}>
+                      Obriši
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <div className="admin-documents-upload">
         <div
           className={`admin-upload-zone ${isDragOver ? 'admin-upload-zone--dragover' : ''}`}
           onDragOver={(e) => {
@@ -291,15 +399,6 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
 
         {uploadSuccess && <div className="admin-upload-status admin-upload-status--success">✓ Dokument uspješno dodan</div>}
         {uploadError && <div className="admin-upload-status admin-upload-status--error">{uploadError}</div>}
-      </div>
-
-      <div className="admin-card">
-        <DataTable
-          columns={columns}
-          data={sortedDocuments}
-          isLoading={loading}
-          emptyMessage="Nema uploadanih dokumenata"
-        />
       </div>
     </div>
   );

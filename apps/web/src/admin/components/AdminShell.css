@@ -66,6 +66,25 @@
   color: var(--color-text-muted);
 }
 
+.admin-top-header__theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition), background-color var(--transition);
+}
+
+.admin-top-header__theme-toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
 .admin-shell__content {
   min-height: calc(100vh - 56px);
   padding: var(--space-6);

@@ -18,6 +18,10 @@ interface DeleteAdminDocumentParams extends AdminDocumentsParams {
   documentFileId: string;
 }
 
+interface ToggleDocumentFileParams {
+  id: string;
+}
+
 const MAX_UPLOAD_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MIME_TYPE_TO_FILE_TYPE = {
   'application/pdf': 'pdf',
@@ -184,6 +188,55 @@ export async function deleteAdminDocumentHandler(
 }
 
 /**
+ * PATCH /admin/document-files/:id/toggle
+ * Flips is_active for a document file scoped to the admin city.
+ */
+export async function toggleAdminDocumentFileHandler(
+  request: FastifyRequest<{ Params: ToggleDocumentFileParams }>,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const { id } = request.params;
+
+  try {
+    const { data: documentFile, error: lookupError } = await supabase
+      .from('document_files')
+      .select('id, filename, is_active, city_id')
+      .eq('id', id)
+      .single();
+
+    if (lookupError || !documentFile || documentFile.city_id !== session.cityId) {
+      return reply.status(404).send({ error: 'Document file not found' });
+    }
+
+    const { data: updatedDocumentFile, error: updateError } = await supabase
+      .from('document_files')
+      .update({ is_active: !documentFile.is_active })
+      .eq('id', id)
+      .select('id, filename, is_active')
+      .single();
+
+    if (updateError || !updatedDocumentFile) {
+      request.log.error(updateError, 'Failed to toggle document file');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+
+    return reply.send(updatedDocumentFile);
+  } catch (error) {
+    request.log.error(error, 'Internal server error');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+}
+
+/**
  * POST /admin/:cityCode/documents
  * Uploads a single document file, extracts/chunks content, and stores embeddings.
  */
@@ -309,4 +362,5 @@ export async function registerAdminDocumentRoutes(app: FastifyInstance) {
   app.post('/admin/:cityCode/documents', createAdminDocumentHandler);
   app.get('/admin/:cityCode/documents', getAdminDocumentsHandler);
   app.delete('/admin/:cityCode/documents/:documentFileId', deleteAdminDocumentHandler);
+  app.patch('/admin/document-files/:id/toggle', toggleAdminDocumentFileHandler);
 }
