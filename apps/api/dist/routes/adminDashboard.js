@@ -187,6 +187,7 @@ export async function getDashboardSummaryHandler(request, reply) {
             const { count } = await supabase
                 .from('knowledge_gaps')
                 .select('*', { count: 'exact', head: true })
+                .eq('city_id', city.id)
                 .gte('last_seen_at', timeFrom.toISOString())
                 .lte('last_seen_at', timeTo.toISOString());
             knowledge_gaps_total = count || 0;
@@ -227,6 +228,7 @@ export async function getDashboardSummaryHandler(request, reply) {
             let gapsQuery = supabase
                 .from('knowledge_gaps')
                 .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason')
+                .eq('city_id', city.id)
                 .gte('last_seen_at', timeFrom.toISOString())
                 .lte('last_seen_at', timeTo.toISOString())
                 .order('occurrences', { ascending: false })
@@ -501,6 +503,7 @@ export async function getKnowledgeGapsListHandler(request, reply) {
             let gapsQuery = supabase
                 .from('knowledge_gaps')
                 .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason')
+                .eq('city_id', city.id)
                 .gte('last_seen_at', timeFrom.toISOString())
                 .lte('last_seen_at', timeTo.toISOString())
                 .order('occurrences', { ascending: false })
@@ -560,11 +563,15 @@ export async function getKnowledgeGapDetailHandler(request, reply) {
         try {
             const { data: gap, error: gapError } = await supabase
                 .from('knowledge_gaps')
-                .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason')
+                .select('id, city_id, question, occurrences, status, last_seen_at, first_seen_at, reason')
                 .eq('id', id)
+                .eq('city_id', city.id)
                 .single();
             if (gapError || !gap) {
                 return reply.status(404).send({ error: 'Knowledge gap not found' });
+            }
+            if (gap.city_id !== city.id) {
+                return reply.status(403).send({ error: 'Forbidden' });
             }
             // Get example conversations (last N where this question appeared)
             const normalizedQuestion = gap.question.trim().toLowerCase();
@@ -666,22 +673,22 @@ export async function getQuestionsExamplesHandler(request, reply) {
  * In production, requires admin session; in development, auth is bypassed for local testing.
  */
 export async function getAdminFormsHandler(request, reply) {
-    if (process.env.NODE_ENV === 'production') {
-        const session = await getSession(request);
-        if (!session) {
-            return reply.status(401).send({ error: 'Unauthorized' });
-        }
-        if (session.role !== 'admin') {
-            return reply.status(403).send({ error: 'Forbidden' });
-        }
+    const session = await getSession(request);
+    if (!session) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    if (session.role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden' });
     }
     // Exclude draft rows so they never show in admin list (draft is for future use).
-    const { data: rows, error } = await supabase
+    let formsQuery = supabase
         .from('form_requests')
         .select('reference_number, type, status, created_at')
         .neq('status', 'draft')
         .order('created_at', { ascending: false })
         .limit(50);
+    formsQuery = formsQuery.eq('city_id', session.cityId);
+    const { data: rows, error } = await formsQuery;
     if (error) {
         request.log.error({ err: error }, 'admin forms list failed');
         return reply.status(500).send({ error: 'Internal server error' });
@@ -694,23 +701,24 @@ export async function getAdminFormsHandler(request, reply) {
  * In production, requires admin session; in development, auth is bypassed for local testing.
  */
 export async function getAdminFormPdfHandler(request, reply) {
-    if (process.env.NODE_ENV === 'production') {
-        const session = await getSession(request);
-        if (!session) {
-            return reply.status(401).send({ error: 'Unauthorized' });
-        }
-        if (session.role !== 'admin') {
-            return reply.status(403).send({ error: 'Forbidden' });
-        }
+    const session = await getSession(request);
+    if (!session) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    if (session.role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden' });
     }
     const { reference_number } = request.params;
     const { data: row, error } = await supabase
         .from('form_requests')
-        .select('pdf_base64')
+        .select('pdf_base64, city_id')
         .eq('reference_number', reference_number)
         .single();
     if (error || !row) {
         return reply.status(404).send({ error: 'Form request not found' });
+    }
+    if (row.city_id !== session.cityId) {
+        return reply.status(403).send({ error: 'Forbidden' });
     }
     if (row.pdf_base64 == null || row.pdf_base64 === '') {
         return reply.status(409).send({ error: 'PDF not available for this request' });
@@ -735,23 +743,24 @@ export async function getAdminFormPdfHandler(request, reply) {
  * Ordered by stored_filename asc.
  */
 export async function getAdminFormAttachmentsHandler(request, reply) {
-    if (process.env.NODE_ENV === 'production') {
-        const session = await getSession(request);
-        if (!session) {
-            return reply.status(401).send({ error: 'Unauthorized' });
-        }
-        if (session.role !== 'admin') {
-            return reply.status(403).send({ error: 'Forbidden' });
-        }
+    const session = await getSession(request);
+    if (!session) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    if (session.role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden' });
     }
     const { reference_number } = request.params;
     const { data: formRequest, error: frError } = await supabase
         .from('form_requests')
-        .select('id')
+        .select('id, city_id')
         .eq('reference_number', reference_number)
         .single();
     if (frError || !formRequest) {
         return reply.status(404).send({ error: 'Form request not found' });
+    }
+    if (formRequest.city_id !== session.cityId) {
+        return reply.status(403).send({ error: 'Forbidden' });
     }
     const { data: rows, error } = await supabase
         .from('form_request_attachments')
@@ -770,23 +779,24 @@ const SIGNED_URL_EXPIRY_SECONDS = 60;
  * Returns a short-lived signed URL for preview/download (admin-only).
  */
 export async function getAdminFormAttachmentSignedUrlHandler(request, reply) {
-    if (process.env.NODE_ENV === 'production') {
-        const session = await getSession(request);
-        if (!session) {
-            return reply.status(401).send({ error: 'Unauthorized' });
-        }
-        if (session.role !== 'admin') {
-            return reply.status(403).send({ error: 'Forbidden' });
-        }
+    const session = await getSession(request);
+    if (!session) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    if (session.role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden' });
     }
     const { reference_number, attachment_id } = request.params;
     const { data: formRequest, error: frError } = await supabase
         .from('form_requests')
-        .select('id')
+        .select('id, city_id')
         .eq('reference_number', reference_number)
         .single();
     if (frError || !formRequest) {
         return reply.status(404).send({ error: 'Form request not found' });
+    }
+    if (formRequest.city_id !== session.cityId) {
+        return reply.status(403).send({ error: 'Forbidden' });
     }
     const { data: attachment, error: attError } = await supabase
         .from('form_request_attachments')

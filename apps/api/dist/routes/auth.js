@@ -126,16 +126,10 @@ export async function logoutHandler(request, reply) {
  * Register auth routes
  */
 export async function registerAuthRoutes(server) {
-    // Apply rate limiting only if LOGIN_RATE_LIMIT is defined (DEMO_MODE only)
-    if (LOGIN_RATE_LIMIT) {
-        server.post('/admin/login', {
-            config: {
-                rateLimit: LOGIN_RATE_LIMIT,
-            },
-        }, loginHandler);
-    }
-    else {
-        server.post('/admin/login', loginHandler);
-    }
+    server.post('/admin/login', {
+        config: {
+            rateLimit: LOGIN_RATE_LIMIT,
+        },
+    }, loginHandler);
     server.post('/admin/logout', logoutHandler);
 }
