@@ -10,22 +10,108 @@ const defaultOpts: RequestInit = { credentials: 'include' };
 export interface AdminLoginParams {
   cityCode: string;
   password: string;
-  role: 'admin' | 'inbox';
+  role?: 'admin' | 'inbox' | 'conversations' | 'forms' | 'readonly' | 'superadmin';
+}
+
+export type AdminRole = 'admin' | 'inbox' | 'conversations' | 'forms' | 'readonly' | 'superadmin';
+
+export interface AdminLoginResponse {
+  success: boolean;
+  role: AdminRole;
+  userName: string;
+  userId?: string;
 }
 
 /**
  * POST /admin/login — authenticate and set session cookie.
  */
-export async function adminLogin({ cityCode, password, role }: AdminLoginParams): Promise<boolean> {
+export async function adminLogin({
+  cityCode,
+  password,
+  role = 'admin',
+}: AdminLoginParams): Promise<AdminLoginResponse | null> {
   const res = await fetch(`${BASE}/admin/login`, {
     ...defaultOpts,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cityCode, password, role }),
   });
-  if (!res.ok) return false;
+  if (!res.ok) return null;
   const data = await res.json().catch(() => ({}));
-  return Boolean(data?.success);
+  if (!data?.role) {
+    return null;
+  }
+  return {
+    success: true,
+    role: data.role as AdminRole,
+    userName: String(data.userName ?? ''),
+    userId: data.userId ? String(data.userId) : undefined,
+  };
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  role: Exclude<AdminRole, 'superadmin'>;
+  created_at: string;
+}
+
+export async function fetchAdminUsers(cityCode: string): Promise<AdminUser[]> {
+  const res = await fetch(`${BASE}/admin/${encodeURIComponent(cityCode)}/users`, {
+    ...defaultOpts,
+    method: 'GET',
+  });
+  if (!res.ok) throw new Error(`Users: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createAdminUser(
+  cityCode: string,
+  body: { name: string; password: string; role: Exclude<AdminRole, 'superadmin'> }
+): Promise<AdminUser> {
+  const res = await fetch(`${BASE}/admin/${encodeURIComponent(cityCode)}/users`, {
+    ...defaultOpts,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Create user: ${res.status}`);
+  return await res.json();
+}
+
+export async function deleteAdminUser(cityCode: string, userId: string): Promise<void> {
+  const res = await fetch(`${BASE}/admin/${encodeURIComponent(cityCode)}/users/${encodeURIComponent(userId)}`, {
+    ...defaultOpts,
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Delete user: ${res.status}`);
+}
+
+export interface SuperadminCityUser {
+  id: string;
+  name: string;
+  role: Exclude<AdminRole, 'superadmin'>;
+  city_id: string;
+  created_at: string;
+}
+
+export interface SuperadminCity {
+  id: string;
+  name: string;
+  slug: string;
+  userCount: number;
+  city_users: SuperadminCityUser[];
+}
+
+export async function fetchSuperadminCities(): Promise<SuperadminCity[]> {
+  const res = await fetch(`${BASE}/superadmin/cities`, {
+    ...defaultOpts,
+    method: 'GET',
+  });
+  if (!res.ok) throw new Error(`Superadmin cities: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 
 /** API conversation item (GET /admin/:cityCode/conversations) */

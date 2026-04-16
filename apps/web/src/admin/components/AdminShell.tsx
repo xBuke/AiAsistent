@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { SidebarNav, type AdminTabId } from './SidebarNav';
+import type { AdminRole } from '../api/adminClient';
 import { TopHeader, type PeriodOption } from './TopHeader';
 import './AdminShell.css';
 
@@ -15,6 +16,9 @@ interface AdminShellProps {
   onPeriodChange: (p: PeriodOption) => void;
   liveEnabled: boolean;
   onLiveChange: (enabled: boolean) => void;
+  role: AdminRole;
+  userName?: string;
+  cityCode?: string;
   onLogout: () => void;
   children: React.ReactNode;
 }
@@ -26,6 +30,9 @@ export function AdminShell({
   onPeriodChange,
   liveEnabled,
   onLiveChange,
+  role,
+  userName,
+  cityCode,
   onLogout,
   children,
 }: AdminShellProps) {
@@ -51,6 +58,9 @@ export function AdminShell({
       <aside className={`admin-shell__sidebar ${isMobile ? 'admin-shell__sidebar--mobile' : ''} ${isMobile && sidebarOpen ? 'admin-shell__sidebar--open' : ''}`}>
         <SidebarNav
           activeTab={activeTab}
+          role={role}
+          userName={userName}
+          cityCode={cityCode}
           onLogout={onLogout}
           onSelect={(tab) => {
             onTabChange(tab);

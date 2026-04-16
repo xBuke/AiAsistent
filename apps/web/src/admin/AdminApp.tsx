@@ -11,11 +11,14 @@ import { Reports } from './Reports';
 import { Inbox } from './Inbox';
 import { Forms } from './Forms';
 import { DocumentsPage } from './DocumentsPage';
+import { UsersPage } from './UsersPage';
+import { SuperadminPage } from './SuperadminPage';
 import { Filters } from './components/Filters';
 import { AdminShell } from './components/AdminShell';
-import type { AdminTabId } from './components/SidebarNav';
+import { getVisibleTabsForRole, type AdminTabId } from './components/SidebarNav';
 import type { PeriodOption } from './components/TopHeader';
 import { filterEvents, getAllCategories, type FilterState } from './utils/analytics';
+import type { AdminRole } from './api/adminClient';
 
 type DataSource = "Mock" | "Live" | "Combined";
 
@@ -45,6 +48,10 @@ export function AdminApp() {
   const { cityCode } = useParams<{ cityCode: string }>();
   const cityId = cityCode;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [role, setRole] = useState<AdminRole>('admin');
+  const [userName, setUserName] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [selectedCityCode, setSelectedCityCode] = useState(cityCode || 'demo');
   const [error, setError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const useMock = (import.meta as { env?: { VITE_ADMIN_USE_MOCK?: string } }).env?.VITE_ADMIN_USE_MOCK === 'true';
@@ -69,6 +76,10 @@ export function AdminApp() {
   // Reset auth state when cityId changes
   useEffect(() => {
     setIsAuthenticated(false);
+    setRole('admin');
+    setUserName('');
+    setCurrentUserId('');
+    setSelectedCityCode(cityId || 'demo');
     setError('');
     // Load live setting for new city
     if (cityId) {
@@ -77,6 +88,13 @@ export function AdminApp() {
     }
   }, [cityId]);
 
+  useEffect(() => {
+    const visibleTabs = getVisibleTabsForRole(role);
+    if (!visibleTabs.includes(activeTab) && visibleTabs.length > 0) {
+      setActiveTab(visibleTabs[0]);
+    }
+  }, [role, activeTab]);
+
   // Persist live setting when it changes
   useEffect(() => {
     if (cityId) {
@@ -84,14 +102,14 @@ export function AdminApp() {
     }
   }, [cityId, liveEnabled]);
 
-  // Update events when dataSource or cityId changes
+  // Update events when dataSource or selected city changes
   useEffect(() => {
-    if (!cityId || !isAuthenticated) return;
+    if (!selectedCityCode || !isAuthenticated) return;
 
     const updateEvents = () => {
       if (!useMock && (dataSource === "Mock" || dataSource === "Combined")) {
         // In production, ignore mock data source if env flag is not set
-        setEvents(getEvents(cityId));
+        setEvents(getEvents(selectedCityCode));
         return;
       }
 
@@ -99,11 +117,11 @@ export function AdminApp() {
       let liveData: AnalyticsEvent[] = [];
 
       if (dataSource === "Mock" || dataSource === "Combined") {
-        mockData = generateMockEvents(cityId);
+        mockData = generateMockEvents(selectedCityCode);
       }
 
       if (dataSource === "Live" || dataSource === "Combined") {
-        liveData = getEvents(cityId);
+        liveData = getEvents(selectedCityCode);
       }
 
       if (dataSource === "Combined") {
@@ -131,21 +149,29 @@ export function AdminApp() {
       const unsubscribe = subscribe(updateEvents);
       return unsubscribe;
     }
-  }, [dataSource, cityId, isAuthenticated, useMock]);
+  }, [dataSource, selectedCityCode, isAuthenticated, useMock]);
 
   if (!cityId) {
     return <Navigate to="/admin/demo" replace />;
   }
 
-  const handleLogin = async (password: string) => {
+  const handleLogin = async (loginCityCode: string, password: string) => {
     setError('');
     setIsLoggingIn(true);
 
     try {
-      const cityCode = 'demo';
-      const ok = await adminLogin({ cityCode, password, role: 'admin' });
-      
-      if (ok) {
+      const result = await adminLogin({ cityCode: loginCityCode, password });
+      if (result) {
+        setRole(result.role);
+        setUserName(result.userName || '');
+        setCurrentUserId(result.userId || '');
+        setSelectedCityCode(loginCityCode);
+        if (result.role !== 'superadmin') {
+          const visibleTabs = getVisibleTabsForRole(result.role);
+          if (visibleTabs.length > 0) {
+            setActiveTab(visibleTabs[0]);
+          }
+        }
         setIsAuthenticated(true);
         setError('');
       } else {
@@ -196,11 +222,15 @@ export function AdminApp() {
             onSubmit={handleLogin}
             error={error}
             isLoading={isLoggingIn}
-            cityId={cityId}
+            cityCode={cityId || 'demo'}
           />
         </div>
       </div>
     );
+  }
+
+  if (role === 'superadmin' || selectedCityCode === 'superadmin') {
+    return <SuperadminPage onLogout={() => setIsAuthenticated(false)} />;
   }
 
   // Authenticated view: Admin shell (sidebar + header + main)
@@ -212,6 +242,9 @@ export function AdminApp() {
       onPeriodChange={setPeriod}
       liveEnabled={liveEnabled}
       onLiveChange={setLiveEnabled}
+      role={role}
+      userName={userName}
+      cityCode={selectedCityCode}
       onLogout={() => setIsAuthenticated(false)}
     >
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
@@ -283,9 +316,9 @@ export function AdminApp() {
             onViewAllQuestions={() => setActiveTab('Reports')}
           />
         )}
-        {activeTab === "Ticketi" && cityId && (
+        {activeTab === "Ticketi" && selectedCityCode && (
           <Inbox
-            cityId={cityId}
+            cityId={selectedCityCode}
             liveEnabled={liveEnabled}
             onNavigateToAllConversations={() => setActiveTab("Svi razgovori")}
             onNeedsHumanToggledOff={() => {
@@ -294,9 +327,9 @@ export function AdminApp() {
             }}
           />
         )}
-        {activeTab === "Svi razgovori" && cityId && (
+        {activeTab === "Svi razgovori" && selectedCityCode && (
           <Conversations
-            cityId={cityId}
+            cityId={selectedCityCode}
             liveEnabled={liveEnabled}
             reloadTrigger={conversationsReloadTrigger}
           />
@@ -305,7 +338,10 @@ export function AdminApp() {
           <ReportsTabContent events={events} filters={reportsFilters} onFiltersChange={setReportsFilters} />
         )}
         {activeTab === "Obrasci" && <Forms />}
-        {activeTab === "Dokumenti" && cityId && <DocumentsPage cityId={cityId} />}
+        {activeTab === "Dokumenti" && selectedCityCode && <DocumentsPage cityId={selectedCityCode} />}
+        {activeTab === "Korisnici" && role === 'admin' && (
+          <UsersPage cityCode={selectedCityCode} currentUserId={currentUserId} />
+        )}
       </div>
     </AdminShell>
   );

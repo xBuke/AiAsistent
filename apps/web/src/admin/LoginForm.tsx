@@ -1,21 +1,26 @@
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import './LoginForm.css';
 
 interface LoginFormProps {
-  onSubmit: (password: string) => void;
+  onSubmit: (cityCode: string, password: string) => void;
   error?: string;
   warning?: string;
   isLoading?: boolean;
-  cityId: string;
+  cityCode: string;
 }
 
-export function LoginForm({ onSubmit, error, warning, isLoading = false, cityId }: LoginFormProps) {
+export function LoginForm({ onSubmit, error, warning, isLoading = false, cityCode }: LoginFormProps) {
+  const [localCityCode, setLocalCityCode] = useState(cityCode);
   const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    setLocalCityCode(cityCode);
+  }, [cityCode]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (password.trim()) {
-      onSubmit(password);
+    if (password.trim() && localCityCode.trim()) {
+      onSubmit(localCityCode.trim(), password);
     }
   };
 
@@ -26,10 +31,24 @@ export function LoginForm({ onSubmit, error, warning, isLoading = false, cityId 
         <div className="admin-login__subtitle">Admin sučelje</div>
 
         <div className="admin-login__field">
+          <label htmlFor="cityCode" className="admin-login__label">
+            Grad / City code
+          </label>
+          <div className="admin-login__city">npr. zagreb ili superadmin</div>
+        </div>
+        <input
+          id="cityCode"
+          type="text"
+          value={localCityCode}
+          onChange={(e) => setLocalCityCode(e.target.value)}
+          placeholder="Unesite city code"
+          disabled={isLoading}
+          className="admin-input admin-login__input"
+        />
+        <div className="admin-login__field">
           <label htmlFor="password" className="admin-login__label">
             Lozinka
           </label>
-          <div className="admin-login__city">{cityId}</div>
         </div>
         <input
           id="password"
@@ -43,7 +62,11 @@ export function LoginForm({ onSubmit, error, warning, isLoading = false, cityId 
 
         {warning && <div className="admin-login__warning">{warning}</div>}
 
-        <button type="submit" disabled={isLoading || !password.trim()} className="admin-btn-primary admin-login__submit">
+        <button
+          type="submit"
+          disabled={isLoading || !password.trim() || !localCityCode.trim()}
+          className="admin-btn-primary admin-login__submit"
+        >
           {isLoading ? 'Loading...' : 'Login'}
         </button>
 

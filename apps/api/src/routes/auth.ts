@@ -6,13 +6,40 @@ import { LOGIN_RATE_LIMIT } from '../middleware/rateLimit.js';
 interface LoginBody {
   cityCode: string;
   password: string;
-  role?: 'admin' | 'inbox';
+  role?: 'admin' | 'inbox' | 'conversations' | 'forms' | 'readonly' | 'superadmin';
 }
 
 interface SessionCookie {
   cityId: string;
   cityCode: string;
-  role: 'admin' | 'inbox';
+  role: 'admin' | 'inbox' | 'conversations' | 'forms' | 'readonly' | 'superadmin';
+  userId: string;
+  userName: string;
+  isSuperadmin?: boolean;
+}
+
+async function resolveCity(cityCode: string) {
+  let { data: city, error: cityError } = await supabase
+    .from('cities')
+    .select('id, code, slug')
+    .eq('slug', cityCode)
+    .single();
+
+  if (cityError || !city) {
+    const derivedCode = cityCode.toUpperCase();
+    const { data: cityByCode, error: codeError } = await supabase
+      .from('cities')
+      .select('id, code, slug')
+      .eq('code', derivedCode)
+      .single();
+
+    if (codeError || !cityByCode) {
+      return null;
+    }
+    city = cityByCode;
+  }
+
+  return city;
 }
 
 /**
@@ -37,82 +64,84 @@ export async function loginHandler(
     return reply.status(400).send({ error: 'Missing required fields: cityCode, password' });
   }
 
-  // Default role to "admin" if undefined or empty
-  const role = body.role === 'inbox' ? 'inbox' : 'admin';
-
   try {
-    // A) Resolve city by slug first, then fallback to code (consistent with /events)
-    // 1) Try lookup by slug (exact match)
-    let { data: city, error: cityError } = await supabase
-      .from('cities')
-      .select('id, code, admin_password_hash, inbox_password_hash')
-      .eq('slug', cityCode)
-      .single();
-
-    let matchType: 'slug' | 'code' | null = 'slug';
-
-    // 2) Fallback: try by code (uppercased)
-    if (cityError || !city) {
-      const derivedCode = cityCode.toUpperCase();
-      const { data: cityByCode, error: codeError } = await supabase
-        .from('cities')
-        .select('id, code, admin_password_hash, inbox_password_hash')
-        .eq('code', derivedCode)
-        .single();
-      
-      if (codeError || !cityByCode) {
-        return reply.status(404).send({ error: 'City not found' });
-      }
-      city = cityByCode;
-      matchType = 'code';
-    }
-
-    // Debug log before password verification
-    request.log.info({ cityCode, matchType, role }, 'City resolved, verifying password');
-
-    // Compute hash to check based on role
-    const hashToCheck = role === 'admin' 
-      ? city.admin_password_hash 
-      : city.inbox_password_hash;
-
-    // Safe debug log (no full password or hash)
-    request.log.info({
-      role,
-      hashPresent: !!hashToCheck,
-      hashPrefix: hashToCheck ? hashToCheck.slice(0, 4) : null,
-      hashLen: hashToCheck ? hashToCheck.length : 0
-    }, 'Hash check details');
-
-    // Temporary debug log for password normalization
-    request.log.info({
-      rawPasswordLength: rawPassword.length,
-      normalizedLength: password.length
-    }, 'Password normalization');
-
-    // DEMO_MODE: Check hardcoded admin password first
     const isDemoMode = process.env.DEMO_MODE === 'true';
-    let isValid = false;
-    
-    if (isDemoMode && role === 'admin') {
-      // In DEMO_MODE, admin password is hardcoded (bypass hash check)
-      isValid = password === 'demo-yc-x26';
-    } else {
-      // Normal password verification requires hash
-      if (!hashToCheck) {
+
+    if (cityCode === 'superadmin') {
+      const { data: superadmin, error: superadminError } = await supabase
+        .from('superadmins')
+        .select('password_hash')
+        .limit(1)
+        .maybeSingle();
+
+      if (superadminError || !superadmin?.password_hash) {
         return reply.status(401).send({ error: 'Invalid password' });
       }
-      isValid = await verifyPassword(password, hashToCheck);
+
+      const isValid = await verifyPassword(password, superadmin.password_hash);
+      if (!isValid) {
+        return reply.status(401).send({ error: 'Invalid password' });
+      }
+
+      reply.setCookie(
+        'session',
+        JSON.stringify({ isSuperadmin: true, role: 'superadmin' }),
+        isDemoMode
+          ? {
+              httpOnly: true,
+              secure: true,
+              sameSite: 'none' as const,
+              path: '/',
+              maxAge: 60 * 60 * 2,
+            }
+          : {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax' as const,
+              path: '/',
+              maxAge: 60 * 60 * 24,
+            }
+      );
+
+      return reply.send({ role: 'superadmin', userName: 'Superadmin' });
     }
 
-    if (!isValid) {
+    const city = await resolveCity(cityCode);
+    if (!city) {
+      return reply.status(404).send({ error: 'City not found' });
+    }
+
+    const { data: cityUsers, error: cityUsersError } = await supabase
+      .from('city_users')
+      .select('id, name, role, password_hash')
+      .eq('city_id', city.id);
+
+    if (cityUsersError || !cityUsers?.length) {
       return reply.status(401).send({ error: 'Invalid password' });
     }
 
-    // Create session cookie
+    let matchedUser: (typeof cityUsers)[number] | null = null;
+    for (const user of cityUsers) {
+      if (!user.password_hash) {
+        continue;
+      }
+      const isValid = await verifyPassword(password, user.password_hash);
+      if (isValid) {
+        matchedUser = user;
+        break;
+      }
+    }
+
+    if (!matchedUser) {
+      return reply.status(401).send({ error: 'Invalid password' });
+    }
+
     const session: SessionCookie = {
       cityId: city.id,
-      cityCode: city.code,
-      role,
+      cityCode: city.slug || city.code,
+      role: matchedUser.role,
+      userId: matchedUser.id,
+      userName: matchedUser.name,
     };
 
     // Set httpOnly cookie
@@ -136,7 +165,7 @@ export async function loginHandler(
     
     reply.setCookie('session', JSON.stringify(session), cookieOptions);
 
-    return reply.send({ success: true, cityId: city.id, cityCode: city.code, role });
+    return reply.send({ role: matchedUser.role, userName: matchedUser.name, userId: matchedUser.id });
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ error: 'Internal server error' });

@@ -1,9 +1,13 @@
-/**
- * Left sidebar navigation for Admin shell.
- * Same layout for all roles; drives tab state (Dashboard, Inbox, Conversations, Reports).
- */
+import type { AdminRole } from '../api/adminClient';
 
-export type AdminTabId = 'Dashboard' | 'Ticketi' | 'Svi razgovori' | 'Reports' | 'Obrasci' | 'Dokumenti';
+export type AdminTabId =
+  | 'Dashboard'
+  | 'Ticketi'
+  | 'Svi razgovori'
+  | 'Reports'
+  | 'Obrasci'
+  | 'Dokumenti'
+  | 'Korisnici';
 
 const NAV_ITEMS: { id: AdminTabId; label: string }[] = [
   { id: 'Svi razgovori', label: 'Konverzacije' },
@@ -12,11 +16,28 @@ const NAV_ITEMS: { id: AdminTabId; label: string }[] = [
   { id: 'Dokumenti', label: 'Dokumenti' },
   { id: 'Dashboard', label: 'Knowledge Gaps' },
   { id: 'Reports', label: 'Izvještaji' },
+  { id: 'Korisnici', label: 'Korisnici' },
 ];
+
+const ROLE_VISIBLE_TABS: Record<Exclude<AdminRole, 'superadmin'>, AdminTabId[]> = {
+  admin: ['Svi razgovori', 'Ticketi', 'Obrasci', 'Dokumenti', 'Dashboard', 'Reports', 'Korisnici'],
+  inbox: ['Ticketi', 'Obrasci'],
+  conversations: ['Svi razgovori'],
+  forms: ['Obrasci'],
+  readonly: ['Reports'],
+};
+
+export function getVisibleTabsForRole(role: AdminRole): AdminTabId[] {
+  if (role === 'superadmin') return [];
+  return ROLE_VISIBLE_TABS[role];
+}
 
 interface SidebarNavProps {
   activeTab: AdminTabId;
   onSelect: (tab: AdminTabId) => void;
+  role: AdminRole;
+  userName?: string;
+  cityCode?: string;
   onLogout?: () => void;
 }
 
@@ -66,19 +87,30 @@ function NavIcon({ tabId }: { tabId: AdminTabId }) {
           <path d="M22 20v-11" />
         </svg>
       );
+    case 'Korisnici':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 00-3-3.87" />
+          <path d="M16 3.13a4 4 0 010 7.75" />
+        </svg>
+      );
     default:
       return null;
   }
 }
 
-export function SidebarNav({ activeTab, onSelect, onLogout }: SidebarNavProps) {
+export function SidebarNav({ activeTab, onSelect, role, userName, cityCode, onLogout }: SidebarNavProps) {
+  const visibleTabs = getVisibleTabsForRole(role);
+
   return (
     <nav className="admin-sidebar-nav" aria-label="Admin sidebar">
       <div className="admin-sidebar-nav__wordmark">Civis</div>
       <div className="admin-sidebar-nav__divider" />
 
       <ul className="admin-sidebar-nav__list">
-        {NAV_ITEMS.map(({ id, label }) => {
+        {NAV_ITEMS.filter(({ id }) => visibleTabs.includes(id)).map(({ id, label }) => {
           const isActive = activeTab === id;
           return (
             <li key={id}>
@@ -98,7 +130,8 @@ export function SidebarNav({ activeTab, onSelect, onLogout }: SidebarNavProps) {
       </ul>
 
       <div className="admin-sidebar-nav__footer">
-        <div className="admin-sidebar-nav__city">Sarajevo</div>
+        <div className="admin-sidebar-nav__city">{cityCode || 'Civis'}</div>
+        {userName && <div className="admin-sidebar-nav__city">{userName}</div>}
         <button type="button" className="admin-sidebar-nav__logout" onClick={onLogout}>
           Odjava
         </button>

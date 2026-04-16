@@ -10,6 +10,8 @@ import { registerEventsRoutes } from './routes/events.js';
 import { registerAdminReadRoutes } from './routes/adminRead.js';
 import { registerAdminDashboardRoutes } from './routes/adminDashboard.js';
 import { registerAdminDocumentRoutes } from './routes/adminDocuments.js';
+import { registerAdminUsersRoutes } from './routes/adminUsers.js';
+import { registerSuperadminRoutes } from './routes/superadmin.js';
 import { registerFormsRoutes } from './routes/forms.js';
 import { registerSentimentRoutes } from './sentimentRouter.js';
 
@@ -70,6 +72,12 @@ export async function buildServer() {
 
   // Register admin document routes
   await registerAdminDocumentRoutes(server);
+
+  // Register admin users routes
+  await registerAdminUsersRoutes(server);
+
+  // Register superadmin routes
+  await registerSuperadminRoutes(server);
 
   await registerFormsRoutes(server);
 

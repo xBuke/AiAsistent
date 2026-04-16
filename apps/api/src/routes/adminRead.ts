@@ -4,7 +4,10 @@ import { supabase } from '../db/supabase.js';
 interface SessionCookie {
   cityId: string;
   cityCode: string;
-  role: 'admin' | 'inbox';
+  role: 'admin' | 'inbox' | 'conversations' | 'forms' | 'readonly' | 'superadmin';
+  userId: string;
+  userName: string;
+  isSuperadmin?: boolean;
 }
 
 interface AdminReadParams {
@@ -59,14 +62,36 @@ async function getSession(request: FastifyRequest): Promise<SessionCookie | null
   }
 
   try {
-    const session: SessionCookie = JSON.parse(sessionCookie);
-    if (!session.cityId || !session.role) {
+    const session = JSON.parse(sessionCookie) as Partial<SessionCookie>;
+    if (!session.role) {
       return null;
     }
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+
+    const validRoles = new Set([
+      'admin',
+      'inbox',
+      'conversations',
+      'forms',
+      'readonly',
+      'superadmin',
+    ]);
+    if (!validRoles.has(session.role)) {
       return null;
     }
-    return session;
+    if (session.role === 'superadmin' && session.isSuperadmin === true) {
+      return {
+        cityId: session.cityId ?? '',
+        cityCode: session.cityCode ?? '',
+        role: 'superadmin',
+        userId: session.userId ?? '',
+        userName: session.userName ?? '',
+        isSuperadmin: true,
+      };
+    }
+    if (!session.cityId || !session.cityCode || !session.userId || !session.userName) {
+      return null;
+    }
+    return session as SessionCookie;
   } catch {
     return null;
   }
@@ -210,7 +235,11 @@ export async function getInboxHandler(
   }
 
   // Check role (inbox and admin both allowed)
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
@@ -362,7 +391,11 @@ export async function getConversationsHandler(
   }
 
   // Check role (inbox and admin both allowed)
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
@@ -429,7 +462,11 @@ export async function getConversationMessagesHandler(
   }
 
   // Check role (inbox and admin both allowed)
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
@@ -507,7 +544,11 @@ export async function getConversationDetailHandler(
   }
 
   // Check role (inbox and admin both allowed)
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
@@ -665,7 +706,11 @@ export async function postConversationNoteHandler(
   }
 
   // Check role (inbox and admin both allowed)
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
@@ -762,7 +807,11 @@ export async function patchConversationHandler(
   }
 
   // Check role (inbox and admin both allowed)
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
@@ -979,7 +1028,11 @@ export async function getTicketsHandler(
   }
 
   // Check role (inbox and admin both allowed)
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
@@ -1167,7 +1220,11 @@ export async function patchTicketHandler(
   if (!session) {
     return reply.status(401).send({ error: 'Unauthorized' });
   }
-  if (session.role !== 'admin' && session.role !== 'inbox') {
+  if (
+    session.role !== 'admin' &&
+    session.role !== 'inbox' &&
+    session.role !== 'superadmin'
+  ) {
     return reply.status(403).send({ error: 'Forbidden' });
   }
 
