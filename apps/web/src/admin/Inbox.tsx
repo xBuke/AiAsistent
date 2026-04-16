@@ -592,9 +592,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         return { backgroundColor: '#fef3c7', color: '#92400e' };
       case 'resolved':
       case 'closed':
-        return { backgroundColor: '#e5e7eb', color: '#374151' };
+        return { backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' };
       default:
-        return { backgroundColor: '#f3f4f6', color: '#6b7280' };
+        return { backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)' };
     }
   };
 
@@ -696,8 +696,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     <div
       style={{
         width: '100%',
-        backgroundColor: '#fafafa',
-        borderBottom: '1px solid #e5e7eb',
+        backgroundColor: 'var(--bg-primary)',
+        borderBottom: '1px solid var(--border-color)',
         padding: '1rem 1.5rem',
         marginBottom: '1rem',
       }}
@@ -712,28 +712,28 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         }}
       >
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
             {kpis.aktivniZahtjevi}
           </div>
-          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Aktivni zahtjevi</div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Aktivni zahtjevi</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
             {kpis.danasZaprimljeni}
           </div>
-          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Danas zaprimljeni</div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Danas zaprimljeni</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
             {kpis.hitniZahtjevi}
           </div>
-          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Hitni zahtjevi</div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Hitni zahtjevi</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
             {kpis.rijeseniDanas}
           </div>
-          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>Riješeni danas</div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Riješeni danas</div>
         </div>
       </div>
     </div>
@@ -788,7 +788,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
           minWidth: isMobile ? 'auto' : '320px',
           maxWidth: isMobile ? '100%' : '320px',
           height: isMobile ? '50vh' : 'auto',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-card)',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
           display: isMobile && mobileView === 'detail' ? 'none' : 'flex',
@@ -797,7 +797,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         }}
       >
         {/* Filters */}
-        <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)' }}>
           {/* Search - always visible */}
           <input
             type="text"
@@ -807,7 +807,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             style={{
               width: '100%',
               padding: '0.5rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid var(--border-color)',
               borderRadius: '0.375rem',
               fontSize: '0.875rem',
               marginBottom: '0.5rem',
@@ -828,22 +828,22 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 alignItems: 'center',
                 gap: '0.5rem',
                 padding: '0.5rem 0.75rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--border-color)',
                 borderRadius: '0.375rem',
                 fontSize: '0.875rem',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--bg-card)',
                 cursor: 'pointer',
-                color: '#374151',
+                color: 'var(--text-primary)',
                 fontWeight: 500,
                 transition: 'background-color 0.2s, border-color 0.2s',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f9fafb';
-                e.currentTarget.style.borderColor = '#9ca3af';
+                e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#ffffff';
-                e.currentTarget.style.borderColor = '#d1d5db';
+                e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
               }}
             >
               <span>Filtri</span>
@@ -866,7 +866,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   {[statusChip !== 'all' ? 1 : 0, urgentFilterOnly ? 1 : 0, selectedTags.length].reduce((a, b) => a + b, 0)}
                 </span>
               )}
-              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 {filtersCollapsed ? '▼' : '▲'}
               </span>
             </button>
@@ -889,9 +889,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 borderRadius: '9999px',
                 fontSize: '0.75rem',
                 fontWeight: 500,
-                border: '1px solid #d1d5db',
-                backgroundColor: statusChip === 'all' ? '#e5e7eb' : '#ffffff',
-                color: statusChip === 'all' ? '#374151' : '#6b7280',
+                border: '1px solid var(--border-color)',
+                backgroundColor: statusChip === 'all' ? 'var(--bg-primary)' : 'var(--bg-card)',
+                color: statusChip === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
@@ -905,9 +905,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 borderRadius: '9999px',
                 fontSize: '0.75rem',
                 fontWeight: 500,
-                border: '1px solid #d1d5db',
-                backgroundColor: statusChip === 'open' ? '#fef3c7' : '#ffffff',
-                color: statusChip === 'open' ? '#92400e' : '#6b7280',
+                border: '1px solid var(--border-color)',
+                backgroundColor: statusChip === 'open' ? '#fef3c7' : 'var(--bg-card)',
+                color: statusChip === 'open' ? '#92400e' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
@@ -921,9 +921,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 borderRadius: '9999px',
                 fontSize: '0.75rem',
                 fontWeight: 500,
-                border: '1px solid #d1d5db',
-                backgroundColor: statusChip === 'resolved' ? '#e5e7eb' : '#ffffff',
-                color: statusChip === 'resolved' ? '#374151' : '#6b7280',
+                border: '1px solid var(--border-color)',
+                backgroundColor: statusChip === 'resolved' ? 'var(--bg-primary)' : 'var(--bg-card)',
+                color: statusChip === 'resolved' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
@@ -937,9 +937,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 borderRadius: '9999px',
                 fontSize: '0.75rem',
                 fontWeight: 500,
-                border: '1px solid #d1d5db',
-                backgroundColor: urgentFilterOnly ? '#fee2e2' : '#ffffff',
-                color: urgentFilterOnly ? '#991b1b' : '#6b7280',
+                border: '1px solid var(--border-color)',
+                backgroundColor: urgentFilterOnly ? '#fee2e2' : 'var(--bg-card)',
+                color: urgentFilterOnly ? '#991b1b' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
@@ -955,10 +955,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               style={{
                 width: '100%',
                 padding: '0.5rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--border-color)',
                 borderRadius: '0.375rem',
                 fontSize: '0.875rem',
-                backgroundColor: '#f3f4f6',
+                backgroundColor: 'var(--bg-primary)',
                 marginBottom: '0.75rem',
                 cursor: 'not-allowed',
                 opacity: 0.6,
@@ -980,10 +980,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 style={{
                   width: '100%',
                   padding: '0.5rem',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '0.375rem',
                   fontSize: '0.875rem',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--bg-card)',
                   minHeight: '36px',
                   maxHeight: '36px',
                 }}
@@ -1007,7 +1007,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               style={{
                 padding: '2rem',
                 textAlign: 'center',
-                color: '#6b7280',
+                color: 'var(--text-secondary)',
                 fontSize: '0.875rem',
               }}
             >
@@ -1069,7 +1069,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
           flex: 1,
           minWidth: 0,
           height: isMobile ? (mobileView === 'detail' ? 'calc(100vh - 120px)' : '50vh') : '100%',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-card)',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
           display: isMobile && mobileView === 'list' && !selectedConversationId ? 'none' : 'flex',
@@ -1084,7 +1084,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             <div
               style={{
                 padding: '0.5rem 0.75rem',
-                borderBottom: '1px solid #e5e7eb',
+                borderBottom: '1px solid var(--border-color)',
                 flexShrink: 0,
                 maxHeight: '56px',
               }}
@@ -1103,21 +1103,21 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     marginBottom: '0.75rem',
                     padding: '0.5rem 0.75rem',
                     backgroundColor: 'transparent',
-                    border: '1px solid #d1d5db',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '0.375rem',
                     fontSize: '0.875rem',
                     fontWeight: 500,
-                    color: '#374151',
+                    color: 'var(--text-primary)',
                     cursor: 'pointer',
                     transition: 'background-color 0.2s, border-color 0.2s',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f9fafb';
-                    e.currentTarget.style.borderColor = '#9ca3af';
+                    e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.borderColor = '#d1d5db';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
                   }}
                 >
                   <span>←</span>
@@ -1126,13 +1126,13 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#111827', lineHeight: '1.2', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                  <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: '1.2', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                     {conversationDetail.conversation.title || (() => {
                       const conv = conversations.find(c => c.conversation_id === selectedConversationId);
                       return conv ? getConversationTitleFull(conv) : 'Razgovor';
                     })()}
                   </h2>
-                  <div style={{ fontSize: '0.6875rem', color: '#9ca3af', display: 'flex', gap: '0.5rem', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                     <span>ID: {conversationDetail.conversation.id.substring(0, 8)}...</span>
                     {(() => {
                       const ticket = conversations.find(c => c.conversation_id === selectedConversationId);
@@ -1154,7 +1154,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   {getStatusLabel(conversationDetail.conversation.status)}
                 </span>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '0.375rem', alignItems: 'center', fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '0.375rem', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <span>Status:</span>
                   <select
@@ -1169,11 +1169,11 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     }}
                     style={{
                       padding: '0.2rem 0.4rem',
-                      border: '1px solid #e5e7eb',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '0.25rem',
                       fontSize: '0.75rem',
-                      backgroundColor: '#f9fafb',
-                      color: '#374151',
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
                       cursor: 'pointer',
                     }}
                   >
@@ -1196,11 +1196,11 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     }}
                     style={{
                       padding: '0.2rem 0.4rem',
-                      border: '1px solid #e5e7eb',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '0.25rem',
                       fontSize: '0.75rem',
-                      backgroundColor: '#f9fafb',
-                      color: '#374151',
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
                       cursor: 'pointer',
                     }}
                   >
@@ -1211,7 +1211,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   </select>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                  <span style={{ color: '#6b7280' }}>Hitno</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Hitno</span>
                   <button
                     type="button"
                     role="switch"
@@ -1229,8 +1229,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                       width: '2.25rem',
                       height: '1.25rem',
                       borderRadius: '9999px',
-                      border: '1px solid #d1d5db',
-                      backgroundColor: workflowUrgent ? '#dc2626' : '#e5e7eb',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: workflowUrgent ? '#dc2626' : 'var(--bg-primary)',
                       cursor: 'pointer',
                       flexShrink: 0,
                     }}
@@ -1243,7 +1243,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                         width: '0.875rem',
                         height: '0.875rem',
                         borderRadius: '50%',
-                        backgroundColor: '#fff',
+                        backgroundColor: 'var(--bg-card)',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
                         transition: 'left 0.15s ease',
                       }}
@@ -1275,8 +1275,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   style={{
                     marginBottom: '1.5rem',
                     padding: '1rem',
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '0.5rem',
                   }}
                 >
@@ -1284,7 +1284,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     style={{
                       fontSize: '0.875rem',
                       fontWeight: 600,
-                      color: '#111827',
+                      color: 'var(--text-primary)',
                       marginBottom: '0.75rem',
                     }}
                   >
@@ -1296,7 +1296,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                       flexDirection: 'column',
                       gap: '0.5rem',
                       fontSize: '0.8125rem',
-                      color: '#374151',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     <div>
@@ -1324,7 +1324,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                         {conversationDetail.ticket?.contact_note?.trim() ? conversationDetail.ticket.contact_note : '—'}
                       </div>
                     </div>
-                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       <div>
                         Predano: {formatDateTime(conversationDetail.ticket_intake.submitted_at)}
                       </div>
@@ -1343,7 +1343,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   style={{
                     padding: '2rem',
                     textAlign: 'center',
-                    color: '#6b7280',
+                    color: 'var(--text-secondary)',
                     fontSize: '0.875rem',
                   }}
                 >
@@ -1390,7 +1390,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   style={{
                     padding: '2rem',
                     textAlign: 'center',
-                    color: '#6b7280',
+                    color: 'var(--text-secondary)',
                     fontSize: '0.875rem',
                   }}
                 >
@@ -1412,7 +1412,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                         <span
                           style={{
                             fontSize: '0.6875rem',
-                            color: '#9ca3af',
+                            color: 'var(--text-secondary)',
                             marginBottom: '0.25rem',
                             paddingLeft: item.role === 'user' ? '0.25rem' : 0,
                             paddingRight: item.role === 'user' ? 0 : '0.25rem',
@@ -1426,9 +1426,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                             maxWidth: '75%',
                             padding: '0.875rem 1.125rem',
                             borderRadius: '1rem',
-                            backgroundColor: item.role === 'user' ? '#e0f2fe' : '#f9fafb',
-                            color: item.role === 'user' ? '#0c4a6e' : '#111827',
-                            border: item.role === 'assistant' ? '1px solid #e5e7eb' : 'none',
+                            backgroundColor: item.role === 'user' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-primary)',
+                            color: item.role === 'user' ? '#0c4a6e' : 'var(--text-primary)',
+                            border: item.role === 'assistant' ? '1px solid var(--border-color)' : 'none',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                             lineHeight: 1.55,
                           }}
@@ -1440,7 +1440,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                         <span
                           style={{
                             fontSize: '0.6875rem',
-                            color: '#9ca3af',
+                            color: 'var(--text-secondary)',
                             marginTop: '0.25rem',
                             paddingLeft: item.role === 'user' ? '0.25rem' : 0,
                             paddingRight: item.role === 'user' ? 0 : '0.25rem',
@@ -1476,7 +1476,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                             width: '100%',
                             maxWidth: '420px',
                             padding: '0.875rem 1.125rem',
-                            backgroundColor: '#ecfdf5',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
                             border: '1px solid #a7f3d0',
                             borderRadius: '0.75rem',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
@@ -1490,18 +1490,18 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                             {t.ticket_ref ? `Ref: ${t.ticket_ref}` : '—'}
                           </div>
                           {notePreview && (
-                            <div style={{ fontSize: '0.8125rem', color: '#374151', marginBottom: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--text-primary)', marginBottom: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {notePreview}
                             </div>
                           )}
                           {locPreview && (
-                            <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>{locPreview}</div>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{locPreview}</div>
                           )}
                           <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: '0.5rem', fontWeight: 500 }}>
                             Klikni za detalje
                           </div>
                         </div>
-                        <span style={{ fontSize: '0.6875rem', color: '#9ca3af', marginTop: '0.25rem' }}>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                           {formatMessageTime(item.created_at)}
                         </span>
                       </div>
@@ -1523,7 +1523,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                             width: '100%',
                             maxWidth: '720px',
                             padding: '0.75rem 1rem',
-                            backgroundColor: '#fef9c3',
+                            backgroundColor: 'rgba(234, 179, 8, 0.1)',
                             border: '1px solid #fde047',
                             borderRadius: '0.5rem',
                             boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
@@ -1540,7 +1540,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                           >
                             Interna napomena
                           </div>
-                          <div style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#111827', whiteSpace: 'pre-wrap' }}>
+                          <div style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
                             {item.note}
                           </div>
                           <div
@@ -1565,8 +1565,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             <div
               style={{
                 padding: '0.75rem',
-                borderTop: '1px solid #e5e7eb',
-                backgroundColor: '#ffffff',
+                borderTop: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-card)',
                 flexShrink: 0,
               }}
             >
@@ -1588,7 +1588,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     width: '100%',
                     boxSizing: 'border-box',
                     padding: '0.5rem',
-                    border: '1px solid #d1d5db',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '0.375rem',
                     fontSize: '0.875rem',
                     fontFamily: 'inherit',
@@ -1621,8 +1621,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               const t = conversationDetail.ticket;
               const row = (label: string, value: string | null | undefined) => (
                 <div key={label} style={{ marginBottom: '0.75rem' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>{label}</div>
-                  <div style={{ fontSize: '0.875rem', color: '#111827', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value?.trim() || '—'}</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>{label}</div>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value?.trim() || '—'}</div>
                 </div>
               );
               return (
@@ -1640,7 +1640,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 >
                   <div
                     style={{
-                      backgroundColor: '#fff',
+                      backgroundColor: 'var(--bg-card)',
                       borderRadius: '0.5rem',
                       boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
                       maxWidth: '480px',
@@ -1652,7 +1652,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: '#111827' }}>Detalji prijave</h3>
+                      <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)' }}>Detalji prijave</h3>
                       <button
                         type="button"
                         onClick={() => setTicketModalOpen(false)}
@@ -1662,7 +1662,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                           background: 'none',
                           cursor: 'pointer',
                           fontSize: '1.25rem',
-                          color: '#6b7280',
+                          color: 'var(--text-secondary)',
                           lineHeight: 1,
                         }}
                         aria-label="Zatvori"
@@ -1670,7 +1670,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                         ×
                       </button>
                     </div>
-                    <div style={{ fontSize: '0.875rem', color: '#374151' }}>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
                       {row('Ref', t.ticket_ref)}
                       {row('Status', t.status)}
                       {row('Odjel', t.department)}
@@ -1694,7 +1694,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#6b7280',
+              color: 'var(--text-secondary)',
               fontSize: '0.875rem',
             }}
           >

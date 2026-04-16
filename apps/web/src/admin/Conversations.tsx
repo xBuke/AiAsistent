@@ -554,20 +554,20 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
         onClick={onClick}
         style={{
           padding: '0.875rem 1rem',
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: '1px solid var(--border-color)',
           borderLeft: isSelected ? '3px solid #3b82f6' : '3px solid transparent',
           cursor: 'pointer',
-          backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-card)',
           transition: 'background-color 0.2s, border-color 0.2s',
         }}
         onMouseEnter={(e) => {
           if (!isSelected) {
-            e.currentTarget.style.backgroundColor = '#f9fafb';
+            e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
           }
         }}
         onMouseLeave={(e) => {
           if (!isSelected) {
-            e.currentTarget.style.backgroundColor = '#ffffff';
+            e.currentTarget.style.backgroundColor = 'var(--bg-card)';
           }
         }}
       >
@@ -576,7 +576,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
           style={{
             fontSize: '0.9375rem',
             fontWeight: 600,
-            color: '#111827',
+            color: 'var(--text-primary)',
             marginBottom: subtitle ? '0.25rem' : '0.375rem',
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -607,7 +607,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
         {/* Secondary: relative time + pills */}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.375rem 0.5rem' }}>
           {lastActivityRelative && (
-            <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
               {lastActivityRelative}
             </span>
           )}
@@ -696,7 +696,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
           minWidth: isMobile ? 'auto' : '320px',
           maxWidth: isMobile ? '100%' : '320px',
           height: isMobile ? '50vh' : 'auto',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-card)',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
           display: isMobile && mobileView === 'detail' ? 'none' : 'flex',
@@ -705,7 +705,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
         }}
       >
         {/* Search and filters */}
-        <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)' }}>
           {/* Search input - always visible */}
           <input
             type="text"
@@ -715,7 +715,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
             style={{
               width: '100%',
               padding: '0.5rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid var(--border-color)',
               borderRadius: '0.375rem',
               fontSize: '0.875rem',
               marginBottom: '0.75rem',
@@ -734,22 +734,22 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                 alignItems: 'center',
                 gap: '0.5rem',
                 padding: '0.5rem 0.75rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--border-color)',
                 borderRadius: '0.375rem',
                 fontSize: '0.875rem',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--bg-card)',
                 cursor: 'pointer',
-                color: '#374151',
+                color: 'var(--text-primary)',
                 fontWeight: 500,
                 transition: 'background-color 0.2s, border-color 0.2s',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f9fafb';
-                e.currentTarget.style.borderColor = '#9ca3af';
+                e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#ffffff';
-                e.currentTarget.style.borderColor = '#d1d5db';
+                e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
               }}
             >
               <span>Filtri</span>
@@ -772,7 +772,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                   {activeFiltersCount}
                 </span>
               )}
-              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 {filtersCollapsed ? '▼' : '▲'}
               </span>
             </button>
@@ -793,10 +793,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                 style={{
                   width: '100%',
                   padding: '0.5rem',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '0.375rem',
                   fontSize: '0.875rem',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--bg-card)',
                   marginBottom: '0.5rem',
                 }}
               >
@@ -814,7 +814,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     style={{
                       flex: 1,
                       padding: '0.5rem',
-                      border: '1px solid #d1d5db',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '0.375rem',
                       fontSize: '0.875rem',
                     }}
@@ -826,7 +826,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     style={{
                       flex: 1,
                       padding: '0.5rem',
-                      border: '1px solid #d1d5db',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '0.375rem',
                       fontSize: '0.875rem',
                     }}
@@ -861,10 +861,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
               style={{
                 width: '100%',
                 padding: '0.5rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--border-color)',
                 borderRadius: '0.375rem',
                 fontSize: '0.875rem',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--bg-card)',
                 marginBottom: '0.75rem',
               }}
             >
@@ -883,10 +883,10 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
               style={{
                 width: '100%',
                 padding: '0.5rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--border-color)',
                 borderRadius: '0.375rem',
                 fontSize: '0.875rem',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--bg-card)',
               }}
             >
               <option value="newest">Najnovije prvo</option>
@@ -904,7 +904,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
               style={{
                 padding: '2rem',
                 textAlign: 'center',
-                color: '#6b7280',
+                color: 'var(--text-secondary)',
                 fontSize: '0.875rem',
               }}
             >
@@ -964,7 +964,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
           flex: 1,
           minWidth: 0,
           height: isMobile ? (mobileView === 'detail' ? 'calc(100vh - 120px)' : '50vh') : 'auto',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-card)',
           borderRadius: '0.5rem',
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
           display: isMobile && mobileView === 'list' && !selectedConversationId ? 'none' : 'flex',
@@ -978,7 +978,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
             <div
               style={{
                 padding: '1.25rem 1.5rem',
-                borderBottom: '1px solid #e5e7eb',
+                borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.75rem',
@@ -997,22 +997,22 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     gap: '0.5rem',
                     padding: '0.5rem 0.75rem',
                     backgroundColor: 'transparent',
-                    border: '1px solid #d1d5db',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '0.375rem',
                     fontSize: '0.875rem',
                     fontWeight: 500,
-                    color: '#374151',
+                    color: 'var(--text-primary)',
                     cursor: 'pointer',
                     transition: 'background-color 0.2s, border-color 0.2s',
                     alignSelf: 'flex-start',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f9fafb';
-                    e.currentTarget.style.borderColor = '#9ca3af';
+                    e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.borderColor = '#d1d5db';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
                   }}
                 >
                   <span>←</span>
@@ -1026,7 +1026,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     margin: 0,
                     fontSize: '1.25rem',
                     fontWeight: 600,
-                    color: '#111827',
+                    color: 'var(--text-primary)',
                     marginBottom: '0.375rem',
                     lineHeight: '1.3',
                   }}
@@ -1037,7 +1037,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                   <div
                     style={{
                       fontSize: '0.875rem',
-                      color: '#6b7280',
+                      color: 'var(--text-secondary)',
                       marginBottom: '0.5rem',
                       lineHeight: '1.4',
                     }}
@@ -1045,7 +1045,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     {(selectedConversation as any).summary}
                   </div>
                 )}
-                <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                   {formatDate(selectedConversation.startTime)} · {selectedConversation.messageCount} poruka
                   {selectedConversationFallbackCount > 0 && (
                     <span style={{ color: '#dc2626', marginLeft: '0.375rem' }}>
@@ -1100,7 +1100,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                   style={{
                     padding: '2rem',
                     textAlign: 'center',
-                    color: '#6b7280',
+                    color: 'var(--text-secondary)',
                     fontSize: '0.875rem',
                   }}
                 >
@@ -1147,7 +1147,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                   style={{
                     padding: '2rem',
                     textAlign: 'center',
-                    color: '#6b7280',
+                    color: 'var(--text-secondary)',
                     fontSize: '0.875rem',
                   }}
                 >
@@ -1167,7 +1167,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     <span
                       style={{
                         fontSize: '0.6875rem',
-                        color: '#9ca3af',
+                        color: 'var(--text-secondary)',
                         marginBottom: '0.25rem',
                         paddingLeft: msg.role === 'user' ? '0.25rem' : 0,
                         paddingRight: msg.role === 'user' ? 0 : '0.25rem',
@@ -1181,9 +1181,9 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                         maxWidth: '75%',
                         padding: '0.875rem 1.125rem',
                         borderRadius: '1rem',
-                        backgroundColor: msg.role === 'user' ? '#e0f2fe' : '#f9fafb',
-                        color: msg.role === 'user' ? '#0c4a6e' : '#111827',
-                        border: msg.role === 'assistant' ? '1px solid #e5e7eb' : 'none',
+                        backgroundColor: msg.role === 'user' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-primary)',
+                        color: msg.role === 'user' ? '#0c4a6e' : 'var(--text-primary)',
+                        border: msg.role === 'assistant' ? '1px solid var(--border-color)' : 'none',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                       }}
                     >
@@ -1194,7 +1194,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
                     <span
                       style={{
                         fontSize: '0.6875rem',
-                        color: '#9ca3af',
+                        color: 'var(--text-secondary)',
                         marginTop: '0.25rem',
                         paddingLeft: msg.role === 'user' ? '0.25rem' : 0,
                         paddingRight: msg.role === 'user' ? 0 : '0.25rem',
@@ -1215,7 +1215,7 @@ export function Conversations({ cityId, liveEnabled, reloadTrigger }: Conversati
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#6b7280',
+              color: 'var(--text-secondary)',
               fontSize: '0.875rem',
             }}
           >

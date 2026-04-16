@@ -70,7 +70,8 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -206,40 +207,75 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || uploading) return;
+    if (selectedFiles.length === 0 || uploading) return;
 
     setUploading(true);
     setUploadSuccess(false);
     setUploadError(null);
+    setUploadProgressText(null);
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
+      const filesToUpload = [...selectedFiles];
+      const uploadedDocs: DocumentItem[] = [];
+      const failedFiles: string[] = [];
 
-      const res = await fetch(`${BASE}/admin/${encodeURIComponent(cityCode)}/documents`, {
-        ...defaultOpts,
-        method: 'POST',
-        body: formData,
-      });
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        setUploadProgressText(`Uploading file ${i + 1} of ${filesToUpload.length}: ${file.name}...`);
 
-      if (!res.ok) {
-        const message = await parseErrorMessage(res, 'Greška pri uploadu dokumenta');
-        throw new Error(message);
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const res = await fetch(`${BASE}/admin/${encodeURIComponent(cityCode)}/documents`, {
+            ...defaultOpts,
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!res.ok) {
+            const message = await parseErrorMessage(res, 'Greška pri uploadu dokumenta');
+            throw new Error(message);
+          }
+
+          const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+          const created: DocumentItem = {
+            id: typeof data.id === 'string' ? data.id : `tmp-${Date.now()}-${i}`,
+            filename: typeof data.filename === 'string' ? data.filename : file.name,
+            file_type: file.name.includes('.') ? file.name.split('.').pop() ?? null : null,
+            file_size: file.size,
+            chunk_count: typeof data.chunk_count === 'number' ? data.chunk_count : null,
+            uploaded_at: new Date().toISOString(),
+            is_active: true,
+          };
+          uploadedDocs.push(created);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Greška pri uploadu dokumenta';
+          failedFiles.push(`${file.name}: ${message}`);
+        }
       }
 
-      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      const created: DocumentItem = {
-        id: typeof data.id === 'string' ? data.id : `tmp-${Date.now()}`,
-        filename: typeof data.filename === 'string' ? data.filename : selectedFile.name,
-        file_type: selectedFile.name.includes('.') ? selectedFile.name.split('.').pop() ?? null : null,
-        file_size: selectedFile.size,
-        chunk_count: typeof data.chunk_count === 'number' ? data.chunk_count : null,
-        uploaded_at: new Date().toISOString(),
-        is_active: true,
-      };
+      if (uploadedDocs.length > 0) {
+        setDocuments((prev) => [...uploadedDocs, ...prev]);
+      }
 
-      setDocuments((prev) => [created, ...prev]);
-      setSelectedFile(null);
-      setUploadSuccess(true);
+      setSelectedFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      const total = filesToUpload.length;
+      const successCount = uploadedDocs.length;
+      const allSucceeded = successCount === total;
+
+      if (allSucceeded) {
+        setUploadSuccess(true);
+        setUploadProgressText('Svi dokumenti uspješno uploadani');
+      } else {
+        setUploadSuccess(successCount > 0);
+        setUploadProgressText(`${successCount} od ${total} dokumenata uspješno uploadano`);
+      }
+
+      if (failedFiles.length > 0) {
+        setUploadError(failedFiles.join(' | '));
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Greška pri uploadu dokumenta';
       setUploadError(message);
@@ -335,11 +371,12 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
             e.preventDefault();
             setIsDragOver(false);
             if (uploading) return;
-            const file = e.dataTransfer.files?.[0] ?? null;
-            if (file) {
-              setSelectedFile(file);
+            const files = Array.from(e.dataTransfer.files ?? []);
+            if (files.length > 0) {
+              setSelectedFiles(files);
               setUploadSuccess(false);
               setUploadError(null);
+              setUploadProgressText(null);
             }
           }}
           onClick={() => fileInputRef.current?.click()}
@@ -355,31 +392,40 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept=".pdf,.docx,.txt,.md"
             onChange={(e) => {
-              setSelectedFile(e.target.files?.[0] ?? null);
+              setSelectedFiles(Array.from(e.target.files ?? []));
               setUploadSuccess(false);
               setUploadError(null);
+              setUploadProgressText(null);
             }}
             className="admin-upload-zone__input"
           />
-          <div className="admin-upload-zone__title">Povuci dokument ovdje ili klikni za odabir</div>
+          <div className="admin-upload-zone__title">Povucite datoteke ovdje ili kliknite za odabir</div>
           <div className="admin-upload-zone__subtitle">Podržano: PDF, DOCX, TXT, MD</div>
         </div>
 
-        {selectedFile && (
+        {selectedFiles.length > 0 && (
           <div className="admin-upload-selected">
             <div>
-              <div className="admin-upload-selected__name">{selectedFile.name}</div>
-              <div className="admin-upload-selected__meta">{formatFileSize(selectedFile.size)}</div>
+              <div className="admin-upload-selected__name">
+                {selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} datoteke odabrane`}
+              </div>
+              <div className="admin-upload-selected__meta">
+                {selectedFiles.length === 1
+                  ? formatFileSize(selectedFiles[0].size)
+                  : `${selectedFiles.reduce((sum, file) => sum + file.size, 0)} B ukupno`}
+              </div>
             </div>
             <button
               type="button"
               className="admin-upload-selected__remove"
               onClick={() => {
-                setSelectedFile(null);
+                setSelectedFiles([]);
                 setUploadSuccess(false);
                 setUploadError(null);
+                setUploadProgressText(null);
                 if (fileInputRef.current) fileInputRef.current.value = '';
               }}
               aria-label="Ukloni odabranu datoteku"
@@ -390,14 +436,19 @@ export function DocumentsPage({ cityId }: DocumentsPageProps) {
         )}
 
         {uploading && <progress className="admin-progress" />}
+        {uploadProgressText && <div className="admin-upload-status">{uploadProgressText}</div>}
 
         <div className="admin-upload-actions">
-          <button type="button" disabled={!selectedFile || uploading} onClick={handleUpload} className="admin-btn-primary">
+          <button type="button" disabled={selectedFiles.length === 0 || uploading} onClick={handleUpload} className="admin-btn-primary">
             {uploading ? 'Uploading...' : 'Upload dokumenta'}
           </button>
         </div>
 
-        {uploadSuccess && <div className="admin-upload-status admin-upload-status--success">✓ Dokument uspješno dodan</div>}
+        {uploadSuccess && !uploading && (
+          <div className="admin-upload-status admin-upload-status--success">
+            ✓ {uploadProgressText === 'Svi dokumenti uspješno uploadani' ? 'Svi dokumenti uspješno uploadani' : uploadProgressText}
+          </div>
+        )}
         {uploadError && <div className="admin-upload-status admin-upload-status--error">{uploadError}</div>}
       </div>
     </div>
