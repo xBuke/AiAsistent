@@ -3,8 +3,12 @@ import { supabase } from '../db/supabase.js';
 
 const PROTECTED_PREFIXES = ['/chat', '/events', '/forms'];
 
-function isProtectedRoute(url: string): boolean {
-  const path = url.split('?')[0];
+function isProtectedRoute(request: FastifyRequest): boolean {
+  const path = request.url.split('?')[0];
+  // Public catalog: same as other read-only public form surface; GET often has no Origin.
+  if (request.method === 'GET' && path.startsWith('/forms/definitions/')) {
+    return false;
+  }
   return PROTECTED_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
@@ -32,7 +36,7 @@ export function registerOriginValidation(server: FastifyInstance): void {
         return;
       }
 
-      if (!isProtectedRoute(request.url)) {
+      if (!isProtectedRoute(request)) {
         return;
       }
 
