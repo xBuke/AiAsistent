@@ -10,6 +10,7 @@ import { Conversations } from './Conversations';
 import { Reports } from './Reports';
 import { Inbox } from './Inbox';
 import { Forms } from './Forms';
+import { FormDefinitions } from './FormDefinitions';
 import { DocumentsPage } from './DocumentsPage';
 import { UsersPage } from './UsersPage';
 import { SuperadminPage } from './SuperadminPage';
@@ -334,6 +335,7 @@ export function AdminApp() {
           <ReportsTabContent events={events} filters={reportsFilters} onFiltersChange={setReportsFilters} />
         )}
         {activeTab === "Obrasci" && <Forms />}
+        {activeTab === "Postavke formi" && <FormDefinitions />}
         {activeTab === "Dokumenti" && selectedCityCode && <DocumentsPage cityId={selectedCityCode} />}
         {activeTab === "Korisnici" && role === 'admin' && (
           <UsersPage cityCode={selectedCityCode} currentUserId={currentUserId} />

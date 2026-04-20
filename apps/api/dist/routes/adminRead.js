@@ -20,10 +20,31 @@ async function getSession(request) {
     }
     try {
         const session = JSON.parse(sessionCookie);
-        if (!session.cityId || !session.role) {
+        if (!session.role) {
             return null;
         }
-        if (session.role !== 'admin' && session.role !== 'inbox') {
+        const validRoles = new Set([
+            'admin',
+            'inbox',
+            'conversations',
+            'forms',
+            'readonly',
+            'superadmin',
+        ]);
+        if (!validRoles.has(session.role)) {
+            return null;
+        }
+        if (session.role === 'superadmin' && session.isSuperadmin === true) {
+            return {
+                cityId: session.cityId ?? '',
+                cityCode: session.cityCode ?? '',
+                role: 'superadmin',
+                userId: session.userId ?? '',
+                userName: session.userName ?? '',
+                isSuperadmin: true,
+            };
+        }
+        if (!session.cityId || !session.cityCode || !session.userId || !session.userName) {
             return null;
         }
         return session;
@@ -148,7 +169,9 @@ export async function getInboxHandler(request, reply) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
     // Check role (inbox and admin both allowed)
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode } = request.params;
@@ -281,7 +304,9 @@ export async function getConversationsHandler(request, reply) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
     // Check role (inbox and admin both allowed)
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode } = request.params;
@@ -330,7 +355,9 @@ export async function getConversationMessagesHandler(request, reply) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
     // Check role (inbox and admin both allowed)
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode, conversationUuid } = request.params;
@@ -394,7 +421,9 @@ export async function getConversationDetailHandler(request, reply) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
     // Check role (inbox and admin both allowed)
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode, conversationUuid } = request.params;
@@ -530,7 +559,9 @@ export async function postConversationNoteHandler(request, reply) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
     // Check role (inbox and admin both allowed)
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode, conversationUuid } = request.params;
@@ -606,7 +637,9 @@ export async function patchConversationHandler(request, reply) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
     // Check role (inbox and admin both allowed)
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode, conversationUuid } = request.params;
@@ -797,7 +830,9 @@ export async function getTicketsHandler(request, reply) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
     // Check role (inbox and admin both allowed)
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode } = request.params;
@@ -961,7 +996,9 @@ export async function patchTicketHandler(request, reply) {
     if (!session) {
         return reply.status(401).send({ error: 'Unauthorized' });
     }
-    if (session.role !== 'admin' && session.role !== 'inbox') {
+    if (session.role !== 'admin' &&
+        session.role !== 'inbox' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden' });
     }
     const { cityCode, conversationUuid } = request.params;

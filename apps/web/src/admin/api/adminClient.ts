@@ -681,3 +681,292 @@ export async function fetchAdminFormAttachmentSignedUrl(
   const data = await res.json();
   return data?.url ?? '';
 }
+
+// --- Form definitions (builder / CRUD) — distinct from fetchAdminForms (submissions) ---
+
+export type FormDefinitionFieldType = 'text' | 'date' | 'number' | 'select' | 'textarea';
+
+export interface FormDefinitionField {
+  id: string;
+  label: string;
+  type: FormDefinitionFieldType;
+  required: boolean;
+  placeholder: string;
+  options?: string[];
+}
+
+export interface FormDefinitionAttachment {
+  id: string;
+  label: string;
+  description: string;
+  required: boolean;
+}
+
+export interface FormDefinitionAdmin {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  fields: FormDefinitionField[];
+  required_attachments: FormDefinitionAttachment[];
+  trigger_doc_slugs: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  /** Present when loaded via superadmin API */
+  city_id?: string;
+}
+
+export type FormDefinitionCreateBody = {
+  name: string;
+  slug: string;
+  description?: string;
+  fields: FormDefinitionField[];
+  required_attachments: FormDefinitionAttachment[];
+  trigger_doc_slugs: string[];
+};
+
+/** POST /superadmin/form-definitions — same as create body plus target city */
+export type SuperadminFormDefinitionCreateBody = FormDefinitionCreateBody & { city_id: string };
+
+export type FormDefinitionUpdateBody = Partial<FormDefinitionCreateBody & { is_active: boolean }>;
+
+export class AdminFormDefinitionConflictError extends Error {
+  readonly status = 409;
+  constructor(message: string) {
+    super(message);
+    this.name = 'AdminFormDefinitionConflictError';
+  }
+}
+
+function isFieldType(v: unknown): v is FormDefinitionFieldType {
+  return v === 'text' || v === 'date' || v === 'number' || v === 'select' || v === 'textarea';
+}
+
+function normalizeFormDefinitionField(raw: unknown, fallbackId: string): FormDefinitionField {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: fallbackId,
+      label: '',
+      type: 'text',
+      required: false,
+      placeholder: '',
+    };
+  }
+  const o = raw as Record<string, unknown>;
+  const optionsRaw = o.options;
+  const options = Array.isArray(optionsRaw)
+    ? optionsRaw.filter((x): x is string => typeof x === 'string')
+    : undefined;
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : fallbackId,
+    label: typeof o.label === 'string' ? o.label : '',
+    type: isFieldType(o.type) ? o.type : 'text',
+    required: Boolean(o.required),
+    placeholder: typeof o.placeholder === 'string' ? o.placeholder : '',
+    ...(options && options.length > 0 ? { options } : {}),
+  };
+}
+
+function normalizeFormDefinitionAttachment(raw: unknown, fallbackId: string): FormDefinitionAttachment {
+  if (!raw || typeof raw !== 'object') {
+    return { id: fallbackId, label: '', description: '', required: false };
+  }
+  const o = raw as Record<string, unknown>;
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : fallbackId,
+    label: typeof o.label === 'string' ? o.label : '',
+    description: typeof o.description === 'string' ? o.description : '',
+    required: Boolean(o.required),
+  };
+}
+
+function normalizeFormDefinitionAdmin(raw: unknown): FormDefinitionAdmin | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const id = typeof o.id === 'string' ? o.id : '';
+  if (!id) return null;
+  const fieldsRaw = o.fields;
+  const fieldsArr = Array.isArray(fieldsRaw) ? fieldsRaw : [];
+  const attRaw = o.required_attachments;
+  const attArr = Array.isArray(attRaw) ? attRaw : [];
+  const triggersRaw = o.trigger_doc_slugs;
+  const triggers = Array.isArray(triggersRaw)
+    ? triggersRaw.filter((s): s is string => typeof s === 'string')
+    : [];
+  const cityId = typeof o.city_id === 'string' && o.city_id ? o.city_id : undefined;
+  return {
+    id,
+    name: typeof o.name === 'string' ? o.name : '',
+    slug: typeof o.slug === 'string' ? o.slug : '',
+    description: o.description == null ? '' : String(o.description),
+    fields: fieldsArr.map((f, i) => normalizeFormDefinitionField(f, `field-${i}`)),
+    required_attachments: attArr.map((a, i) => normalizeFormDefinitionAttachment(a, `att-${i}`)),
+    trigger_doc_slugs: triggers,
+    is_active: o.is_active === undefined ? true : Boolean(o.is_active),
+    created_at: typeof o.created_at === 'string' ? o.created_at : '',
+    updated_at: typeof o.updated_at === 'string' ? o.updated_at : '',
+    ...(cityId ? { city_id: cityId } : {}),
+  };
+}
+
+async function throwUnlessOkFormDefinition(res: Response): Promise<void> {
+  if (res.ok) return;
+  let message = `Form definition: ${res.status}`;
+  try {
+    const data = (await res.json()) as { error?: string; message?: string };
+    if (typeof data?.error === 'string' && data.error.trim()) message = data.error.trim();
+    else if (typeof data?.message === 'string' && data.message.trim()) message = data.message.trim();
+  } catch {
+    // ignore
+  }
+  if (res.status === 409) {
+    throw new AdminFormDefinitionConflictError(message);
+  }
+  throw new Error(message);
+}
+
+/**
+ * GET /admin/form-definitions — list form definitions for the logged-in city (admin session).
+ */
+export async function fetchAdminFormDefinitions(): Promise<FormDefinitionAdmin[]> {
+  const res = await fetch(`${BASE}/admin/form-definitions`, {
+    ...defaultOpts,
+    method: 'GET',
+  });
+  if (!res.ok) throw new Error(`Form definitions: ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data
+    .map(normalizeFormDefinitionAdmin)
+    .filter((row): row is FormDefinitionAdmin => row !== null);
+}
+
+/**
+ * POST /admin/form-definitions — create form definition.
+ */
+export async function createAdminFormDefinition(
+  body: FormDefinitionCreateBody
+): Promise<FormDefinitionAdmin> {
+  const res = await fetch(`${BASE}/admin/form-definitions`, {
+    ...defaultOpts,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  await throwUnlessOkFormDefinition(res);
+  const raw = await res.json();
+  const parsed = normalizeFormDefinitionAdmin(raw);
+  if (!parsed) throw new Error('Invalid form definition response');
+  return parsed;
+}
+
+/**
+ * PUT /admin/form-definitions/:id — update form definition (partial).
+ */
+export async function updateAdminFormDefinition(
+  id: string,
+  body: FormDefinitionUpdateBody
+): Promise<FormDefinitionAdmin> {
+  const res = await fetch(`${BASE}/admin/form-definitions/${encodeURIComponent(id)}`, {
+    ...defaultOpts,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  await throwUnlessOkFormDefinition(res);
+  const raw = await res.json();
+  const parsed = normalizeFormDefinitionAdmin(raw);
+  if (!parsed) throw new Error('Invalid form definition response');
+  return parsed;
+}
+
+/**
+ * DELETE /admin/form-definitions/:id — soft delete (is_active = false).
+ */
+export async function deleteAdminFormDefinition(id: string): Promise<{ success: boolean }> {
+  const res = await fetch(`${BASE}/admin/form-definitions/${encodeURIComponent(id)}`, {
+    ...defaultOpts,
+    method: 'DELETE',
+  });
+  await throwUnlessOkFormDefinition(res);
+  const data = await res.json().catch(() => ({}));
+  if (data && typeof data === 'object' && 'success' in data) {
+    return { success: Boolean((data as { success?: boolean }).success) };
+  }
+  return { success: true };
+}
+
+/**
+ * GET /superadmin/form-definitions?cityId= — list all form definitions for a city (superadmin session).
+ */
+export async function fetchSuperadminFormDefinitions(cityId: string): Promise<FormDefinitionAdmin[]> {
+  const res = await fetch(
+    `${BASE}/superadmin/form-definitions?cityId=${encodeURIComponent(cityId)}`,
+    {
+      ...defaultOpts,
+      method: 'GET',
+    }
+  );
+  if (!res.ok) throw new Error(`Form definitions: ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data
+    .map(normalizeFormDefinitionAdmin)
+    .filter((row): row is FormDefinitionAdmin => row !== null);
+}
+
+/**
+ * POST /superadmin/form-definitions — create form definition for the given city.
+ */
+export async function createSuperadminFormDefinition(
+  body: SuperadminFormDefinitionCreateBody
+): Promise<FormDefinitionAdmin> {
+  const res = await fetch(`${BASE}/superadmin/form-definitions`, {
+    ...defaultOpts,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  await throwUnlessOkFormDefinition(res);
+  const raw = await res.json();
+  const parsed = normalizeFormDefinitionAdmin(raw);
+  if (!parsed) throw new Error('Invalid form definition response');
+  return parsed;
+}
+
+/**
+ * PUT /superadmin/form-definitions/:id — update (superadmin session).
+ */
+export async function updateSuperadminFormDefinition(
+  id: string,
+  body: FormDefinitionUpdateBody
+): Promise<FormDefinitionAdmin> {
+  const res = await fetch(`${BASE}/superadmin/form-definitions/${encodeURIComponent(id)}`, {
+    ...defaultOpts,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  await throwUnlessOkFormDefinition(res);
+  const raw = await res.json();
+  const parsed = normalizeFormDefinitionAdmin(raw);
+  if (!parsed) throw new Error('Invalid form definition response');
+  return parsed;
+}
+
+/**
+ * DELETE /superadmin/form-definitions/:id — soft delete (superadmin session).
+ */
+export async function deleteSuperadminFormDefinition(id: string): Promise<{ success: boolean }> {
+  const res = await fetch(`${BASE}/superadmin/form-definitions/${encodeURIComponent(id)}`, {
+    ...defaultOpts,
+    method: 'DELETE',
+  });
+  await throwUnlessOkFormDefinition(res);
+  const data = await res.json().catch(() => ({}));
+  if (data && typeof data === 'object' && 'success' in data) {
+    return { success: Boolean((data as { success?: boolean }).success) };
+  }
+  return { success: true };
+}

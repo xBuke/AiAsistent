@@ -8,11 +8,31 @@ function getSession(request) {
     }
     try {
         const session = JSON.parse(cookie);
-        // Validate session structure
-        if (!session.cityId || !session.cityCode || !session.role) {
+        if (!session.role) {
             return null;
         }
-        if (session.role !== 'admin' && session.role !== 'inbox') {
+        const validRoles = new Set([
+            'admin',
+            'inbox',
+            'conversations',
+            'forms',
+            'readonly',
+            'superadmin',
+        ]);
+        if (!validRoles.has(session.role)) {
+            return null;
+        }
+        if (session.role === 'superadmin' && session.isSuperadmin === true) {
+            return {
+                cityId: session.cityId ?? '',
+                cityCode: session.cityCode ?? '',
+                role: 'superadmin',
+                userId: session.userId ?? '',
+                userName: session.userName ?? '',
+                isSuperadmin: true,
+            };
+        }
+        if (!session.cityId || !session.cityCode || !session.userId || !session.userName) {
             return null;
         }
         return session;
@@ -30,7 +50,7 @@ export async function requireAdminSession(request, reply) {
     if (!session) {
         return reply.status(401).send({ error: 'Unauthorized: No valid session' });
     }
-    if (session.role !== 'admin') {
+    if (session.role !== 'admin' && session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden: Admin access required' });
     }
     // Attach session to request for use in handlers
@@ -46,10 +66,20 @@ export async function requireInboxSession(request, reply) {
     if (!session) {
         return reply.status(401).send({ error: 'Unauthorized: No valid session' });
     }
-    if (session.role !== 'inbox') {
+    if (session.role !== 'inbox' &&
+        session.role !== 'admin' &&
+        session.role !== 'superadmin') {
         return reply.status(403).send({ error: 'Forbidden: Inbox access required' });
     }
     // Attach session to request for use in handlers
+    request.session = session;
+    return session;
+}
+export async function requireAnySession(request, reply) {
+    const session = getSession(request);
+    if (!session) {
+        return reply.status(401).send({ error: 'Unauthorized: No valid session' });
+    }
     request.session = session;
     return session;
 }

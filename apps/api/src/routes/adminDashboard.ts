@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../db/supabase.js';
+import type { FormDefinitionPublic } from './forms.js';
 
 interface SessionCookie {
   cityId: string;
@@ -27,6 +28,56 @@ interface KnowledgeGapsQuery extends DashboardQuery {
 interface QuestionsExamplesQuery {
   question?: string;
   range?: '24h' | '7d' | '30d';
+}
+
+interface FormDefinitionAdmin extends FormDefinitionPublic {
+  city_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface FormDefinitionCreateBody {
+  name: string;
+  slug: string;
+  description?: string | null;
+  fields: unknown[];
+  required_attachments: unknown[];
+  trigger_doc_slugs: string[];
+}
+
+type FormDefinitionUpdateBody = Partial<FormDefinitionCreateBody & { is_active: boolean }>;
+
+const FORM_DEFINITION_SLUG_PATTERN = /^[a-z0-9-]+$/;
+
+function mapFormDefinitionRow(row: {
+  id: string;
+  city_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  fields: unknown;
+  required_attachments: unknown;
+  trigger_doc_slugs: unknown;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}): FormDefinitionAdmin {
+  return {
+    id: row.id,
+    city_id: row.city_id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description ?? null,
+    fields: Array.isArray(row.fields) ? row.fields : [],
+    required_attachments: Array.isArray(row.required_attachments) ? row.required_attachments : [],
+    trigger_doc_slugs: Array.isArray(row.trigger_doc_slugs)
+      ? row.trigger_doc_slugs.filter((s): s is string => typeof s === 'string')
+      : [],
+    is_active: row.is_active,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 }
 
 /**
@@ -1027,6 +1078,318 @@ export async function getAdminFormAttachmentSignedUrlHandler(
 }
 
 /**
+ * GET /admin/form-definitions
+ * All form_definitions for session.cityId, ordered by created_at ascending.
+ */
+export async function getAdminFormDefinitionsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const { data: rows, error } = await supabase
+    .from('form_definitions')
+    .select(
+      'id, city_id, name, slug, description, fields, required_attachments, trigger_doc_slugs, is_active, created_at, updated_at'
+    )
+    .eq('city_id', session.cityId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    request.log.error({ err: error }, 'admin form_definitions list failed');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+
+  return reply.send((rows ?? []).map(mapFormDefinitionRow));
+}
+
+/**
+ * POST /admin/form-definitions
+ */
+export async function postAdminFormDefinitionsHandler(
+  request: FastifyRequest<{ Body: FormDefinitionCreateBody }>,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const body = request.body ?? ({} as FormDefinitionCreateBody);
+  const { name, slug, description, fields, required_attachments, trigger_doc_slugs } = body;
+
+  if (name == null || typeof name !== 'string' || !name.trim()) {
+    return reply.status(400).send({ error: 'name is required' });
+  }
+  if (slug == null || typeof slug !== 'string' || !slug.trim()) {
+    return reply.status(400).send({ error: 'slug is required' });
+  }
+  const slugTrim = slug.trim();
+  if (!FORM_DEFINITION_SLUG_PATTERN.test(slugTrim)) {
+    return reply.status(400).send({ error: 'slug must match pattern ^[a-z0-9-]+$' });
+  }
+  if (!Array.isArray(fields)) {
+    return reply.status(400).send({ error: 'fields must be an array' });
+  }
+  if (!Array.isArray(required_attachments)) {
+    return reply.status(400).send({ error: 'required_attachments must be an array' });
+  }
+  if (!Array.isArray(trigger_doc_slugs)) {
+    return reply.status(400).send({ error: 'trigger_doc_slugs must be an array' });
+  }
+  if (!trigger_doc_slugs.every((s): s is string => typeof s === 'string')) {
+    return reply.status(400).send({ error: 'trigger_doc_slugs must be a string array' });
+  }
+
+  if (description !== undefined && description !== null && typeof description !== 'string') {
+    return reply.status(400).send({ error: 'description must be a string or null' });
+  }
+  const desc =
+    description === undefined || description === null ? null : description;
+
+  const { data: existing, error: existErr } = await supabase
+    .from('form_definitions')
+    .select('id')
+    .eq('city_id', session.cityId)
+    .eq('slug', slugTrim)
+    .maybeSingle();
+
+  if (existErr) {
+    request.log.error({ err: existErr }, 'form_definitions duplicate check failed');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+  if (existing) {
+    return reply.status(409).send({ error: 'Form definition with this slug already exists for this city' });
+  }
+
+  const { data: row, error: insertError } = await supabase
+    .from('form_definitions')
+    .insert({
+      city_id: session.cityId,
+      name: name.trim(),
+      slug: slugTrim,
+      description: desc,
+      fields,
+      required_attachments,
+      trigger_doc_slugs,
+      is_active: true,
+    })
+    .select(
+      'id, city_id, name, slug, description, fields, required_attachments, trigger_doc_slugs, is_active, created_at, updated_at'
+    )
+    .single();
+
+  if (insertError) {
+    const isUnique =
+      insertError.code === '23505' ||
+      Boolean(insertError.message && insertError.message.includes('unique'));
+    if (isUnique) {
+      return reply.status(409).send({ error: 'Form definition with this slug already exists for this city' });
+    }
+    request.log.error({ err: insertError }, 'form_definitions insert failed');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+
+  return reply.status(201).send(mapFormDefinitionRow(row));
+}
+
+/**
+ * PUT /admin/form-definitions/:id
+ * Partial update; only provided fields are set. updated_at always refreshed.
+ */
+export async function putAdminFormDefinitionsHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: FormDefinitionUpdateBody }>,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const { id } = request.params;
+  const body = request.body ?? {};
+
+  const { data: current, error: fetchError } = await supabase
+    .from('form_definitions')
+    .select(
+      'id, city_id, name, slug, description, fields, required_attachments, trigger_doc_slugs, is_active, created_at, updated_at'
+    )
+    .eq('id', id)
+    .eq('city_id', session.cityId)
+    .single();
+
+  if (fetchError || !current) {
+    return reply.status(404).send({ error: 'Form definition not found' });
+  }
+
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if ('name' in body && body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      return reply.status(400).send({ error: 'name must be a non-empty string' });
+    }
+    patch.name = body.name.trim();
+  }
+
+  if ('slug' in body && body.slug !== undefined) {
+    if (typeof body.slug !== 'string' || !body.slug.trim()) {
+      return reply.status(400).send({ error: 'slug must be a non-empty string' });
+    }
+    const newSlug = body.slug.trim();
+    if (!FORM_DEFINITION_SLUG_PATTERN.test(newSlug)) {
+      return reply.status(400).send({ error: 'slug must match pattern ^[a-z0-9-]+$' });
+    }
+    if (newSlug !== current.slug) {
+      const { data: conflict, error: conflictErr } = await supabase
+        .from('form_definitions')
+        .select('id')
+        .eq('city_id', session.cityId)
+        .eq('slug', newSlug)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (conflictErr) {
+        request.log.error({ err: conflictErr }, 'form_definitions slug conflict check failed');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+      if (conflict) {
+        return reply.status(409).send({ error: 'Form definition with this slug already exists for this city' });
+      }
+    }
+    patch.slug = newSlug;
+  }
+
+  if ('description' in body && body.description !== undefined) {
+    if (body.description !== null && typeof body.description !== 'string') {
+      return reply.status(400).send({ error: 'description must be a string or null' });
+    }
+    patch.description = body.description;
+  }
+
+  if ('fields' in body && body.fields !== undefined) {
+    if (!Array.isArray(body.fields)) {
+      return reply.status(400).send({ error: 'fields must be an array' });
+    }
+    patch.fields = body.fields;
+  }
+
+  if ('required_attachments' in body && body.required_attachments !== undefined) {
+    if (!Array.isArray(body.required_attachments)) {
+      return reply.status(400).send({ error: 'required_attachments must be an array' });
+    }
+    patch.required_attachments = body.required_attachments;
+  }
+
+  if ('trigger_doc_slugs' in body && body.trigger_doc_slugs !== undefined) {
+    if (!Array.isArray(body.trigger_doc_slugs)) {
+      return reply.status(400).send({ error: 'trigger_doc_slugs must be an array' });
+    }
+    if (!body.trigger_doc_slugs.every((s): s is string => typeof s === 'string')) {
+      return reply.status(400).send({ error: 'trigger_doc_slugs must be a string array' });
+    }
+    patch.trigger_doc_slugs = body.trigger_doc_slugs;
+  }
+
+  if ('is_active' in body && body.is_active !== undefined) {
+    if (typeof body.is_active !== 'boolean') {
+      return reply.status(400).send({ error: 'is_active must be a boolean' });
+    }
+    patch.is_active = body.is_active;
+  }
+
+  const { data: row, error: updateError } = await supabase
+    .from('form_definitions')
+    .update(patch)
+    .eq('id', id)
+    .eq('city_id', session.cityId)
+    .select(
+      'id, city_id, name, slug, description, fields, required_attachments, trigger_doc_slugs, is_active, created_at, updated_at'
+    )
+    .single();
+
+  if (updateError) {
+    const isUnique =
+      updateError.code === '23505' ||
+      Boolean(updateError.message && updateError.message.includes('unique'));
+    if (isUnique) {
+      return reply.status(409).send({ error: 'Form definition with this slug already exists for this city' });
+    }
+    request.log.error({ err: updateError }, 'form_definitions update failed');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+
+  if (!row) {
+    return reply.status(404).send({ error: 'Form definition not found' });
+  }
+
+  return reply.send(mapFormDefinitionRow(row));
+}
+
+/**
+ * DELETE /admin/form-definitions/:id
+ * Soft delete: is_active = false.
+ */
+export async function deleteAdminFormDefinitionsHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const { id } = request.params;
+
+  const { data: current, error: fetchError } = await supabase
+    .from('form_definitions')
+    .select('id')
+    .eq('id', id)
+    .eq('city_id', session.cityId)
+    .maybeSingle();
+
+  if (fetchError) {
+    request.log.error({ err: fetchError }, 'form_definitions delete fetch failed');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+  if (!current) {
+    return reply.status(404).send({ error: 'Form definition not found' });
+  }
+
+  const { error: updateError } = await supabase
+    .from('form_definitions')
+    .update({
+      is_active: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('city_id', session.cityId);
+
+  if (updateError) {
+    request.log.error({ err: updateError }, 'form_definitions soft delete failed');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+
+  return reply.send({ success: true });
+}
+
+/**
  * Register admin dashboard routes
  */
 export async function registerAdminDashboardRoutes(server: FastifyInstance) {
@@ -1040,6 +1403,10 @@ export async function registerAdminDashboardRoutes(server: FastifyInstance) {
   server.get('/admin/forms/:reference_number/pdf', getAdminFormPdfHandler);
   server.get('/admin/forms/:reference_number/attachments', getAdminFormAttachmentsHandler);
   server.get('/admin/forms/:reference_number/attachments/:attachment_id/signed-url', getAdminFormAttachmentSignedUrlHandler);
+  server.get('/admin/form-definitions', getAdminFormDefinitionsHandler);
+  server.post('/admin/form-definitions', postAdminFormDefinitionsHandler);
+  server.put('/admin/form-definitions/:id', putAdminFormDefinitionsHandler);
+  server.delete('/admin/form-definitions/:id', deleteAdminFormDefinitionsHandler);
 
   if (process.env.NODE_ENV !== 'production') {
     server.log.info('Admin forms endpoints registered: GET /admin/forms, GET /admin/forms/:reference_number/pdf, attachments');

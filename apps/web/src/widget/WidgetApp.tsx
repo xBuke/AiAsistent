@@ -22,6 +22,11 @@ import type { ContactData } from './ui/ContactHandoff';
 import type { TicketIntakeData } from './ui/TicketIntakeForm';
 import { getDefaultNovorodenoData, type NovorodenoDijeteFormData } from './ui/NovorodenoDijeteWizard';
 import { getDefaultJednokratnaData, type JednokratnaNovcanaPomocFormData } from './ui/JednokratnaNovcanaPomocWizard';
+import type {
+  FormDefinitionPublic,
+  FormAttachmentPublic,
+  FormFieldPublic,
+} from './ui/DynamicFormWizard';
 
 const NOVORODENO_WIZARD_STORAGE_KEY = 'civis_novorodeno_wizard';
 const JEDNOKRATNA_WIZARD_STORAGE_KEY = 'civis_jednokratna_wizard';
@@ -80,6 +85,70 @@ function buildNovorodenoSubmitPayload(
         ref_broj: '',
       },
     },
+  };
+}
+
+function parseFormDefinitionFromApiRow(raw: unknown): FormDefinitionPublic | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== 'string') return null;
+
+  const fields: FormFieldPublic[] = [];
+  const fieldsRaw = o.fields;
+  if (Array.isArray(fieldsRaw)) {
+    for (const item of fieldsRaw) {
+      if (!item || typeof item !== 'object') continue;
+      const fr = item as Record<string, unknown>;
+      if (
+        typeof fr.id !== 'string' ||
+        typeof fr.label !== 'string' ||
+        typeof fr.type !== 'string'
+      ) {
+        continue;
+      }
+      const options = Array.isArray(fr.options)
+        ? fr.options.filter((x): x is string => typeof x === 'string')
+        : undefined;
+      fields.push({
+        id: fr.id,
+        label: fr.label,
+        type: fr.type,
+        required: Boolean(fr.required),
+        placeholder: typeof fr.placeholder === 'string' ? fr.placeholder : '',
+        options: options && options.length > 0 ? options : undefined,
+      });
+    }
+  }
+
+  const requiredAttachments: FormAttachmentPublic[] = [];
+  const attRaw = o.required_attachments ?? o.requiredAttachments;
+  if (Array.isArray(attRaw)) {
+    for (const item of attRaw) {
+      if (!item || typeof item !== 'object') continue;
+      const ar = item as Record<string, unknown>;
+      if (typeof ar.id !== 'string' || typeof ar.label !== 'string') continue;
+      requiredAttachments.push({
+        id: ar.id,
+        label: ar.label,
+        description: typeof ar.description === 'string' ? ar.description : '',
+        required: Boolean(ar.required),
+      });
+    }
+  }
+
+  const triggerRaw = o.trigger_doc_slugs ?? o.triggerDocSlugs;
+  const triggerDocSlugs = Array.isArray(triggerRaw)
+    ? triggerRaw.filter((s): s is string => typeof s === 'string')
+    : [];
+
+  return {
+    id: o.id,
+    name: typeof o.name === 'string' ? o.name : '',
+    slug: typeof o.slug === 'string' ? o.slug : '',
+    description: o.description != null ? String(o.description) : '',
+    fields,
+    requiredAttachments,
+    triggerDocSlugs,
   };
 }
 
@@ -146,6 +215,8 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const [novorodenoWizardData, setNovorodenoWizardData] = useState<NovorodenoDijeteFormData>(() => getDefaultNovorodenoData());
   const [jednokratnaWizardStep, setJednokratnaWizardStep] = useState(1);
   const [jednokratnaWizardData, setJednokratnaWizardData] = useState<JednokratnaNovcanaPomocFormData>(() => getDefaultJednokratnaData());
+  const [formDefinitions, setFormDefinitions] = useState<FormDefinitionPublic[]>([]);
+  const [activeDynamicForm, setActiveDynamicForm] = useState<FormDefinitionPublic | null>(null);
 
   // Expose global API for controlling widget (for CTA buttons)
   useEffect(() => {
@@ -214,6 +285,35 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
   const useMock = !config.apiBaseUrl && !isProd;
   const transport: ChatTransport = useMock ? new MockTransport() : new ApiTransport();
 
+  useEffect(() => {
+    const base = config.apiBaseUrl?.trim();
+    if (!base) {
+      setFormDefinitions([]);
+      return;
+    }
+    const url = `${base.replace(/\/$/, '')}/forms/definitions/${encodeURIComponent(cityId)}`;
+    let cancelled = false;
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) return [] as unknown[];
+        return res.json() as Promise<unknown>;
+      })
+      .then((body) => {
+        if (cancelled) return;
+        const rows = Array.isArray(body) ? body : [];
+        const parsed = rows
+          .map((row) => parseFormDefinitionFromApiRow(row))
+          .filter((x): x is FormDefinitionPublic => x != null);
+        setFormDefinitions(parsed);
+      })
+      .catch(() => {
+        if (!cancelled) setFormDefinitions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cityId, config.apiBaseUrl]);
+
   // Initialize conversation when panel opens for the first time or starts new conversation
   useEffect(() => {
     if (isOpen && conversationId === null) {
@@ -261,6 +361,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         }
       }
       setActiveForm(null);
+      setActiveDynamicForm(null);
       setNovorodenoWizardStep(1);
       setNovorodenoWizardData(getDefaultNovorodenoData());
       setJednokratnaWizardStep(1);
@@ -423,6 +524,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
       setConversationId(null);
       setTurnIndex(0);
     }
+    setActiveDynamicForm(null);
     setIsOpen(false);
   };
 
@@ -554,6 +656,35 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
         // ignore
       }
     }
+  };
+
+  const openDynamicForm = (definition: FormDefinitionPublic) => {
+    setActiveForm(null);
+    setActiveDynamicForm(definition);
+  };
+
+  const handleCloseDynamicForm = () => {
+    setActiveDynamicForm(null);
+  };
+
+  const handleDynamicFormSuccess = (pdfUrl: string) => {
+    const m = /\/forms\/([^/]+)\/pdf(?:\?|$)/.exec(pdfUrl);
+    const referenceNumber = m ? decodeURIComponent(m[1]) : '';
+    const content = t(config.lang, 'formSuccessTitle');
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `dynamic-form-success-${Date.now()}`,
+        role: 'assistant',
+        content,
+        metadata: {
+          formSuccess: true,
+          referenceNumber: referenceNumber || undefined,
+          pdfUrl,
+        },
+      },
+    ]);
+    setActiveDynamicForm(null);
   };
 
   /** On successful submit: show message, exit form, clear wizard state */
@@ -1196,6 +1327,7 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
             else if (formType === 'jednokratna_novcana_pomoc') setCtaDismissedJednokratnaSession(true);
           }}
           onCtaSubmit={(formType) => {
+            setActiveDynamicForm(null);
             setActiveForm(formType);
             if (formType === 'novorodeno_dijete') {
               setNovorodenoWizardStep(1);
@@ -1216,6 +1348,11 @@ const WidgetApp: React.FC<WidgetAppProps> = ({ config }) => {
           onJednokratnaSubmit={handleJednokratnaSubmit}
           onJednokratnaSuccess={handleJednokratnaSuccess}
           onJednokratnaOdustani={handleJednokratnaOdustani}
+          formDefinitions={formDefinitions}
+          activeDynamicForm={activeDynamicForm}
+          onOpenDynamicForm={openDynamicForm}
+          onCloseDynamicForm={handleCloseDynamicForm}
+          onDynamicFormSuccess={handleDynamicFormSuccess}
         />
       )}
       <div

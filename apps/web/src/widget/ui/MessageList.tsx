@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import TypingIndicator from './TypingIndicator';
 import { linkifyText } from '../utils/linkify';
 import { t } from '../i18n';
+import type { FormDefinitionPublic } from './DynamicFormWizard';
 
 export interface Message {
   id: string;
@@ -41,13 +42,66 @@ function getCtaFormTypeFromTopDoc(message: Message): FormCtaType | null {
   return null;
 }
 
+/** Basename without extension from retrieved doc (source preferred, else title). */
+function docFilenameBase(doc: { title?: unknown; source?: unknown }): string {
+  const source = typeof doc?.source === 'string' ? doc.source.trim() : '';
+  const title = typeof doc?.title === 'string' ? doc.title.trim() : '';
+  const pick = source || title;
+  if (!pick) return '';
+  const noPath = pick.replace(/^.*[/\\]/, '');
+  return noPath.replace(/\.[^.]+$/i, '');
+}
+
+function slugConflictsWithHardcoded(
+  defSlug: string,
+  hardcodedTopType: FormCtaType | null
+): boolean {
+  if (!hardcodedTopType) return false;
+  if (hardcodedTopType === 'novorodeno_dijete' && defSlug === 'novorodeno_dijete') return true;
+  if (hardcodedTopType === 'jednokratna_novcana_pomoc' && defSlug === 'jednokratna_novcana_pomoc')
+    return true;
+  return false;
+}
+
+function getDynamicFormCtaDefinitions(
+  message: Message,
+  formDefinitions: FormDefinitionPublic[],
+  hardcodedTopType: FormCtaType | null
+): FormDefinitionPublic[] {
+  if (message.role !== 'assistant' || formDefinitions.length === 0) return [];
+  const docs = message.metadata?.retrieved_docs_top3 ?? [];
+  if (!Array.isArray(docs) || docs.length === 0) return [];
+  const bases = new Set<string>();
+  for (const doc of docs) {
+    const b = normalizeTitle(docFilenameBase(doc));
+    if (b) bases.add(b);
+  }
+  if (bases.size === 0) return [];
+  const seen = new Set<string>();
+  const out: FormDefinitionPublic[] = [];
+  for (const def of formDefinitions) {
+    if (slugConflictsWithHardcoded(def.slug, hardcodedTopType)) continue;
+    const slugs = (def.triggerDocSlugs ?? []).map((s) => normalizeTitle(s)).filter(Boolean);
+    if (slugs.length === 0) continue;
+    const hit = [...bases].some((base) => slugs.some((s) => s === base));
+    if (hit && !seen.has(def.id)) {
+      seen.add(def.id);
+      out.push(def);
+    }
+  }
+  return out;
+}
+
 interface MessageListProps {
   messages: Message[];
   showTypingIndicator: boolean;
   lang?: string;
   ctaDismissed?: boolean;
   ctaDismissedJednokratna?: boolean;
-  activeForm?: string | null;
+  /** True when any form wizard (hardcoded or dynamic) is open — hides CTAs. */
+  wizardOpen?: boolean;
+  formDefinitions?: FormDefinitionPublic[];
+  onOpenDynamicForm?: (definition: FormDefinitionPublic) => void;
   onCtaDismiss?: (formType: FormCtaType) => void;
   onCtaSubmit?: (formType: FormCtaType) => void;
 }
@@ -58,7 +112,9 @@ const MessageList: React.FC<MessageListProps> = ({
   lang,
   ctaDismissed = false,
   ctaDismissedJednokratna = false,
-  activeForm = null,
+  wizardOpen = false,
+  formDefinitions = [],
+  onOpenDynamicForm,
   onCtaDismiss,
   onCtaSubmit,
 }) => {
@@ -83,7 +139,7 @@ const MessageList: React.FC<MessageListProps> = ({
   const showCta =
     !!lastMatchingAssistantId &&
     !dismissedForCurrentForm &&
-    !activeForm &&
+    !wizardOpen &&
     (onCtaDismiss != null || onCtaSubmit != null);
 
   const scrollToBottom = () => {
@@ -112,6 +168,12 @@ const MessageList: React.FC<MessageListProps> = ({
         const docs = message.role === 'assistant' ? message.metadata?.retrieved_docs_top3 : null;
         const hasCitations = Array.isArray(docs) && docs.length > 0;
         const isCitationsOpen = openCitationsId === message.id;
+        const hardcodedTopType = getCtaFormTypeFromTopDoc(message);
+        const dynamicFormCtas = getDynamicFormCtaDefinitions(
+          message,
+          formDefinitions,
+          hardcodedTopType
+        );
 
         return (
           <div
@@ -298,6 +360,40 @@ const MessageList: React.FC<MessageListProps> = ({
                 </button>
               </div>
             )}
+            {message.role === 'assistant' &&
+              !wizardOpen &&
+              dynamicFormCtas.length > 0 &&
+              onOpenDynamicForm != null && (
+                <div
+                  style={{
+                    marginTop: '8px',
+                    display: 'flex',
+                    gap: '8px',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {dynamicFormCtas.map((def) => (
+                    <button
+                      key={def.id}
+                      type="button"
+                      onClick={() => onOpenDynamicForm(def)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '20px',
+                        border: 'none',
+                        backgroundColor: '#0b3a6e',
+                        color: 'white',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Ispunite zahtjev: {def.name} →
+                    </button>
+                  ))}
+                </div>
+              )}
           </div>
         );
       })}

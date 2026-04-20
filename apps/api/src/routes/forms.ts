@@ -1,7 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../db/supabase.js';
 import { generateReferenceNumber } from '../forms/referenceNumber.js';
-import { generateFormPdf, type FormType } from '../forms/generateFormPdf.js';
+import {
+  generateFormPdf,
+  type FormType,
+  type GenerateFormPdfParams,
+} from '../forms/generateFormPdf.js';
 
 const ALLOWED_TYPES: FormType[] = ['novorodeno_dijete', 'jednokratna_novcana_pomoc'];
 const MAX_REF_RETRIES = 3;
@@ -14,8 +18,9 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as con
 
 interface SubmitBody {
   city_slug: string;
-  type: string;
+  type?: string;
   data: Record<string, unknown>;
+  form_definition_id?: string;
   /** When provided, submit updates this draft instead of creating a new row. */
   reference_number?: string;
   /** Enabled attachment category keys; each must have >= 1 file when reference_number is used. */
@@ -24,9 +29,97 @@ interface SubmitBody {
 
 interface DraftBody {
   city_slug: string;
-  type: string;
+  type?: string;
   data_json?: Record<string, unknown>;
+  form_definition_id?: string;
 }
+
+async function resolveCityIdBySlugOrCode(citySlug: string) {
+  const slug = citySlug.trim();
+  let { data: city, error: cityError } = await supabase
+    .from('cities')
+    .select('id')
+    .eq('slug', slug)
+    .single();
+  if (cityError || !city) {
+    const { data: cityByCode, error: codeError } = await supabase
+      .from('cities')
+      .select('id')
+      .eq('code', slug.toUpperCase())
+      .single();
+    if (codeError || !cityByCode) {
+      return null;
+    }
+    city = cityByCode;
+  }
+  return city;
+}
+
+function mapDefinitionFieldsForPdf(raw: unknown): Array<{ id: string; label: string; type: string }> {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (item): item is { id: string; label: string; type: string } =>
+        item != null &&
+        typeof item === 'object' &&
+        typeof (item as { id: unknown }).id === 'string' &&
+        typeof (item as { label: unknown }).label === 'string' &&
+        typeof (item as { type: unknown }).type === 'string'
+    )
+    .map((item) => ({
+      id: item.id,
+      label: item.label,
+      type: item.type,
+    }));
+}
+
+function mapDefinitionAttachmentsForPdf(
+  raw: unknown
+): Array<{ id: string; label: string; description: string; required: boolean }> {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (item): item is { id: string; label: string; description?: unknown; required?: boolean } =>
+        item != null &&
+        typeof item === 'object' &&
+        typeof (item as { id: unknown }).id === 'string' &&
+        typeof (item as { label: unknown }).label === 'string'
+    )
+    .map((item) => ({
+      id: item.id,
+      label: item.label,
+      description: typeof item.description === 'string' ? item.description : '',
+      required: Boolean(item.required),
+    }));
+}
+
+async function resolveActiveFormDefinition(formDefinitionId: string, cityId: string) {
+  const { data: definition, error: defError } = await supabase
+    .from('form_definitions')
+    .select('id, city_id, slug')
+    .eq('id', formDefinitionId)
+    .eq('is_active', true)
+    .single();
+
+  if (defError || !definition || definition.city_id !== cityId) {
+    return null;
+  }
+
+  return definition;
+}
+
+/** One row in the JSON array returned by GET /forms/definitions/:citySlug */
+export interface FormDefinitionPublic {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  fields: unknown[];
+  required_attachments: unknown[];
+  trigger_doc_slugs: string[];
+}
+
+export type FormDefinitionsByCityResponse = FormDefinitionPublic[];
 
 /**
  * Form request status lifecycle (for regression/documentation):
@@ -43,18 +136,17 @@ export async function formsSubmitHandler(
   reply: FastifyReply
 ) {
   const body = request.body || {};
-  const { city_slug: citySlug, type, data, reference_number: draftRef, attachments_enabled_categories: enabledCategories } = body;
+  const {
+    city_slug: citySlug,
+    type,
+    data,
+    form_definition_id: formDefinitionId,
+    reference_number: draftRef,
+    attachments_enabled_categories: enabledCategories,
+  } = body;
 
   if (!citySlug || typeof citySlug !== 'string' || !citySlug.trim()) {
     return reply.status(400).send({ error: 'city_slug is required' });
-  }
-  if (!type || typeof type !== 'string') {
-    return reply.status(400).send({ error: 'type is required' });
-  }
-  if (!ALLOWED_TYPES.includes(type as FormType)) {
-    return reply.status(400).send({
-      error: 'Invalid type. Allowed: novorodeno_dijete, jednokratna_novcana_pomoc',
-    });
   }
   if (data == null || typeof data !== 'object' || Array.isArray(data)) {
     return reply.status(400).send({ error: 'data must be a non-null object' });
@@ -63,6 +155,35 @@ export async function formsSubmitHandler(
   const slug = citySlug.trim();
   let reference_number: string | null = null;
   let city: { id: string } | null = null;
+  let resolvedType = '';
+  let resolvedFormDefinitionId: string | null = null;
+
+  city = await resolveCityIdBySlugOrCode(slug);
+  if (!city) {
+    return reply.status(400).send({ error: 'City not found' });
+  }
+
+  if (formDefinitionId != null) {
+    if (typeof formDefinitionId !== 'string' || !formDefinitionId.trim()) {
+      return reply.status(400).send({ error: 'form_definition_id must be a UUID string' });
+    }
+    const definition = await resolveActiveFormDefinition(formDefinitionId.trim(), city.id);
+    if (!definition) {
+      return reply.status(404).send({ error: 'Form definition not found' });
+    }
+    resolvedType = definition.slug;
+    resolvedFormDefinitionId = definition.id;
+  } else {
+    if (!type || typeof type !== 'string') {
+      return reply.status(400).send({ error: 'type is required' });
+    }
+    if (!ALLOWED_TYPES.includes(type as FormType)) {
+      return reply.status(400).send({
+        error: 'Invalid type. Allowed: novorodeno_dijete, jednokratna_novcana_pomoc',
+      });
+    }
+    resolvedType = type;
+  }
 
   // --- Draft path: update existing row (draft -> processing -> submitted/failed) ---
   if (draftRef && typeof draftRef === 'string' && draftRef.trim()) {
@@ -103,7 +224,9 @@ export async function formsSubmitHandler(
       .from('form_requests')
       .update({
         status: 'processing',
+        type: resolvedType,
         data_json: data,
+        form_definition_id: resolvedFormDefinitionId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', existing.id);
@@ -116,33 +239,16 @@ export async function formsSubmitHandler(
     reference_number = refTrimmed;
     city = { id: existing.city_id };
   } else {
-    // --- New submission path: resolve city and create new row ---
-    let { data: cityRow, error: cityError } = await supabase
-      .from('cities')
-      .select('id')
-      .eq('slug', slug)
-      .single();
-    if (cityError || !cityRow) {
-      const { data: cityByCode, error: codeError } = await supabase
-        .from('cities')
-        .select('id')
-        .eq('code', slug.toUpperCase())
-        .single();
-      if (codeError || !cityByCode) {
-        return reply.status(400).send({ error: 'City not found' });
-      }
-      cityRow = cityByCode;
-    }
-    city = cityRow;
-
+    // --- New submission path: create new row ---
     let lastInsertError: unknown = null;
     for (let attempt = 0; attempt < MAX_REF_RETRIES; attempt++) {
-      reference_number = generateReferenceNumber(slug, type);
+      reference_number = generateReferenceNumber(slug, resolvedType);
       const { data: row, error: insertError } = await supabase
         .from('form_requests')
         .insert({
           city_id: city.id,
-          type,
+          type: resolvedType,
+          form_definition_id: resolvedFormDefinitionId,
           status: 'processing',
           reference_number,
           data_json: data,
@@ -185,7 +291,48 @@ export async function formsSubmitHandler(
       ...data,
       meta: { ...(data.meta && typeof data.meta === 'object' ? data.meta : {}), ref_broj: reference_number },
     };
-    const pdfBuffer = await generateFormPdf(type as FormType, dataWithRef);
+    const dataWithRefRecord = dataWithRef as Record<string, unknown>;
+
+    let pdfParams: GenerateFormPdfParams = {
+      type: resolvedType,
+      data: dataWithRefRecord,
+      referenceNumber: reference_number!,
+    };
+
+    if (resolvedFormDefinitionId) {
+      const { data: defRow, error: defFetchErr } = await supabase
+        .from('form_definitions')
+        .select('name, fields, required_attachments')
+        .eq('id', resolvedFormDefinitionId)
+        .single();
+
+      if (defFetchErr || !defRow) {
+        request.log.error({ err: defFetchErr }, 'form_definitions fetch for PDF failed');
+        throw new Error('Failed to load form definition for PDF');
+      }
+
+      const { data: cityRow, error: cityFetchErr } = await supabase
+        .from('cities')
+        .select('name')
+        .eq('id', city.id)
+        .single();
+
+      if (cityFetchErr) {
+        request.log.error({ err: cityFetchErr }, 'cities fetch for PDF failed');
+      }
+
+      pdfParams = {
+        ...pdfParams,
+        formDefinition: {
+          name: defRow.name != null ? String(defRow.name) : '',
+          fields: mapDefinitionFieldsForPdf(defRow.fields),
+          requiredAttachments: mapDefinitionAttachmentsForPdf(defRow.required_attachments),
+        },
+        cityName: cityRow?.name != null ? String(cityRow.name) : '',
+      };
+    }
+
+    const pdfBuffer = await generateFormPdf(pdfParams);
     const pdf_base64 = pdfBuffer.toString('base64');
 
     const { error: updateError } = await supabase
@@ -242,37 +389,40 @@ export async function formsDraftHandler(
   reply: FastifyReply
 ) {
   const body = request.body || {};
-  const { city_slug: citySlug, type, data_json } = body;
+  const { city_slug: citySlug, type, data_json, form_definition_id: formDefinitionId } = body;
 
   if (!citySlug || typeof citySlug !== 'string' || !citySlug.trim()) {
     return reply.status(400).send({ error: 'city_slug is required' });
   }
-  if (!type || typeof type !== 'string') {
-    return reply.status(400).send({ error: 'type is required' });
-  }
-  if (!ALLOWED_TYPES.includes(type as FormType)) {
-    return reply.status(400).send({
-      error: 'Invalid type. Allowed: novorodeno_dijete, jednokratna_novcana_pomoc',
-    });
-  }
 
   const slug = citySlug.trim();
-  // Resolve city: slug first, then code (same as submit).
-  let { data: city, error: cityError } = await supabase
-    .from('cities')
-    .select('id')
-    .eq('slug', slug)
-    .single();
-  if (cityError || !city) {
-    const { data: cityByCode, error: codeError } = await supabase
-      .from('cities')
-      .select('id')
-      .eq('code', slug.toUpperCase())
-      .single();
-    if (codeError || !cityByCode) {
-      return reply.status(400).send({ error: 'City not found' });
+  const city = await resolveCityIdBySlugOrCode(slug);
+  if (!city) {
+    return reply.status(400).send({ error: 'City not found' });
+  }
+
+  let resolvedType = '';
+  let resolvedFormDefinitionId: string | null = null;
+  if (formDefinitionId != null) {
+    if (typeof formDefinitionId !== 'string' || !formDefinitionId.trim()) {
+      return reply.status(400).send({ error: 'form_definition_id must be a UUID string' });
     }
-    city = cityByCode;
+    const definition = await resolveActiveFormDefinition(formDefinitionId.trim(), city.id);
+    if (!definition) {
+      return reply.status(404).send({ error: 'Form definition not found' });
+    }
+    resolvedType = definition.slug;
+    resolvedFormDefinitionId = definition.id;
+  } else {
+    if (!type || typeof type !== 'string') {
+      return reply.status(400).send({ error: 'type is required' });
+    }
+    if (!ALLOWED_TYPES.includes(type as FormType)) {
+      return reply.status(400).send({
+        error: 'Invalid type. Allowed: novorodeno_dijete, jednokratna_novcana_pomoc',
+      });
+    }
+    resolvedType = type;
   }
 
   const dataJson = data_json != null && typeof data_json === 'object' && !Array.isArray(data_json)
@@ -284,13 +434,14 @@ export async function formsDraftHandler(
   let lastInsertError: unknown = null;
 
   for (let attempt = 0; attempt < MAX_REF_RETRIES; attempt++) {
-    reference_number = generateReferenceNumber(slug, type);
+    reference_number = generateReferenceNumber(slug, resolvedType);
 
     const { data: row, error: insertError } = await supabase
       .from('form_requests')
       .insert({
         city_id: city.id,
-        type,
+        type: resolvedType,
+        form_definition_id: resolvedFormDefinitionId,
         status: 'draft',
         reference_number,
         data_json: dataJson,
@@ -327,6 +478,63 @@ export async function formsDraftHandler(
     reference_number,
     status: 'draft',
   });
+}
+
+/**
+ * GET /forms/definitions/:citySlug
+ * Public: active form definitions for a city (resolved by slug, then code — same as submit/draft).
+ */
+export async function getFormDefinitionsByCitySlugHandler(
+  request: FastifyRequest<{ Params: { citySlug: string } }>,
+  reply: FastifyReply
+) {
+  const raw = request.params.citySlug;
+  if (!raw || typeof raw !== 'string' || !raw.trim()) {
+    return reply.status(404).send({ error: 'Not found' });
+  }
+
+  const slug = raw.trim();
+  let { data: city, error: cityError } = await supabase
+    .from('cities')
+    .select('id')
+    .eq('slug', slug)
+    .single();
+  if (cityError || !city) {
+    const { data: cityByCode, error: codeError } = await supabase
+      .from('cities')
+      .select('id')
+      .eq('code', slug.toUpperCase())
+      .single();
+    if (codeError || !cityByCode) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+    city = cityByCode;
+  }
+
+  const { data: rows, error: defError } = await supabase
+    .from('form_definitions')
+    .select('id, name, slug, description, fields, required_attachments, trigger_doc_slugs')
+    .eq('city_id', city.id)
+    .eq('is_active', true);
+
+  if (defError) {
+    request.log.error({ err: defError }, 'form_definitions query failed');
+    return reply.status(500).send({ error: 'Unexpected error' });
+  }
+
+  const body: FormDefinitionsByCityResponse = (rows ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description ?? null,
+    fields: Array.isArray(row.fields) ? row.fields : [],
+    required_attachments: Array.isArray(row.required_attachments) ? row.required_attachments : [],
+    trigger_doc_slugs: Array.isArray(row.trigger_doc_slugs)
+      ? row.trigger_doc_slugs.filter((s): s is string => typeof s === 'string')
+      : [],
+  }));
+
+  return reply.send(body);
 }
 
 /**
@@ -554,6 +762,7 @@ export async function getFormPdfHandler(
 export async function registerFormsRoutes(server: FastifyInstance) {
   server.post('/forms/submit', formsSubmitHandler);
   server.post('/forms/draft', formsDraftHandler);
+  server.get('/forms/definitions/:citySlug', getFormDefinitionsByCitySlugHandler);
   server.get('/forms/:reference_number/pdf', getFormPdfHandler);
   server.post('/forms/:reference_number/attachments', formsAttachmentsUploadHandler);
 }

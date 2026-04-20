@@ -1,9 +1,10 @@
-import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
+import React, { useState, useRef, KeyboardEvent } from 'react';
 import MessageList, { Message, type FormCtaType } from './MessageList';
 import ContactHandoff, { ContactData } from './ContactHandoff';
 import TicketIntakeForm, { TicketIntakeData } from './TicketIntakeForm';
 import NovorodenoDijeteWizard, { type NovorodenoDijeteFormData } from './NovorodenoDijeteWizard';
 import JednokratnaNovcanaPomocWizard, { type JednokratnaNovcanaPomocFormData } from './JednokratnaNovcanaPomocWizard';
+import DynamicFormWizard, { type FormDefinitionPublic } from './DynamicFormWizard';
 import { t } from '../i18n';
 import type { Ticket } from '../../analytics/tickets';
 
@@ -44,6 +45,11 @@ interface ChatPanelProps {
   onJednokratnaSubmit?: (data: JednokratnaNovcanaPomocFormData) => Promise<{ reference_number?: string; error?: string }>;
   onJednokratnaSuccess?: (referenceNumber: string) => void;
   onJednokratnaOdustani?: () => void;
+  formDefinitions?: FormDefinitionPublic[];
+  activeDynamicForm?: FormDefinitionPublic | null;
+  onOpenDynamicForm?: (definition: FormDefinitionPublic) => void;
+  onCloseDynamicForm?: () => void;
+  onDynamicFormSuccess?: (pdfUrl: string) => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -83,6 +89,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onJednokratnaSubmit,
   onJednokratnaSuccess,
   onJednokratnaOdustani,
+  formDefinitions = [],
+  activeDynamicForm = null,
+  onOpenDynamicForm,
+  onCloseDynamicForm,
+  onDynamicFormSuccess,
 }) => {
   const [inputText, setInputText] = useState('');
   const [handoffDismissed, setHandoffDismissed] = useState(false);
@@ -299,7 +310,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           lang={lang}
           ctaDismissed={ctaDismissed}
           ctaDismissedJednokratna={ctaDismissedJednokratna}
-          activeForm={activeForm}
+          wizardOpen={Boolean(activeForm) || Boolean(activeDynamicForm)}
+          formDefinitions={formDefinitions}
+          onOpenDynamicForm={onOpenDynamicForm}
           onCtaDismiss={onCtaDismiss}
           onCtaSubmit={onCtaSubmit}
         />
@@ -335,6 +348,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             onOdustani={onJednokratnaOdustani}
             apiBaseUrl={apiBaseUrl}
             citySlug={cityId}
+          />
+        )}
+
+        {activeDynamicForm && apiBaseUrl?.trim() && onCloseDynamicForm && onDynamicFormSuccess && (
+          <DynamicFormWizard
+            definition={activeDynamicForm}
+            citySlug={cityId}
+            apiBase={apiBaseUrl.replace(/\/$/, '')}
+            onClose={onCloseDynamicForm}
+            onSuccess={onDynamicFormSuccess}
+            lang={lang}
+            primaryColor={primaryColor}
           />
         )}
 

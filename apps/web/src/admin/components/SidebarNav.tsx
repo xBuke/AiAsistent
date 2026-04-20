@@ -6,6 +6,7 @@ export type AdminTabId =
   | 'Svi razgovori'
   | 'Reports'
   | 'Obrasci'
+  | 'Postavke formi'
   | 'Dokumenti'
   | 'Korisnici';
 
@@ -13,6 +14,7 @@ const NAV_ITEMS: { id: AdminTabId; label: string }[] = [
   { id: 'Svi razgovori', label: 'Konverzacije' },
   { id: 'Ticketi', label: 'Ticketi' },
   { id: 'Obrasci', label: 'Forme' },
+  { id: 'Postavke formi', label: 'Postavke formi' },
   { id: 'Dokumenti', label: 'Dokumenti' },
   { id: 'Dashboard', label: 'Knowledge Gaps' },
   { id: 'Reports', label: 'Izvještaji' },
@@ -20,7 +22,7 @@ const NAV_ITEMS: { id: AdminTabId; label: string }[] = [
 ];
 
 const ROLE_VISIBLE_TABS: Record<Exclude<AdminRole, 'superadmin'>, AdminTabId[]> = {
-  admin: ['Svi razgovori', 'Ticketi', 'Obrasci', 'Dokumenti', 'Dashboard', 'Reports', 'Korisnici'],
+  admin: ['Svi razgovori', 'Ticketi', 'Obrasci', 'Postavke formi', 'Dokumenti', 'Dashboard', 'Reports', 'Korisnici'],
   inbox: ['Ticketi', 'Obrasci'],
   conversations: ['Svi razgovori'],
   forms: ['Obrasci'],
@@ -62,6 +64,13 @@ function NavIcon({ tabId }: { tabId: AdminTabId }) {
           <path d="M7 3h7l5 5v13a1 1 0 01-1 1H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
           <path d="M14 3v5h5" />
           <path d="M9 13h6M9 17h6" />
+        </svg>
+      );
+    case 'Postavke formi':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 21h16M6 21V8l6-4 6 4v13" />
+          <path d="M6 12h12M6 16h12" />
         </svg>
       );
     case 'Dokumenti':

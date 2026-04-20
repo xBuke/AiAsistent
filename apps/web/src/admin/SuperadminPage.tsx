@@ -6,6 +6,7 @@ import {
   type AdminRole,
   type SuperadminCity,
 } from './api/adminClient';
+import { FormDefinitions } from './FormDefinitions';
 
 type CityUserRole = Exclude<AdminRole, 'superadmin'>;
 type SuperadminCityView = SuperadminCity & { allowed_domains: string[]; code?: string };
@@ -76,6 +77,7 @@ export function SuperadminPage({ onLogout }: SuperadminPageProps) {
   const [cityDomainDrafts, setCityDomainDrafts] = useState<Record<string, string>>({});
   const [savingCityDomains, setSavingCityDomains] = useState<Record<string, boolean>>({});
   const [copiedCity, setCopiedCity] = useState('');
+  const [formsCityId, setFormsCityId] = useState('');
 
   const citiesSorted = useMemo(() => [...cities].sort((a, b) => a.name.localeCompare(b.name, 'hr')), [cities]);
 
@@ -278,6 +280,35 @@ export function SuperadminPage({ onLogout }: SuperadminPageProps) {
           Odjava
         </button>
       </header>
+
+      <section
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 16,
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Forme</h2>
+        <label style={{ display: 'block', marginBottom: 12, color: 'var(--text-primary)', fontSize: 14 }}>
+          Grad
+          <select
+            className="admin-select"
+            value={formsCityId}
+            onChange={(e) => setFormsCityId(e.target.value)}
+            style={{ display: 'block', width: '100%', maxWidth: 420, marginTop: 8 }}
+          >
+            <option value="">— odaberite grad —</option>
+            {citiesSorted.map((city) => (
+              <option key={city.id} value={city.id}>
+                {city.name} ({city.slug})
+              </option>
+            ))}
+          </select>
+        </label>
+        <FormDefinitions variant="superadmin" superadminCityId={formsCityId || null} />
+      </section>
 
       <section
         style={{
