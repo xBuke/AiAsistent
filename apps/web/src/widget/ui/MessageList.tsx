@@ -63,33 +63,33 @@ function slugConflictsWithHardcoded(
   return false;
 }
 
-function getDynamicFormCtaDefinitions(
+/**
+ * Single best dynamic CTA: first form definition that matches the highest-ranked doc
+ * (lowest index in retrieved_docs_top3). If several definitions match that same doc,
+ * the first in formDefinitions order wins. At most one CTA per message.
+ */
+function getBestDynamicFormCtaDefinition(
   message: Message,
   formDefinitions: FormDefinitionPublic[],
   hardcodedTopType: FormCtaType | null
-): FormDefinitionPublic[] {
-  if (message.role !== 'assistant' || formDefinitions.length === 0) return [];
+): FormDefinitionPublic | null {
+  if (message.role !== 'assistant' || formDefinitions.length === 0) return null;
   const docs = message.metadata?.retrieved_docs_top3 ?? [];
-  if (!Array.isArray(docs) || docs.length === 0) return [];
-  const bases = new Set<string>();
-  for (const doc of docs) {
-    const b = normalizeTitle(docFilenameBase(doc));
-    if (b) bases.add(b);
-  }
-  if (bases.size === 0) return [];
-  const seen = new Set<string>();
-  const out: FormDefinitionPublic[] = [];
-  for (const def of formDefinitions) {
-    if (slugConflictsWithHardcoded(def.slug, hardcodedTopType)) continue;
-    const slugs = (def.triggerDocSlugs ?? []).map((s) => normalizeTitle(s)).filter(Boolean);
-    if (slugs.length === 0) continue;
-    const hit = [...bases].some((base) => slugs.some((s) => s === base));
-    if (hit && !seen.has(def.id)) {
-      seen.add(def.id);
-      out.push(def);
+  if (!Array.isArray(docs) || docs.length === 0) return null;
+
+  for (let i = 0; i < docs.length; i++) {
+    const base = normalizeTitle(docFilenameBase(docs[i]));
+    if (!base) continue;
+    for (const def of formDefinitions) {
+      if (slugConflictsWithHardcoded(def.slug, hardcodedTopType)) continue;
+      const slugs = (def.triggerDocSlugs ?? []).map((s) => normalizeTitle(s)).filter(Boolean);
+      if (slugs.length === 0) continue;
+      if (slugs.some((s) => s === base)) {
+        return def;
+      }
     }
   }
-  return out;
+  return null;
 }
 
 interface MessageListProps {
@@ -169,7 +169,7 @@ const MessageList: React.FC<MessageListProps> = ({
         const hasCitations = Array.isArray(docs) && docs.length > 0;
         const isCitationsOpen = openCitationsId === message.id;
         const hardcodedTopType = getCtaFormTypeFromTopDoc(message);
-        const dynamicFormCtas = getDynamicFormCtaDefinitions(
+        const dynamicFormCta = getBestDynamicFormCtaDefinition(
           message,
           formDefinitions,
           hardcodedTopType
@@ -362,7 +362,7 @@ const MessageList: React.FC<MessageListProps> = ({
             )}
             {message.role === 'assistant' &&
               !wizardOpen &&
-              dynamicFormCtas.length > 0 &&
+              dynamicFormCta != null &&
               onOpenDynamicForm != null && (
                 <div
                   style={{
@@ -373,25 +373,22 @@ const MessageList: React.FC<MessageListProps> = ({
                     flexWrap: 'wrap',
                   }}
                 >
-                  {dynamicFormCtas.map((def) => (
-                    <button
-                      key={def.id}
-                      type="button"
-                      onClick={() => onOpenDynamicForm(def)}
-                      style={{
-                        padding: '8px 14px',
-                        borderRadius: '20px',
-                        border: 'none',
-                        backgroundColor: '#0b3a6e',
-                        color: 'white',
-                        fontSize: '13px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Ispunite zahtjev: {def.name} →
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => onOpenDynamicForm(dynamicFormCta)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      backgroundColor: '#0b3a6e',
+                      color: 'white',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Ispunite zahtjev: {dynamicFormCta.name} →
+                  </button>
                 </div>
               )}
           </div>

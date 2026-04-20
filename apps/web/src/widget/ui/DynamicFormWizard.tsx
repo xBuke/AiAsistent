@@ -32,6 +32,23 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'] as const;
 const FIELDS_PER_STEP = 3;
 
+/** File required for submit only when definition marks the category required (strict; optional never blocks). */
+function attachmentRequiresFile(att: FormAttachmentPublic): boolean {
+  const raw = att as unknown as { required?: unknown; optional?: unknown };
+  if (raw.optional === true) return false;
+  const v = raw.required;
+  if (v === true) return true;
+  if (v === false || v == null) return false;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === 'false' || s === '0' || s === 'no' || s === '') return false;
+    if (s === 'true' || s === '1' || s === 'yes') return true;
+    return false;
+  }
+  if (typeof v === 'number') return v === 1;
+  return false;
+}
+
 function chunkFields<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) {
@@ -179,7 +196,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
       }
     } else {
       for (const att of definition.requiredAttachments) {
-        if (!att.required) continue;
+        if (!attachmentRequiresFile(att)) continue;
         const file = attachmentFiles[att.id];
         if (!file) {
           e[`att_${att.id}`] = t(lang, 'attachmentsInvalidCategory');
@@ -198,7 +215,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
 
   const canSubmitAttachments = (): boolean => {
     for (const att of definition.requiredAttachments) {
-      if (!att.required) continue;
+      if (!attachmentRequiresFile(att)) continue;
       if (!attachmentFiles[att.id]) return false;
     }
     return true;
@@ -252,12 +269,20 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
 
     try {
       if (!ref) {
+        // POST /forms/draft expects snake_case: city_slug, form_definition_id, data_json (see API).
+        const city_slug = String(citySlug ?? '').trim();
+        const form_definition_id = String(definition.id ?? '').trim();
+        if (!city_slug || !form_definition_id) {
+          setDraftError(t(lang, 'attachmentsDraftError'));
+          setIsSubmitting(false);
+          return;
+        }
         const draftRes = await fetch(`${base}/forms/draft`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            city_slug: citySlug,
-            form_definition_id: definition.id,
+            city_slug,
+            form_definition_id,
             data_json: {},
           }),
         });
@@ -284,7 +309,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
       for (const att of definition.requiredAttachments) {
         const file = attachmentFiles[att.id];
         if (!file) {
-          if (att.required) {
+          if (attachmentRequiresFile(att)) {
             setIsSubmitting(false);
             return;
           }
@@ -318,7 +343,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
       }
 
       for (const att of definition.requiredAttachments) {
-        if (att.required && !enabledCategories.includes(att.id)) {
+        if (attachmentRequiresFile(att) && !enabledCategories.includes(att.id)) {
           setIsSubmitting(false);
           return;
         }
@@ -328,8 +353,8 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          city_slug: citySlug,
-          form_definition_id: definition.id,
+          city_slug: String(citySlug ?? '').trim(),
+          form_definition_id: String(definition.id ?? '').trim(),
           reference_number: ref,
           data: dataPayload,
           attachments_enabled_categories: enabledCategories,
