@@ -135,7 +135,7 @@ export async function chatHandler(
     // Resolve city by slug first, then fallback to code
     let { data: city, error: cityError } = await supabase
       .from('cities')
-      .select('id, code')
+      .select('id, code, name')
       .eq('slug', cityId)
       .single();
 
@@ -143,7 +143,7 @@ export async function chatHandler(
       const derivedCode = cityId.toUpperCase();
       const { data: cityByCode, error: codeError } = await supabase
         .from('cities')
-        .select('id, code')
+        .select('id, code, name')
         .eq('code', derivedCode)
         .single();
       
@@ -405,7 +405,7 @@ export async function chatHandler(
       }
       
       // Deterministic fallback message (no LLM call, no generic answers)
-      const fallbackMessage = 'Nemam dovoljno službenih informacija u dokumentima Grada Ploča da bih pouzdano odgovorio na to pitanje. Možete li ga malo precizirati ili pitati nešto drugo?';
+      const fallbackMessage = `Nemam dovoljno službenih informacija u dokumentima ${city.name} da bih pouzdano odgovorio na to pitanje. Možete li ga malo precizirati ili pitati nešto drugo?`;
       assistantResponse = fallbackMessage;
       
       // Stream fallback message as single chunk (progressive display in UI)
