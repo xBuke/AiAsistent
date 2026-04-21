@@ -433,8 +433,6 @@ export async function chatHandler(
         error_present: false,
       }, 'Fallback response (no documents) - needs_human=false');
       
-      reply.raw.end();
-
         // Log assistant message (fallback case)
         if (conversationUuid) {
           try {
@@ -593,6 +591,7 @@ export async function chatHandler(
           const { data: existingGaps } = await supabase
             .from('knowledge_gaps')
             .select('id, occurrences, question')
+            .eq('city_id', cityUuid)
             .limit(100); // Get recent gaps to check
 
           // Find case-insensitive match
@@ -613,6 +612,7 @@ export async function chatHandler(
               .from('knowledge_gaps')
               .insert({
                 question: message,
+                city_id: cityUuid,
                 occurrences: 1,
                 reason: 'no_sources',
                 status: 'open',
@@ -640,6 +640,7 @@ export async function chatHandler(
       // Note: Removed updateConversationFallback call - it was setting needs_human=true incorrectly
       // needs_human should only be set when classifier/intent explicitly requires it or ticket_intake_submitted
 
+      reply.raw.end();
       return;
     }
 

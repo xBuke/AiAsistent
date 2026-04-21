@@ -5,7 +5,7 @@ import { adminLogin } from './api/adminClient';
 import { getEvents, subscribe } from '../analytics/store';
 import { generateMockEvents } from './mock/events';
 import type { AnalyticsEvent } from '../analytics/types';
-import { Dashboard } from './Dashboard';
+import { KnowledgeGaps } from './KnowledgeGaps';
 import { Conversations } from './Conversations';
 import { Reports } from './Reports';
 import { Inbox } from './Inbox';
@@ -246,7 +246,7 @@ export function AdminApp() {
     >
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {/* Data Source Toggle - only show for Dashboard and Reports, and only if mock is enabled */}
-        {(activeTab === "Dashboard" || activeTab === "Reports") && useMock && (
+        {activeTab === "Reports" && useMock && (
           <div
             style={{
               backgroundColor: '#ffffff',
@@ -303,15 +303,7 @@ export function AdminApp() {
 
         {/* Tab Content */}
         {activeTab === "Dashboard" && (
-          <Dashboard
-            events={events}
-            period={period}
-            onPeriodChange={setPeriod}
-            liveEnabled={liveEnabled}
-            onLiveChange={setLiveEnabled}
-            onViewAllTickets={() => setActiveTab('Ticketi')}
-            onViewAllQuestions={() => setActiveTab('Reports')}
-          />
+          <KnowledgeGaps />
         )}
         {activeTab === "Ticketi" && selectedCityCode && (
           <Inbox

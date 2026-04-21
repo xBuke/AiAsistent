@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import OpenAI from 'openai';
 import { supabase } from '../db/supabase.js';
 import type { FormDefinitionPublic } from './forms.js';
 
@@ -49,6 +50,7 @@ interface FormDefinitionCreateBody {
 type FormDefinitionUpdateBody = Partial<FormDefinitionCreateBody & { is_active: boolean }>;
 
 const FORM_DEFINITION_SLUG_PATTERN = /^[a-z0-9-]+$/;
+const OPENAI_MODEL = 'gpt-4o-mini';
 
 function mapFormDefinitionRow(row: {
   id: string;
@@ -78,6 +80,29 @@ function mapFormDefinitionRow(row: {
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is not set');
+  }
+  return new OpenAI({ apiKey });
+}
+
+function extractJsonArray(raw: string): unknown[] {
+  let jsonText = raw.trim();
+  if (jsonText.startsWith('```')) {
+    const match = jsonText.match(/```(?:json)?\s*(\[[\s\S]*\])\s*```/i);
+    if (match?.[1]) {
+      jsonText = match[1];
+    }
+  }
+  const parsed = JSON.parse(jsonText);
+  if (!Array.isArray(parsed)) {
+    throw new Error('Model response is not a JSON array');
+  }
+  return parsed;
 }
 
 /**
@@ -689,7 +714,7 @@ export async function getKnowledgeGapsListHandler(
     try {
       let gapsQuery = supabase
         .from('knowledge_gaps')
-        .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason')
+        .select('id, question, occurrences, status, last_seen_at, first_seen_at, reason, category')
         .eq('city_id', city.id)
         .gte('last_seen_at', timeFrom.toISOString())
         .lte('last_seen_at', timeTo.toISOString())
@@ -715,6 +740,7 @@ export async function getKnowledgeGapsListHandler(
         status: gap.status || 'open',
         last_seen_at: gap.last_seen_at || gap.first_seen_at,
         reason: gap.reason || null,
+        category: gap.category || null,
       }));
 
       return reply.send(result);
@@ -725,6 +751,182 @@ export async function getKnowledgeGapsListHandler(
       }
       throw error;
     }
+  } catch (error) {
+    request.log.error(error, 'Internal server error');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * POST /admin/knowledge-gaps/categorize
+ * Categorizes uncategorized knowledge gaps using AI
+ */
+export async function postKnowledgeGapsCategorizeHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  try {
+    const city = await resolveCity(session.cityCode);
+    if (!city) {
+      return reply.status(404).send({ error: 'City not found' });
+    }
+
+    const { data: gaps, error: gapsError } = await supabase
+      .from('knowledge_gaps')
+      .select('id, question')
+      .eq('city_id', city.id)
+      .is('category', null);
+
+    if (gapsError) {
+      throw gapsError;
+    }
+
+    if (!gaps || gaps.length === 0) {
+      return reply.send({ categorized: 0, message: 'Nothing to categorize' });
+    }
+
+    const openai = getOpenAIClient();
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are categorizing citizen questions for a Croatian municipality chatbot. Group the following questions into logical categories in Croatian language (e.g. \'Komunalni otpad\', \'Parking\', \'Socijalna pomoć\', \'Građevinske dozvole\', \'Komunalne usluge\', etc). Return ONLY a valid JSON array, no markdown, no explanation:\n[{ "id": "<gap_id>", "category": "<category_label>" }]',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify(
+            gaps.map((gap) => ({
+              id: gap.id,
+              question: gap.question,
+            }))
+          ),
+        },
+      ],
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Empty model response');
+    }
+
+    const parsed = extractJsonArray(content) as Array<{ id?: string; category?: string }>;
+    let categorized = 0;
+
+    for (const item of parsed) {
+      if (!item?.id || typeof item.id !== 'string' || typeof item.category !== 'string') {
+        continue;
+      }
+      const trimmedCategory = item.category.trim();
+      if (!trimmedCategory) {
+        continue;
+      }
+
+      const { error: updateError, count } = await supabase
+        .from('knowledge_gaps')
+        .update({
+          category: trimmedCategory,
+          category_generated_at: new Date().toISOString(),
+        })
+        .eq('id', item.id)
+        .eq('city_id', city.id)
+        .select('id', { count: 'exact', head: true });
+
+      if (updateError) {
+        request.log.warn({ updateError, id: item.id }, 'failed to update knowledge gap category');
+        continue;
+      }
+
+      categorized += count || 0;
+    }
+
+    return reply.send({ categorized });
+  } catch (error) {
+    request.log.error(error, 'Internal server error');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * GET /admin/knowledge-gaps/suggestions
+ * Returns AI suggestions for top categorized gaps
+ */
+export async function getKnowledgeGapsSuggestionsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  try {
+    const city = await resolveCity(session.cityCode);
+    if (!city) {
+      return reply.status(404).send({ error: 'City not found' });
+    }
+
+    const { data: gaps, error: gapsError } = await supabase
+      .from('knowledge_gaps')
+      .select('category, occurrences')
+      .eq('city_id', city.id)
+      .not('category', 'is', null);
+
+    if (gapsError) {
+      throw gapsError;
+    }
+
+    const countsByCategory = new Map<string, number>();
+    for (const gap of gaps || []) {
+      if (!gap.category) {
+        continue;
+      }
+      const current = countsByCategory.get(gap.category) || 0;
+      countsByCategory.set(gap.category, current + (gap.occurrences || 0));
+    }
+
+    const topCategories = Array.from(countsByCategory.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const openai = getOpenAIClient();
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an advisor for a Croatian municipality. Based on frequently asked citizen questions by category, suggest 2-3 specific document additions or improvements. Be concrete. Respond ONLY with valid JSON array, no markdown:\n[{"category": "...", "count": N, "suggestion": "Dodajte dokument o..."}]',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify(topCategories),
+        },
+      ],
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Empty model response');
+    }
+
+    const suggestions = extractJsonArray(content);
+    return reply.send(suggestions);
   } catch (error) {
     request.log.error(error, 'Internal server error');
     return reply.status(500).send({ error: 'Internal server error' });
@@ -1397,6 +1599,8 @@ export async function registerAdminDashboardRoutes(server: FastifyInstance) {
   server.get('/admin/tickets', getTicketsListHandler);
   server.get('/admin/tickets/:id', getTicketDetailHandler);
   server.get('/admin/knowledge-gaps', getKnowledgeGapsListHandler);
+  server.post('/admin/knowledge-gaps/categorize', postKnowledgeGapsCategorizeHandler);
+  server.get('/admin/knowledge-gaps/suggestions', getKnowledgeGapsSuggestionsHandler);
   server.get('/admin/knowledge-gaps/:id', getKnowledgeGapDetailHandler);
   server.get('/admin/questions/examples', getQuestionsExamplesHandler);
   server.get('/admin/forms', getAdminFormsHandler);

@@ -68,7 +68,10 @@ export function Dashboard({
 
   // Fetch dashboard summary
   const loadSummary = useCallback(async () => {
-    if (!cityId) return;
+    if (!cityId) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);

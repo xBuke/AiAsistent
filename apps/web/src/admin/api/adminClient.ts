@@ -452,6 +452,7 @@ export interface DashboardSummary {
     status: string;
     last_seen_at: string;
     reason: string | null;
+    category?: string | null;
   }>;
   charts: {
     questions_per_day: Array<{ date: string; count: number }>;
@@ -580,15 +581,34 @@ export async function fetchQuestionExamples(
 export interface KnowledgeGapDetail {
   id: string;
   question: string;
-  occurrences: number;
+  count?: number;
+  occurrences?: number;
   status: string;
   last_seen_at: string;
+  first_seen_at?: string;
   reason: string | null;
   examples: Array<{
-    content: string;
+    question?: string;
+    content?: string;
     created_at: string;
     conversation_id: string;
   }>;
+}
+
+export interface KnowledgeGapListItem {
+  id: string;
+  question: string;
+  count: number;
+  status: string;
+  last_seen_at: string;
+  reason: string | null;
+  category: string | null;
+}
+
+export interface KnowledgeGapSuggestion {
+  category: string;
+  count: number;
+  suggestion: string;
 }
 
 /**
@@ -600,6 +620,50 @@ export async function fetchKnowledgeGapDetail(id: string): Promise<KnowledgeGapD
     method: 'GET',
   });
   if (!res.ok) throw new Error(`Knowledge gap detail: ${res.status}`);
+  return await res.json();
+}
+
+/**
+ * GET /admin/knowledge-gaps — list knowledge gaps for selected range.
+ */
+export async function fetchKnowledgeGaps(
+  params?: { range?: '7d' | '30d' | '365d' }
+): Promise<KnowledgeGapListItem[]> {
+  const queryParams = new URLSearchParams();
+  if (params?.range) queryParams.set('range', params.range);
+  const queryString = queryParams.toString();
+
+  const res = await fetch(`${BASE}/admin/knowledge-gaps${queryString ? `?${queryString}` : ''}`, {
+    ...defaultOpts,
+    method: 'GET',
+  });
+  if (!res.ok) throw new Error(`Knowledge gaps: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? (data as KnowledgeGapListItem[]) : [];
+}
+
+/**
+ * GET /admin/knowledge-gaps/suggestions — list AI suggestions by category.
+ */
+export async function fetchKnowledgeGapSuggestions(): Promise<KnowledgeGapSuggestion[]> {
+  const res = await fetch(`${BASE}/admin/knowledge-gaps/suggestions`, {
+    ...defaultOpts,
+    method: 'GET',
+  });
+  if (!res.ok) throw new Error(`Knowledge gap suggestions: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? (data as KnowledgeGapSuggestion[]) : [];
+}
+
+/**
+ * POST /admin/knowledge-gaps/categorize — trigger AI categorization job.
+ */
+export async function categorizeKnowledgeGaps(): Promise<{ categorized: number; message?: string }> {
+  const res = await fetch(`${BASE}/admin/knowledge-gaps/categorize`, {
+    ...defaultOpts,
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Knowledge gaps categorize: ${res.status}`);
   return await res.json();
 }
 
