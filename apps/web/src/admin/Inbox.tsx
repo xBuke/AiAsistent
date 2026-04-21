@@ -194,25 +194,25 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       // Store initial values for autosave comparison (only on initial load)
       if (!isBackgroundRefresh) {
         initialConversationRef.current = {
-          status: detail.conversation.status,
-          department: detail.conversation.department,
-          urgent: detail.conversation.is_urgent,
+          status: detail.status,
+          department: detail.department,
+          urgent: detail.is_urgent,
         };
         // Initialize workflow form from detail (in_progress treated as open for dropdown)
         setWorkflowStatus(
-          detail.conversation.status === 'open' ||
-            detail.conversation.status === 'in_progress' ||
-            detail.conversation.status === 'resolved' ||
-            detail.conversation.status === 'closed'
-            ? detail.conversation.status === 'closed'
+          detail.status === 'open' ||
+            detail.status === 'in_progress' ||
+            detail.status === 'resolved' ||
+            detail.status === 'closed'
+            ? detail.status === 'closed'
               ? 'closed'
-              : detail.conversation.status === 'resolved'
+              : detail.status === 'resolved'
                 ? 'resolved'
               : 'open'
             : 'open'
         );
-        setWorkflowDepartment(detail.conversation.department || '');
-        setWorkflowUrgent(detail.conversation.is_urgent || false);
+        setWorkflowDepartment(detail.department || '');
+        setWorkflowUrgent(detail.is_urgent || false);
       }
       setSaveError(null);
       setDetailLoading(false);
@@ -507,10 +507,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         if (!prev) return prev;
         return {
           ...prev,
-          conversation: {
-            ...prev.conversation,
-            status: nextStatus,
-          },
+          status: nextStatus,
         };
       });
 
@@ -549,12 +546,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         if (!prev) return prev;
         return {
           ...prev,
-          conversation: {
-            ...prev.conversation,
-            ...(payload.status !== undefined && { status: payload.status }),
-            ...(payload.department !== undefined && { department: payload.department }),
-            ...(payload.urgent !== undefined && { urgent: payload.urgent }),
-          },
+          ...(payload.status !== undefined && { status: payload.status }),
+          ...(payload.department !== undefined && { department: payload.department }),
+          ...(payload.urgent !== undefined && { is_urgent: payload.urgent }),
         };
       });
       setConversations((prev) =>
@@ -738,7 +732,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
 
     // Virtual ticket card when conversation has a ticket (placed near end by sort)
     if (ticket) {
-      const ticketTime = conversationDetail?.conversation?.last_activity_at ?? conversationDetail?.conversation?.updated_at ?? new Date().toISOString();
+      const ticketTime = conversationDetail?.last_activity_at ?? conversationDetail?.updated_at ?? new Date().toISOString();
       items.push({ type: 'ticket', id: 'ticket-submitted', created_at: ticketTime });
     }
 
@@ -1378,7 +1372,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: '1.2', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {conversationDetail.conversation.title || (selectedTicket ? getConversationTitleFull(selectedTicket) : 'Razgovor')}
+                      {conversationDetail.question || (selectedTicket ? getConversationTitleFull(selectedTicket) : 'Razgovor')}
                     </h2>
                     <button
                       type="button"
@@ -1404,7 +1398,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     </button>
                   </div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                    <span>ID: {conversationDetail.conversation.id.substring(0, 8)}...</span>
+                    <span>ID: {conversationDetail.id.substring(0, 8)}...</span>
                     {selectedTicket?.ticket_ref && <span>Ref: {selectedTicket.ticket_ref}</span>}
                   </div>
                 </div>
@@ -1415,10 +1409,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     fontSize: '0.75rem',
                     fontWeight: 500,
                     flexShrink: 0,
-                    ...getStatusBadgeStyle(conversationDetail.conversation.status),
+                    ...getStatusBadgeStyle(conversationDetail.status),
                   }}
                 >
-                  {getStatusLabel(conversationDetail.conversation.status)}
+                  {getStatusLabel(conversationDetail.status)}
                 </span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '0.375rem', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
@@ -1577,10 +1571,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                             prev
                               ? {
                                   ...prev,
-                                  conversation: {
-                                    ...prev.conversation,
-                                    status: 'spam',
-                                  },
+                                  status: 'spam',
                                 }
                               : prev
                           );
