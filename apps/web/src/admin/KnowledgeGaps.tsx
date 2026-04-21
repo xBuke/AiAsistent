@@ -31,15 +31,30 @@ function showToast(message: string) {
   }, 2000);
 }
 
+const formatCroatianDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const months = [
+    'siječnja',
+    'veljače',
+    'ožujka',
+    'travnja',
+    'svibnja',
+    'lipnja',
+    'srpnja',
+    'kolovoza',
+    'rujna',
+    'listopada',
+    'studenog',
+    'prosinca',
+  ];
+  return `${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}.`;
+};
+
 function toCroatianLongDate(value: string | null | undefined): string {
   if (!value) return '—';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '—';
-  return new Intl.DateTimeFormat('hr-HR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(parsed);
+  return formatCroatianDate(value);
 }
 
 function isToday(value: string | null | undefined): boolean {
@@ -200,18 +215,27 @@ export function KnowledgeGaps() {
             Analiziraj kategorije
           </button>
           <div className="inline-flex rounded-md border border-slate-200 bg-white p-1">
-            {RANGE_BUTTONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setRange(option.value)}
-                className={`rounded px-3 py-1.5 text-sm font-medium transition ${
-                  range === option.value ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
+            {RANGE_BUTTONS.map((option) =>
+              range === option.value ? (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRange(option.value)}
+                  className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition"
+                >
+                  {option.label}
+                </button>
+              ) : (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRange(option.value)}
+                  className="rounded px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  {option.label}
+                </button>
+              )
+            )}
           </div>
         </div>
       </div>
@@ -371,15 +395,15 @@ export function KnowledgeGaps() {
                     <p className="mt-1 text-sm font-medium text-slate-900">{drawerDetail.question}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${
-                        drawerDetail.status === 'resolved'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      {drawerDetail.status === 'resolved' ? 'resolved' : 'open'}
-                    </span>
+                    {drawerDetail.status === 'resolved' ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
+                        resolved
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">
+                        open
+                      </span>
+                    )}
                     <span className="text-xs text-slate-500">
                       Prvo viđeno: {toCroatianLongDate(drawerDetail.first_seen_at)}
                     </span>
