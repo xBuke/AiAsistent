@@ -1542,6 +1542,52 @@ export async function getAdminReportsHandler(
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
+    let reportsQueryResults;
+    try {
+      reportsQueryResults = await Promise.all([
+        supabase
+          .from('conversations')
+          .select('created_at')
+          .eq('city_id', cityUuid)
+          .gte('created_at', since),
+        supabase
+          .from('tickets')
+          .select('status')
+          .eq('city_id', cityUuid)
+          .gte('created_at', since),
+        supabase
+          .from('conversations')
+          .select('category')
+          .eq('city_id', cityUuid)
+          .not('category', 'is', null)
+          .gte('created_at', since),
+        supabase
+          .from('conversations')
+          .select('*', { count: 'exact', head: true })
+          .eq('city_id', cityUuid)
+          .gte('created_at', since),
+        supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('city_id', cityUuid)
+          .gte('created_at', since),
+        supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('city_id', cityUuid)
+          .gte('created_at', since),
+        supabase
+          .from('conversations')
+          .select('fallback_count')
+          .eq('city_id', cityUuid)
+          .gte('created_at', since),
+      ]);
+    } catch (error) {
+      console.error('Reports error:', JSON.stringify(error));
+      request.log.error({ error }, 'admin reports promise all failed');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+
     const [
       { data: conversationsRows, error: conversationsError },
       { data: ticketsRows, error: ticketsError },
@@ -1550,44 +1596,7 @@ export async function getAdminReportsHandler(
       { count: totalMessagesCount, error: totalMessagesError },
       { count: totalTicketsCount, error: totalTicketsError },
       { data: fallbackRows, error: fallbackError },
-    ] = await Promise.all([
-      supabase
-        .from('conversations')
-        .select('created_at')
-        .eq('city_id', cityUuid)
-        .gte('created_at', since),
-      supabase
-        .from('tickets')
-        .select('status')
-        .eq('city_id', cityUuid)
-        .gte('created_at', since),
-      supabase
-        .from('conversations')
-        .select('category')
-        .eq('city_id', cityUuid)
-        .not('category', 'is', null)
-        .gte('created_at', since),
-      supabase
-        .from('conversations')
-        .select('*', { count: 'exact', head: true })
-        .eq('city_id', cityUuid)
-        .gte('created_at', since),
-      supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('city_id', cityUuid)
-        .gte('created_at', since),
-      supabase
-        .from('tickets')
-        .select('id', { count: 'exact', head: true })
-        .eq('city_id', cityUuid)
-        .gte('created_at', since),
-      supabase
-        .from('conversations')
-        .select('fallback_count')
-        .eq('city_id', cityUuid)
-        .gte('created_at', since),
-    ]);
+    ] = reportsQueryResults;
 
     if (ticketsError) request.log.warn({ error: ticketsError }, 'tickets query error');
     if (totalTicketsError) request.log.warn({ error: totalTicketsError }, 'tickets query error');
