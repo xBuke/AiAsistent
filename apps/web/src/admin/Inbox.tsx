@@ -1035,14 +1035,13 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               type="button"
               onClick={() => setInboxRange('7d')}
               style={{
-                padding: '0.25rem 0.5rem',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                border: '1px solid var(--border-color)',
-                backgroundColor: inboxRange === '7d' ? 'var(--bg-primary)' : 'var(--bg-card)',
-                color: inboxRange === '7d' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                background: inboxRange === '7d' ? '#2563eb' : 'transparent',
+                color: inboxRange === '7d' ? '#fff' : '#6b7280',
+                border: inboxRange === '7d' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                padding: '4px 10px',
+                borderRadius: '4px',
                 cursor: 'pointer',
+                fontSize: '12px',
               }}
             >
               7D
@@ -1051,14 +1050,13 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               type="button"
               onClick={() => setInboxRange('30d')}
               style={{
-                padding: '0.25rem 0.5rem',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                border: '1px solid var(--border-color)',
-                backgroundColor: inboxRange === '30d' ? 'var(--bg-primary)' : 'var(--bg-card)',
-                color: inboxRange === '30d' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                background: inboxRange === '30d' ? '#2563eb' : 'transparent',
+                color: inboxRange === '30d' ? '#fff' : '#6b7280',
+                border: inboxRange === '30d' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                padding: '4px 10px',
+                borderRadius: '4px',
                 cursor: 'pointer',
+                fontSize: '12px',
               }}
             >
               30D
@@ -1067,14 +1065,13 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               type="button"
               onClick={() => setInboxRange('365d')}
               style={{
-                padding: '0.25rem 0.5rem',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                border: '1px solid var(--border-color)',
-                backgroundColor: inboxRange === '365d' ? 'var(--bg-primary)' : 'var(--bg-card)',
-                color: inboxRange === '365d' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                background: inboxRange === '365d' ? '#2563eb' : 'transparent',
+                color: inboxRange === '365d' ? '#fff' : '#6b7280',
+                border: inboxRange === '365d' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                padding: '4px 10px',
+                borderRadius: '4px',
                 cursor: 'pointer',
+                fontSize: '12px',
               }}
             >
               Godišnje

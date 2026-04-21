@@ -160,8 +160,11 @@ export interface ApiInboxItem {
 /**
  * GET /admin/:cityCode/inbox — list tickets from tickets table (single source of truth).
  */
-export async function fetchInbox(cityCode: string): Promise<ApiInboxItem[]> {
-  const res = await fetch(`${BASE}/admin/tickets`, {
+export async function fetchInbox(
+  cityCode: string,
+  range: '7d' | '30d' | '365d' = '365d'
+): Promise<ApiInboxItem[]> {
+  const res = await fetch(`${BASE}/admin/tickets?range=${encodeURIComponent(range)}`, {
     ...defaultOpts,
     method: 'GET',
   });
