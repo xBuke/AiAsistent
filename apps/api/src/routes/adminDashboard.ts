@@ -903,6 +903,37 @@ export async function getKnowledgeGapsSuggestionsHandler(
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
+    const categoriesWithExamples: Array<{
+      category: string;
+      count: number;
+      example_questions: string[];
+    }> = [];
+
+    for (const topCategory of topCategories) {
+      const { data: exampleGaps, error: exampleGapsError } = await supabase
+        .from('knowledge_gaps')
+        .select('question')
+        .eq('city_id', city.id)
+        .eq('category', topCategory.category)
+        .not('question', 'is', null)
+        .order('occurrences', { ascending: false })
+        .limit(3);
+
+      if (exampleGapsError) {
+        throw exampleGapsError;
+      }
+
+      const exampleQuestions = (exampleGaps || [])
+        .map((gap) => (gap.question || '').trim())
+        .filter((question) => question.length > 0);
+
+      categoriesWithExamples.push({
+        category: topCategory.category,
+        count: topCategory.count,
+        example_questions: exampleQuestions,
+      });
+    }
+
     const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: OPENAI_MODEL,
@@ -911,11 +942,11 @@ export async function getKnowledgeGapsSuggestionsHandler(
         {
           role: 'system',
           content:
-            'You are an advisor for a Croatian municipality. Based on frequently asked citizen questions by category, suggest 2-3 specific document additions or improvements. Be concrete. Respond ONLY with valid JSON array, no markdown:\n[{"category": "...", "count": N, "suggestion": "Dodajte dokument o..."}]',
+            'You are an advisor for a Croatian municipality chatbot. Based on the actual citizen questions that the chatbot could not answer, suggest 2-3 specific documents the city should add to its knowledge base. Be concrete and directly reference the question topics. Respond ONLY with valid JSON array, no markdown:\n[{"category": "...", "count": N, "suggestion": "Dodajte dokument o..."}]',
         },
         {
           role: 'user',
-          content: JSON.stringify(topCategories),
+          content: JSON.stringify(categoriesWithExamples),
         },
       ],
     });
