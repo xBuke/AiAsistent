@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { adminLogin } from './api/adminClient';
@@ -14,36 +14,12 @@ import { FormDefinitions } from './FormDefinitions';
 import { DocumentsPage } from './DocumentsPage';
 import { UsersPage } from './UsersPage';
 import { SuperadminPage } from './SuperadminPage';
-import { Filters } from './components/Filters';
 import { AdminShell } from './components/AdminShell';
 import { getVisibleTabsForRole, type AdminTabId } from './components/SidebarNav';
 import type { PeriodOption } from './components/TopHeader';
-import { filterEvents, getAllCategories, type FilterState } from './utils/analytics';
 import type { AdminRole } from './api/adminClient';
 
 type DataSource = "Mock" | "Live" | "Combined";
-
-interface ReportsTabContentProps {
-  events: AnalyticsEvent[];
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
-}
-
-function ReportsTabContent({ events, filters, onFiltersChange }: ReportsTabContentProps) {
-  const allCategories = useMemo(() => getAllCategories(events), [events]);
-  const filteredEvents = useMemo(() => filterEvents(events, filters), [events, filters]);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <Filters
-        filters={filters}
-        onFiltersChange={onFiltersChange}
-        categories={allCategories}
-      />
-      <Reports events={filteredEvents} filters={filters} />
-    </div>
-  );
-}
 
 export function AdminApp() {
   const { cityCode } = useParams<{ cityCode?: string }>();
@@ -60,11 +36,6 @@ export function AdminApp() {
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("Ticketi");
   const [period, setPeriod] = useState<PeriodOption>('7D');
-  const [reportsFilters, setReportsFilters] = useState<FilterState>({
-    dateRange: '7d',
-    category: 'All',
-    searchQuery: '',
-  });
   const [conversationsReloadTrigger, setConversationsReloadTrigger] = useState(0);
 
   // Live polling toggle - persisted per city in localStorage
@@ -323,9 +294,7 @@ export function AdminApp() {
             reloadTrigger={conversationsReloadTrigger}
           />
         )}
-        {activeTab === "Reports" && (
-          <ReportsTabContent events={events} filters={reportsFilters} onFiltersChange={setReportsFilters} />
-        )}
+        {activeTab === "Reports" && <Reports />}
         {activeTab === "Obrasci" && <Forms />}
         {activeTab === "Postavke formi" && <FormDefinitions />}
         {activeTab === "Dokumenti" && selectedCityCode && <DocumentsPage cityId={selectedCityCode} />}

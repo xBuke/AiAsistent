@@ -31,6 +31,10 @@ interface QuestionsExamplesQuery {
   range?: '24h' | '7d' | '30d';
 }
 
+interface AdminReportsQuery {
+  range?: '7d' | '30d' | '365d';
+}
+
 interface FormDefinitionAdmin extends FormDefinitionPublic {
   city_id: string;
   is_active: boolean;
@@ -1119,6 +1123,176 @@ export async function getQuestionsExamplesHandler(
 }
 
 /**
+ * GET /admin/reports
+ * Returns aggregated reports data for the current admin city.
+ */
+export async function getAdminReportsHandler(
+  request: FastifyRequest<{
+    Querystring: AdminReportsQuery;
+  }>,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const allowedRanges = new Set<AdminReportsQuery['range']>(['7d', '30d', '365d']);
+  const range = request.query.range ?? '30d';
+  if (!allowedRanges.has(range)) {
+    return reply.status(400).send({ error: "range must be one of: '7d', '30d', '365d'" });
+  }
+
+  const rangeToInterval: Record<NonNullable<AdminReportsQuery['range']>, string> = {
+    '7d': '7 days',
+    '30d': '30 days',
+    '365d': '365 days',
+  };
+  const interval = rangeToInterval[range];
+  const days = Number.parseInt(interval.split(' ')[0], 10);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const cityUuid = session.cityId;
+    if (!cityUuid) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    const [
+      { data: conversationsRows, error: conversationsError },
+      { data: ticketsRows, error: ticketsError },
+      { data: categorizedConversationsRows, error: categoriesError },
+      { count: totalConversationsCount, error: totalConversationsError },
+      { count: totalMessagesCount, error: totalMessagesError },
+      { count: totalTicketsCount, error: totalTicketsError },
+      { data: fallbackRows, error: fallbackError },
+    ] = await Promise.all([
+      supabase
+        .from('conversations')
+        .select('created_at')
+        .eq('city_id', cityUuid)
+        .gte('created_at', since),
+      supabase
+        .from('tickets')
+        .select('status')
+        .eq('city_id', cityUuid)
+        .gte('created_at', since),
+      supabase
+        .from('conversations')
+        .select('category')
+        .eq('city_id', cityUuid)
+        .not('category', 'is', null)
+        .gte('created_at', since),
+      supabase
+        .from('conversations')
+        .select('*', { count: 'exact', head: true })
+        .eq('city_id', cityUuid)
+        .gte('created_at', since),
+      supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('city_id', cityUuid)
+        .gte('created_at', since),
+      supabase
+        .from('tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('city_id', cityUuid)
+        .gte('created_at', since),
+      supabase
+        .from('conversations')
+        .select('fallback_count')
+        .eq('city_id', cityUuid)
+        .gte('created_at', since),
+    ]);
+
+    if (
+      conversationsError ||
+      ticketsError ||
+      categoriesError ||
+      totalConversationsError ||
+      totalMessagesError ||
+      totalTicketsError ||
+      fallbackError
+    ) {
+      request.log.error(
+        {
+          conversationsError,
+          ticketsError,
+          categoriesError,
+          totalConversationsError,
+          totalMessagesError,
+          totalTicketsError,
+          fallbackError,
+        },
+        'admin reports queries failed'
+      );
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+
+    const conversationsByDayMap = new Map<string, number>();
+    for (const row of conversationsRows || []) {
+      const date = (row.created_at || '').split('T')[0];
+      if (!date) {
+        continue;
+      }
+      conversationsByDayMap.set(date, (conversationsByDayMap.get(date) || 0) + 1);
+    }
+    const conversations_by_day = Array.from(conversationsByDayMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const ticketStatsMap = new Map<string, number>();
+    for (const row of ticketsRows || []) {
+      const status = row.status || 'unknown';
+      ticketStatsMap.set(status, (ticketStatsMap.get(status) || 0) + 1);
+    }
+    const ticket_stats = Array.from(ticketStatsMap.entries()).map(([status, count]) => ({
+      status,
+      count,
+    }));
+
+    const categoryMap = new Map<string, number>();
+    for (const row of categorizedConversationsRows || []) {
+      const category = row.category;
+      if (!category) {
+        continue;
+      }
+      categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+    }
+    const top_categories = Array.from(categoryMap.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const total_messages = totalMessagesCount || 0;
+    const fallbackTotal = (fallbackRows || []).reduce(
+      (sum, row) => sum + (typeof row.fallback_count === 'number' ? row.fallback_count : 0),
+      0
+    );
+    const fallback_rate =
+      total_messages > 0 ? Math.round((fallbackTotal / total_messages) * 1000) / 10 : 0;
+
+    return reply.send({
+      conversations_by_day,
+      ticket_stats,
+      top_categories,
+      kpis: {
+        total_conversations: totalConversationsCount || 0,
+        total_messages,
+        total_tickets: totalTicketsCount || 0,
+        fallback_rate,
+      },
+    });
+  } catch (error) {
+    request.log.error(error, 'Internal server error');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+}
+
+/**
  * GET /admin/forms
  * Returns latest 50 rows from public.form_requests (reference_number, type, status, created_at).
  * In production, requires admin session; in development, auth is bypassed for local testing.
@@ -1627,6 +1801,7 @@ export async function deleteAdminFormDefinitionsHandler(
  */
 export async function registerAdminDashboardRoutes(server: FastifyInstance) {
   server.get('/admin/dashboard/summary', getDashboardSummaryHandler);
+  server.get('/admin/reports', getAdminReportsHandler);
   server.get('/admin/tickets', getTicketsListHandler);
   server.get('/admin/tickets/:id', getTicketDetailHandler);
   server.get('/admin/knowledge-gaps', getKnowledgeGapsListHandler);
