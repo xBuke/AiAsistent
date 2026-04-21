@@ -123,6 +123,7 @@ export async function chatHandler(
   // Track trace data
   const traceStartTime = Date.now();
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const SIMILARITY_THRESHOLD = 0.45;
   let usedFallback = false;
   let retrievedDocs: Array<{ title: string | null; source: string | null; score: number }> = [];
   let conversationUuid: string | null = null;
@@ -363,6 +364,7 @@ export async function chatHandler(
       reply.raw.end();
       return;
     }
+    documents = documents.filter(doc => (doc.similarity || 0) >= SIMILARITY_THRESHOLD);
     
     const context = buildContext(documents);
 
@@ -387,7 +389,7 @@ export async function chatHandler(
       }, '[DEBUG] Retrieval results and context length');
     }
 
-    // Fallback: if no documents retrieved or all have low similarity
+    // Fallback: no documents retrieved, or all below similarity threshold (${SIMILARITY_THRESHOLD})
     if (documents.length === 0) {
       usedFallback = true;
       
@@ -615,6 +617,7 @@ export async function chatHandler(
                 city_id: cityUuid,
                 occurrences: 1,
                 reason: 'no_sources',
+                confidence: null,
                 status: 'open',
                 first_seen_at: now,
                 last_seen_at: now,
@@ -730,6 +733,49 @@ export async function chatHandler(
           }, {
             onConflict: 'conversation_id,external_id',
           });
+
+        if (confidence === 'low') {
+          // Upsert knowledge gap for low-confidence answers (case-insensitive match)
+          try {
+            const normalizedQuestion = message.trim().toLowerCase();
+            // Search for existing gap with case-insensitive match
+            const { data: existingGaps } = await supabase
+              .from('knowledge_gaps')
+              .select('id, occurrences, question')
+              .eq('city_id', cityUuid)
+              .limit(100); // Get recent gaps to check
+
+            // Find case-insensitive match
+            const existingGap = existingGaps?.find(gap => 
+              (gap.question || '').trim().toLowerCase() === normalizedQuestion
+            );
+
+            if (existingGap) {
+              await supabase
+                .from('knowledge_gaps')
+                .update({
+                  occurrences: (existingGap.occurrences || 1) + 1,
+                  last_seen_at: now,
+                })
+                .eq('id', existingGap.id);
+            } else {
+              await supabase
+                .from('knowledge_gaps')
+                .insert({
+                  question: message,
+                  city_id: cityUuid,
+                  occurrences: 1,
+                  reason: 'low_confidence',
+                  confidence: confidence,
+                  status: 'open',
+                  first_seen_at: now,
+                  last_seen_at: now,
+                });
+            }
+          } catch (error) {
+            request.log.warn({ error, conversationUuid }, 'Failed to upsert knowledge gap (non-fatal, table may not exist)');
+          }
+        }
 
         // Update last_message_at
         await supabase
