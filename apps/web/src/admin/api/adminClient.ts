@@ -135,6 +135,7 @@ export interface ApiConversation {
 /** API inbox item (GET /admin/:cityCode/inbox) - based on tickets table */
 export interface ApiInboxItem {
   conversation_id: string;
+  question?: string | null;
   status: string | null;
   department: string | null;
   urgent: boolean;
@@ -355,7 +356,7 @@ export async function fetchConversationDetail(
   conversationUuid: string
 ): Promise<ApiConversationDetail> {
   const res = await fetch(
-    `${BASE}/admin/${encodeURIComponent(cityCode)}/conversations/${encodeURIComponent(conversationUuid)}`,
+    `${BASE}/admin/tickets/${encodeURIComponent(conversationUuid)}`,
     { ...defaultOpts, method: 'GET' }
   );
   if (!res.ok) throw new Error(`Conversation detail: ${res.status}`);

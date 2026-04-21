@@ -9,7 +9,7 @@ import {
   type PatchConversationBody,
 } from './api/adminClient';
 import { usePolling } from './hooks/usePolling';
-import { formatDateTime, formatMessageTime, formatRelativeTime } from './utils/dateFormat';
+import { formatDateTime, formatMessageTime } from './utils/dateFormat';
 import { DataTable, type DataTableColumn } from './components/DataTable';
 import './Inbox.css';
 
@@ -326,10 +326,8 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
 
   // Ticket title for list primary line: trigger/title first, then first user message, then fallback. No citizen name.
   const getTicketTitle = useCallback((conv: ApiInboxItem): string => {
-    const title = conv.title?.trim();
-    if (title) return title;
-    const first = conv.first_user_message?.trim();
-    if (first) return first;
+    const question = conv.question?.trim();
+    if (question) return question;
     return 'Upit građana';
   }, []);
 
@@ -953,8 +951,22 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             )}
             <div className="inbox-ticket-meta-row">
               <span className="inbox-ticket-status-pill">{getStatusLabel(conv.status)}</span>
-              <span className="inbox-ticket-category-pill">{conv.category ?? '—'}</span>
-              <span className="inbox-ticket-date-pill">{conv.last_activity_at ? formatRelativeTime(conv.last_activity_at) : '—'}</span>
+              {conv.ai_category && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '0.15rem 0.45rem',
+                    borderRadius: '9999px',
+                    fontSize: '0.6875rem',
+                    backgroundColor: '#dbeafe',
+                    color: '#1d4ed8',
+                    fontWeight: 500,
+                  }}
+                >
+                  {conv.ai_category}
+                </span>
+              )}
             </div>
             {getListPreview(conv) && (
               <div className="inbox-ticket-preview">{getListPreview(conv)}</div>
