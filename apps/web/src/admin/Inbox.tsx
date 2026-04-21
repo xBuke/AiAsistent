@@ -40,6 +40,7 @@ interface InboxProps {
 
 type StatusFilter = 'open' | 'closed' | 'all';
 type StatusChip = 'all' | 'open' | 'resolved' | 'spam';
+type InboxRange = '7d' | '30d' | '365d';
 
 // Simple toast notification
 function showToast(message: string) {
@@ -72,6 +73,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const [conversationDetail, setConversationDetail] = useState<ApiConversationDetail | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [statusChip, setStatusChip] = useState<StatusChip>('all');
+  const [inboxRange, setInboxRange] = useState<InboxRange>('365d');
   const [filtersCollapsed, setFiltersCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth < 768;
@@ -160,7 +162,10 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   // Load tickets list (inbox: tickets table is single source of truth)
   const loadConversations = useCallback(async () => {
     try {
-      const list = await fetchInbox(cityCode);
+      const list = await (fetchInbox as unknown as (cityCode: string, range: InboxRange) => Promise<ApiInboxItem[]>)(
+        cityCode,
+        inboxRange
+      );
       setConversations(list as InboxTicket[]);
       setConversationsLoading(false);
       setConversationsError(null);
@@ -170,7 +175,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       setConversationsLoading(false);
       setConversationsError(errorMessage);
     }
-  }, [cityCode]);
+  }, [cityCode, inboxRange]);
 
   // Load conversation detail
   // isBackgroundRefresh: if true, don't show loading spinner (for polling updates)
@@ -1024,6 +1029,56 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             >
               Nepročitano ({unreadCount})
             </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => setInboxRange('7d')}
+              style={{
+                padding: '0.25rem 0.5rem',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid var(--border-color)',
+                backgroundColor: inboxRange === '7d' ? 'var(--bg-primary)' : 'var(--bg-card)',
+                color: inboxRange === '7d' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              7D
+            </button>
+            <button
+              type="button"
+              onClick={() => setInboxRange('30d')}
+              style={{
+                padding: '0.25rem 0.5rem',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid var(--border-color)',
+                backgroundColor: inboxRange === '30d' ? 'var(--bg-primary)' : 'var(--bg-card)',
+                color: inboxRange === '30d' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              30D
+            </button>
+            <button
+              type="button"
+              onClick={() => setInboxRange('365d')}
+              style={{
+                padding: '0.25rem 0.5rem',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid var(--border-color)',
+                backgroundColor: inboxRange === '365d' ? 'var(--bg-primary)' : 'var(--bg-card)',
+                color: inboxRange === '365d' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Godišnje
+            </button>
           </div>
           {/* Search - always visible */}
           <input
