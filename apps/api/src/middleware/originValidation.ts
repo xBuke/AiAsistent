@@ -9,6 +9,9 @@ function isProtectedRoute(request: FastifyRequest): boolean {
   if (request.method === 'GET' && path.startsWith('/forms/definitions/')) {
     return false;
   }
+  if (request.method === 'GET' && path.match(/^\/forms\/[^/]+\/pdf$/)) {
+    return false;
+  }
   return PROTECTED_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
