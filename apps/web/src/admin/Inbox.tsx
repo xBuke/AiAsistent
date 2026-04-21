@@ -321,7 +321,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     if (contactInfo.length > 0) contactParts.push(`(${contactInfo.join(', ')})`);
     if (contactParts.length > 0) return contactParts.join(' ');
     if (conv.title) return conv.title;
-    return `Razgovor ${conv.conversation_id.substring(0, 8)}`;
+    return `Razgovor ${conv.id.substring(0, 8)}`;
   }, []);
 
   // Ticket title for list primary line: trigger/title first, then first user message, then fallback. No citizen name.
@@ -369,7 +369,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((c) => {
-        if (c.conversation_id.toLowerCase().includes(query)) return true;
+        if (c.id.toLowerCase().includes(query)) return true;
         if (c.first_user_message && c.first_user_message.toLowerCase().includes(query)) return true;
         return false;
       });
@@ -411,7 +411,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const unreadCount = useMemo(() => conversations.filter((conv) => !conv.read_at).length, [conversations]);
 
   const selectedTicket = useMemo(
-    () => conversations.find((c) => c.conversation_id === selectedConversationId) ?? null,
+    () => conversations.find((c) => c.id === selectedConversationId) ?? null,
     [conversations, selectedConversationId]
   );
 
@@ -436,7 +436,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   }, []);
 
   const updateTicketLocally = useCallback((conversationId: string, updates: Partial<InboxTicket>) => {
-    setConversations((prev) => prev.map((c) => (c.conversation_id === conversationId ? { ...c, ...updates } : c)));
+    setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, ...updates } : c)));
   }, []);
 
   const runAnalyzeTicket = useCallback(
@@ -464,7 +464,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const handleOpenConversation = useCallback(
     async (conversationId: string) => {
       setSelectedConversationId(conversationId);
-      const openedTicket = conversations.find((c) => c.conversation_id === conversationId);
+      const openedTicket = conversations.find((c) => c.id === conversationId);
       if (openedTicket && !openedTicket.read_at) {
         const readAt = new Date().toISOString();
         updateTicketLocally(conversationId, { read_at: readAt });
@@ -479,11 +479,11 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   );
 
   useEffect(() => {
-    if (!selectedTicket?.conversation_id) return;
+    if (!selectedTicket?.id) return;
     if (selectedTicket.ai_category) return;
-    if (autoAnalyzedIds[selectedTicket.conversation_id]) return;
-    setAutoAnalyzedIds((prev) => ({ ...prev, [selectedTicket.conversation_id]: true }));
-    runAnalyzeTicket(selectedTicket.conversation_id, false);
+    if (autoAnalyzedIds[selectedTicket.id]) return;
+    setAutoAnalyzedIds((prev) => ({ ...prev, [selectedTicket.id]: true }));
+    runAnalyzeTicket(selectedTicket.id, false);
   }, [selectedTicket, autoAnalyzedIds, runAnalyzeTicket]);
 
   const handleStatusChange = useCallback(
@@ -559,7 +559,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       });
       setConversations((prev) =>
         prev.map((c) =>
-          c.conversation_id === selectedConversationId
+          c.id === selectedConversationId
             ? {
                 ...c,
                 ...(payload.status !== undefined && { status: payload.status }),
@@ -1306,7 +1306,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 isLoading={conversationsLoading}
                 emptyMessage="Nema ticketa u inboxu."
                 onRowClick={(row) => {
-                  handleOpenConversation(row.conversation_id);
+                  handleOpenConversation(row.id);
                 }}
               />
             </div>
