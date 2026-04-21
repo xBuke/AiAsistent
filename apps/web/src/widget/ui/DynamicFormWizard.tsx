@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '../i18n';
 
 export interface FormFieldPublic {
@@ -31,23 +31,6 @@ const MAX_ATTACHMENTS_TOTAL = 10;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'] as const;
 const FIELDS_PER_STEP = 3;
-
-/** File required for submit only when definition marks the category required (strict; optional never blocks). */
-function attachmentRequiresFile(att: FormAttachmentPublic): boolean {
-  const raw = att as unknown as { required?: unknown; optional?: unknown };
-  if (raw.optional === true) return false;
-  const v = raw.required;
-  if (v === true) return true;
-  if (v === false || v == null) return false;
-  if (typeof v === 'string') {
-    const s = v.trim().toLowerCase();
-    if (s === 'false' || s === '0' || s === 'no' || s === '') return false;
-    if (s === 'true' || s === '1' || s === 'yes') return true;
-    return false;
-  }
-  if (typeof v === 'number') return v === 1;
-  return false;
-}
 
 function chunkFields<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -196,7 +179,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
       }
     } else {
       for (const att of definition.requiredAttachments) {
-        if (!attachmentRequiresFile(att)) continue;
+        if (att.required !== true) continue;
         const file = attachmentFiles[att.id];
         if (!file) {
           e[`att_${att.id}`] = t(lang, 'attachmentsInvalidCategory');
@@ -215,7 +198,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
 
   const canSubmitAttachments = (): boolean => {
     for (const att of definition.requiredAttachments) {
-      if (!attachmentRequiresFile(att)) continue;
+      if (att.required !== true) continue;
       if (!attachmentFiles[att.id]) return false;
     }
     return true;
@@ -309,7 +292,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
       for (const att of definition.requiredAttachments) {
         const file = attachmentFiles[att.id];
         if (!file) {
-          if (attachmentRequiresFile(att)) {
+          if (att.required === true) {
             setIsSubmitting(false);
             return;
           }
@@ -343,7 +326,7 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
       }
 
       for (const att of definition.requiredAttachments) {
-        if (attachmentRequiresFile(att) && !enabledCategories.includes(att.id)) {
+        if (att.required === true && !enabledCategories.includes(att.id)) {
           setIsSubmitting(false);
           return;
         }
@@ -512,6 +495,18 @@ const DynamicFormWizard: React.FC<DynamicFormWizardProps> = ({
 
   const isAttachmentsStep = stepIndex === attachmentsStepIndex;
   const displayStep = stepIndex + 1;
+
+  useEffect(() => {
+    if (!isAttachmentsStep) return;
+    for (const att of definition.requiredAttachments) {
+      console.log(
+        '[DynamicFormWizard] attachment required debug',
+        att.id,
+        att.required,
+        typeof att.required
+      );
+    }
+  }, [isAttachmentsStep, definition.requiredAttachments]);
 
   return (
     <div style={baseStyle}>

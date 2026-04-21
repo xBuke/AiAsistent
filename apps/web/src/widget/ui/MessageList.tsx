@@ -52,6 +52,16 @@ function docFilenameBase(doc: { title?: unknown; source?: unknown }): string {
   return noPath.replace(/\.[^.]+$/i, '');
 }
 
+function formatSourceFilename(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const noPath = trimmed.replace(/^.*[/\\]/, '');
+  const noExtension = noPath.replace(/\.[^.]+$/i, '');
+  const withSpaces = noExtension.replace(/_/g, ' ');
+  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+}
+
 function slugConflictsWithHardcoded(
   defSlug: string,
   hardcodedTopType: FormCtaType | null
@@ -301,7 +311,7 @@ const MessageList: React.FC<MessageListProps> = ({
                             color: '#333',
                           }}
                         >
-                          {doc.title || 'Bez naslova'}
+                          {formatSourceFilename(doc.title) || 'Bez naslova'}
                         </div>
                         <div
                           style={{
@@ -309,7 +319,7 @@ const MessageList: React.FC<MessageListProps> = ({
                             wordWrap: 'break-word',
                           }}
                         >
-                          {doc.source || 'Izvor nepoznat'}
+                          {formatSourceFilename(doc.source) || 'Službeni dokument'}
                         </div>
                       </div>
                     ))}
