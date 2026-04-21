@@ -463,12 +463,14 @@ export async function formsDraftHandler(
       insertError.code === '23505' ||
       (insertError.message && insertError.message.includes('unique'));
     if (!isUniqueViolation) {
+      console.error('form_requests insert error:', JSON.stringify(insertError));
       request.log.error({ err: insertError }, 'form_requests draft insert failed');
       return reply.status(500).send({ error: 'Failed to create draft' });
     }
   }
 
   if (lastInsertError || reference_number === null || form_request_id === null) {
+    console.error('form_requests insert error:', JSON.stringify(lastInsertError));
     request.log.error({ err: lastInsertError }, 'form_requests draft insert failed after retries');
     return reply.status(500).send({ error: 'Failed to create draft (reference number conflict)' });
   }
