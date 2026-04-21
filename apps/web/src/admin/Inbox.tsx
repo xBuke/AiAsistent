@@ -713,7 +713,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         type: 'message',
         id: msg.id,
         role: msg.role,
-        content: msg.content_redacted,
+        content: msg.content,
         created_at: msg.created_at,
       });
     });

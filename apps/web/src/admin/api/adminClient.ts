@@ -309,7 +309,7 @@ export interface ApiConversationDetail {
   messages: Array<{
     id: string;
     role: string;
-    content_redacted: string | null;
+    content: string | null;
     created_at: string;
     external_id: string | null;
     metadata: unknown | null;
@@ -418,12 +418,17 @@ export async function patchConversation(
   conversationUuid: string,
   body: PatchConversationBody
 ): Promise<PatchConversationResponse> {
-  const url = `${BASE}/admin/${encodeURIComponent(cityCode)}/conversations/${encodeURIComponent(conversationUuid)}`;
+  const payload: Record<string, unknown> = {
+    ...(body.status !== undefined ? { status: body.status } : {}),
+    ...(body.urgent !== undefined ? { is_urgent: body.urgent } : {}),
+    ...(body.department !== undefined ? { department_id: body.department } : {}),
+  };
+  const url = `${BASE}/admin/tickets/${encodeURIComponent(conversationUuid)}`;
   const res = await fetch(url, {
     ...defaultOpts,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Patch conversation: ${res.status}`);
   return await res.json();
