@@ -592,14 +592,14 @@ export async function getTicketsListHandler(
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
-    // Get tickets (conversations with needs_human=true or fallback_count>0)
+    // Get tickets (conversations with submitted wizard intake)
     let ticketsQuery = supabase
       .from('conversations')
-      .select('id, status, needs_human, fallback_count, created_at, updated_at')
+      .select('id, status, needs_human, fallback_count, created_at, updated_at, submitted_at')
       .eq('city_id', city.id)
       .gte('created_at', timeFrom.toISOString())
       .lte('created_at', timeTo.toISOString())
-      .or('needs_human.eq.true,fallback_count.gt.0');
+      .not('submitted_at', 'is', null);
 
     if (status === 'open') {
       ticketsQuery = ticketsQuery.eq('status', 'open');
@@ -647,6 +647,7 @@ export async function getTicketsListHandler(
         reason: ticket.fallback_count > 0 ? 'ai_fallback' : 'no_context',
         created_at: ticket.created_at,
         updated_at: ticket.updated_at,
+        submitted_at: ticket.submitted_at,
         question: messagesByConv.get(ticket.id) || '',
         confidence: null,
         read_at: ticketMeta?.read_at ?? null,
