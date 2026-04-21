@@ -122,7 +122,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const patchTicketFields = useCallback(
     async (conversationUuid: string, body: Record<string, unknown>) => {
       const res = await fetch(
-        `${API_BASE}/admin/${encodeURIComponent(cityCode)}/tickets/${encodeURIComponent(conversationUuid)}`,
+        `${API_BASE}/admin/tickets/${encodeURIComponent(conversationUuid)}`,
         {
           method: 'PATCH',
           credentials: 'include',
@@ -139,7 +139,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const analyzeTicket = useCallback(
     async (conversationUuid: string): Promise<SpamAnalysisResult> => {
       const res = await fetch(
-        `${API_BASE}/admin/${encodeURIComponent(cityCode)}/tickets/${encodeURIComponent(conversationUuid)}/analyze`,
+        `${API_BASE}/admin/tickets/${encodeURIComponent(conversationUuid)}/analyze`,
         {
           method: 'POST',
           credentials: 'include',
