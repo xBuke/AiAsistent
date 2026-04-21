@@ -1578,7 +1578,7 @@ export async function getAdminReportsHandler(
         .gte('created_at', since),
       supabase
         .from('tickets')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('city_id', cityUuid)
         .gte('created_at', since),
       supabase
@@ -1587,6 +1587,9 @@ export async function getAdminReportsHandler(
         .eq('city_id', cityUuid)
         .gte('created_at', since),
     ]);
+
+    if (ticketsError) request.log.warn({ error: ticketsError }, 'tickets query error');
+    if (totalTicketsError) request.log.warn({ error: totalTicketsError }, 'tickets query error');
 
     if (
       conversationsError ||
