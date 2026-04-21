@@ -13,7 +13,21 @@ import { formatDateTime, formatMessageTime, formatRelativeTime } from './utils/d
 import { DataTable, type DataTableColumn } from './components/DataTable';
 import './Inbox.css';
 
-type WorkflowStatus = 'open' | 'resolved';
+type WorkflowStatus = 'open' | 'resolved' | 'closed';
+type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'spam';
+type SpamAnalysisResult = {
+  ai_category: string | null;
+  is_suspicious: boolean;
+  spam_score: number;
+  spam_reasons: string[];
+};
+type InboxTicket = ApiInboxItem & {
+  read_at?: string | null;
+  ai_category?: string | null;
+  time_open_hours?: number | null;
+  closed_at?: string | null;
+  spam_flagged_at?: string | null;
+};
 
 const DEPARTMENT_OPTIONS = ['Uprava', 'Komunalno', 'Financije', 'Turizam', 'Ostalo'] as const;
 
@@ -25,7 +39,7 @@ interface InboxProps {
 }
 
 type StatusFilter = 'open' | 'closed' | 'all';
-type StatusChip = 'all' | 'open' | 'resolved';
+type StatusChip = 'all' | 'open' | 'resolved' | 'spam';
 
 // Simple toast notification
 function showToast(message: string) {
@@ -53,7 +67,7 @@ function showToast(message: string) {
 }
 
 export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNeedsHumanToggledOff }: InboxProps) {
-  const [conversations, setConversations] = useState<ApiInboxItem[]>([]);
+  const [conversations, setConversations] = useState<InboxTicket[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversationDetail, setConversationDetail] = useState<ApiConversationDetail | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -86,6 +100,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [analysisByConversationId, setAnalysisByConversationId] = useState<Record<string, SpamAnalysisResult>>({});
+  const [analysisLoadingId, setAnalysisLoadingId] = useState<string | null>(null);
+  const [autoAnalyzedIds, setAutoAnalyzedIds] = useState<Record<string, true>>({});
   const pendingAutosaveRef = useRef<PatchConversationBody | null>(null);
   const savingInProgressRef = useRef(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -97,12 +114,54 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
   } | null>(null);
 
   const cityCode = cityId;
+  const API_BASE =
+    import.meta.env.PROD
+      ? '/api'
+      : ((import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE_URL || 'http://localhost:3000');
+
+  const patchTicketFields = useCallback(
+    async (conversationUuid: string, body: Record<string, unknown>) => {
+      const res = await fetch(
+        `${API_BASE}/admin/${encodeURIComponent(cityCode)}/tickets/${encodeURIComponent(conversationUuid)}`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) throw new Error(`Patch ticket: ${res.status}`);
+      return res;
+    },
+    [API_BASE, cityCode]
+  );
+
+  const analyzeTicket = useCallback(
+    async (conversationUuid: string): Promise<SpamAnalysisResult> => {
+      const res = await fetch(
+        `${API_BASE}/admin/${encodeURIComponent(cityCode)}/tickets/${encodeURIComponent(conversationUuid)}/analyze`,
+        {
+          method: 'POST',
+          credentials: 'include',
+        }
+      );
+      if (!res.ok) throw new Error(`Analyze ticket: ${res.status}`);
+      const data = (await res.json()) as Partial<SpamAnalysisResult>;
+      return {
+        ai_category: data.ai_category ?? null,
+        is_suspicious: Boolean(data.is_suspicious),
+        spam_score: Number(data.spam_score ?? 0),
+        spam_reasons: Array.isArray(data.spam_reasons) ? data.spam_reasons : [],
+      };
+    },
+    [API_BASE, cityCode]
+  );
 
   // Load tickets list (inbox: tickets table is single source of truth)
   const loadConversations = useCallback(async () => {
     try {
       const list = await fetchInbox(cityCode);
-      setConversations(list);
+      setConversations(list as InboxTicket[]);
       setConversationsLoading(false);
       setConversationsError(null);
     } catch (err) {
@@ -143,9 +202,12 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
         setWorkflowStatus(
           detail.conversation.status === 'open' ||
             detail.conversation.status === 'in_progress' ||
-            detail.conversation.status === 'resolved'
-            ? detail.conversation.status === 'resolved' || detail.conversation.status === 'closed'
-              ? 'resolved'
+            detail.conversation.status === 'resolved' ||
+            detail.conversation.status === 'closed'
+            ? detail.conversation.status === 'closed'
+              ? 'closed'
+              : detail.conversation.status === 'resolved'
+                ? 'resolved'
               : 'open'
             : 'open'
         );
@@ -290,10 +352,14 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     let filtered = [...conversations];
 
     // Status chip: conv.status (open includes legacy in_progress / resolved|closed)
-    if (statusChip === 'open') {
+    if (statusChip === 'spam') {
+      filtered = filtered.filter((c) => c.status === 'spam');
+    } else if (statusChip === 'open') {
       filtered = filtered.filter((c) => c.status === 'open' || c.status === 'in_progress');
     } else if (statusChip === 'resolved') {
       filtered = filtered.filter((c) => c.status === 'resolved' || c.status === 'closed');
+    } else {
+      filtered = filtered.filter((c) => c.status !== 'spam');
     }
 
     // Hitno: only urgent (conv.urgent)
@@ -343,6 +409,127 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     });
     return Array.from(tags).sort();
   }, [conversations]);
+
+  const unreadCount = useMemo(() => conversations.filter((conv) => !conv.read_at).length, [conversations]);
+
+  const selectedTicket = useMemo(
+    () => conversations.find((c) => c.conversation_id === selectedConversationId) ?? null,
+    [conversations, selectedConversationId]
+  );
+
+  const formatOpenDuration = useCallback((hoursValue: number | null | undefined): string => {
+    if (typeof hoursValue !== 'number' || Number.isNaN(hoursValue)) return '—';
+    if (hoursValue < 24) return `${Math.max(1, Math.round(hoursValue))}h`;
+    if (hoursValue < 48) return '1 dan';
+    return `${Math.max(2, Math.round(hoursValue / 24))} dana`;
+  }, []);
+
+  const formatClosedAtDisplay = useCallback((isoDate: string | null | undefined): string => {
+    if (!isoDate) return '—';
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) return '—';
+    return new Intl.DateTimeFormat('hr-HR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  }, []);
+
+  const updateTicketLocally = useCallback((conversationId: string, updates: Partial<InboxTicket>) => {
+    setConversations((prev) => prev.map((c) => (c.conversation_id === conversationId ? { ...c, ...updates } : c)));
+  }, []);
+
+  const runAnalyzeTicket = useCallback(
+    async (conversationId: string, withLoadingState: boolean) => {
+      if (withLoadingState) {
+        setAnalysisLoadingId(conversationId);
+      }
+      try {
+        const result = await analyzeTicket(conversationId);
+        setAnalysisByConversationId((prev) => ({ ...prev, [conversationId]: result }));
+        updateTicketLocally(conversationId, {
+          ai_category: result.ai_category,
+        });
+      } catch (err) {
+        console.error('Analyze ticket failed:', err);
+      } finally {
+        if (withLoadingState) {
+          setAnalysisLoadingId((prev) => (prev === conversationId ? null : prev));
+        }
+      }
+    },
+    [analyzeTicket, updateTicketLocally]
+  );
+
+  const handleOpenConversation = useCallback(
+    async (conversationId: string) => {
+      setSelectedConversationId(conversationId);
+      const openedTicket = conversations.find((c) => c.conversation_id === conversationId);
+      if (openedTicket && !openedTicket.read_at) {
+        const readAt = new Date().toISOString();
+        updateTicketLocally(conversationId, { read_at: readAt });
+        try {
+          await patchTicketFields(conversationId, { read_at: readAt });
+        } catch (err) {
+          console.error('Failed to mark ticket as read:', err);
+        }
+      }
+    },
+    [conversations, patchTicketFields, updateTicketLocally]
+  );
+
+  useEffect(() => {
+    if (!selectedTicket?.conversation_id) return;
+    if (selectedTicket.ai_category) return;
+    if (autoAnalyzedIds[selectedTicket.conversation_id]) return;
+    setAutoAnalyzedIds((prev) => ({ ...prev, [selectedTicket.conversation_id]: true }));
+    runAnalyzeTicket(selectedTicket.conversation_id, false);
+  }, [selectedTicket, autoAnalyzedIds, runAnalyzeTicket]);
+
+  const handleStatusChange = useCallback(
+    async (nextStatus: WorkflowStatus) => {
+      if (!selectedConversationId) return;
+      const nowIso = new Date().toISOString();
+      const closedAt = nextStatus === 'closed' ? nowIso : null;
+      const patchBody: Record<string, unknown> = {
+        status: nextStatus,
+        ...(nextStatus === 'closed' ? { closed_at: nowIso } : {}),
+      };
+
+      setWorkflowStatus(nextStatus);
+      setSaveStatus('saving');
+      setSaveError(null);
+      updateTicketLocally(selectedConversationId, {
+        status: nextStatus,
+        closed_at: closedAt,
+      });
+      setConversationDetail((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          conversation: {
+            ...prev.conversation,
+            status: nextStatus,
+          },
+        };
+      });
+
+      try {
+        await patchTicketFields(selectedConversationId, patchBody);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch (err) {
+        console.error('Status update failed:', err);
+        setSaveStatus('idle');
+        setSaveError('Failed to save. Try again.');
+        loadConversations();
+        loadConversationDetail(selectedConversationId, true);
+      }
+    },
+    [selectedConversationId, updateTicketLocally, patchTicketFields, loadConversations, loadConversationDetail]
+  );
 
   // Autosave on change (immediate save, last-write-wins if save in progress)
   const autosave = useCallback(
@@ -443,11 +630,6 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     const updates: PatchConversationBody = {};
     let hasChanges = false;
 
-    if (workflowStatus !== initial.status) {
-      updates.status = workflowStatus;
-      hasChanges = true;
-    }
-
     if (workflowDepartment !== (initial.department || '')) {
       updates.department = workflowDepartment.trim() || null;
       hasChanges = true;
@@ -461,7 +643,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     if (hasChanges) {
       autosave(updates);
     }
-  }, [workflowStatus, workflowDepartment, workflowUrgent, selectedConversationId, autosave]);
+  }, [workflowDepartment, workflowUrgent, selectedConversationId, autosave]);
 
   // Handle add note - updates local state optimistically
   const handleAddNote = useCallback(async () => {
@@ -739,14 +921,36 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     </div>
   );
 
-  const inboxColumns: Array<DataTableColumn<ApiInboxItem>> = useMemo(
+  const inboxColumns: Array<DataTableColumn<InboxTicket>> = useMemo(
     () => [
       {
         key: 'title',
         label: 'Razgovori',
         render: (conv) => (
           <div className="inbox-ticket-cell">
-            <div className="inbox-ticket-title-line">{getTicketTitle(conv)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              {!conv.read_at && <span style={{ color: '#2563eb', fontSize: '0.875rem', lineHeight: 1 }}>●</span>}
+              <div className="inbox-ticket-title-line" style={{ fontWeight: conv.read_at ? 500 : 700 }}>
+                {getTicketTitle(conv)}
+              </div>
+            </div>
+            {conv.ai_category && (
+              <div
+                style={{
+                  marginTop: '0.25rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '9999px',
+                  fontSize: '0.6875rem',
+                  backgroundColor: '#e5e7eb',
+                  color: '#374151',
+                  fontWeight: 500,
+                }}
+              >
+                {conv.ai_category}
+              </div>
+            )}
             <div className="inbox-ticket-meta-row">
               <span className="inbox-ticket-status-pill">{getStatusLabel(conv.status)}</span>
               <span className="inbox-ticket-category-pill">{conv.category ?? '—'}</span>
@@ -798,6 +1002,23 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
       >
         {/* Filters */}
         <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Razgovori</span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0.15rem 0.5rem',
+                borderRadius: '9999px',
+                backgroundColor: '#dbeafe',
+                color: '#1d4ed8',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+              }}
+            >
+              Nepročitano ({unreadCount})
+            </span>
+          </div>
           {/* Search - always visible */}
           <input
             type="text"
@@ -945,6 +1166,22 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             >
               Hitno
             </button>
+            <button
+              type="button"
+              onClick={() => setStatusChip('spam')}
+              style={{
+                padding: '0.25rem 0.5rem',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid #f59e0b',
+                backgroundColor: statusChip === 'spam' ? '#ffedd5' : '#fff7ed',
+                color: statusChip === 'spam' ? '#9a3412' : '#b45309',
+                cursor: 'pointer',
+              }}
+            >
+              Spam
+            </button>
           </div>
 
             {/* Legacy status dropdown - hidden, kept for compatibility */}
@@ -1056,7 +1293,9 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 data={filteredConversations}
                 isLoading={conversationsLoading}
                 emptyMessage="Nema ticketa u inboxu."
-                onRowClick={(row) => setSelectedConversationId(row.conversation_id)}
+                onRowClick={(row) => {
+                  handleOpenConversation(row.conversation_id);
+                }}
               />
             </div>
           )}
@@ -1086,7 +1325,6 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 padding: '0.5rem 0.75rem',
                 borderBottom: '1px solid var(--border-color)',
                 flexShrink: 0,
-                maxHeight: '56px',
               }}
             >
               {/* Back button for mobile */}
@@ -1126,19 +1364,36 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: '1.2', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                    {conversationDetail.conversation.title || (() => {
-                      const conv = conversations.find(c => c.conversation_id === selectedConversationId);
-                      return conv ? getConversationTitleFull(conv) : 'Razgovor';
-                    })()}
-                  </h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: '1.2', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {conversationDetail.conversation.title || (selectedTicket ? getConversationTitleFull(selectedTicket) : 'Razgovor')}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedConversationId) {
+                          runAnalyzeTicket(selectedConversationId, true);
+                        }
+                      }}
+                      disabled={!selectedConversationId || analysisLoadingId === selectedConversationId}
+                      style={{
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '0.35rem',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        cursor: !selectedConversationId || analysisLoadingId === selectedConversationId ? 'not-allowed' : 'pointer',
+                        opacity: !selectedConversationId || analysisLoadingId === selectedConversationId ? 0.75 : 1,
+                      }}
+                    >
+                      {analysisLoadingId === selectedConversationId ? 'Analiza...' : 'Analiziraj'}
+                    </button>
+                  </div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                     <span>ID: {conversationDetail.conversation.id.substring(0, 8)}...</span>
-                    {(() => {
-                      const ticket = conversations.find(c => c.conversation_id === selectedConversationId);
-                      if (ticket?.ticket_ref) return <span>Ref: {ticket.ticket_ref}</span>;
-                      return null;
-                    })()}
+                    {selectedTicket?.ticket_ref && <span>Ref: {selectedTicket.ticket_ref}</span>}
                   </div>
                 </div>
                 <span
@@ -1161,11 +1416,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                     value={workflowStatus}
                     onChange={(e) => {
                       const v = e.target.value as WorkflowStatus;
-                      setWorkflowStatus(v);
-                      if (initialConversationRef.current) {
-                        initialConversationRef.current = { ...initialConversationRef.current, status: v };
-                      }
-                      autosave({ status: v });
+                      handleStatusChange(v);
                     }}
                     style={{
                       padding: '0.2rem 0.4rem',
@@ -1179,6 +1430,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                   >
                     <option value="open">Otvoreno</option>
                     <option value="resolved">Riješeno</option>
+                    <option value="closed">Zatvoreno</option>
                   </select>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -1254,7 +1506,108 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
                 {saveStatus === 'saved' && <span style={{ color: '#10b981', fontWeight: 500 }}>Saved</span>}
                 {saveError && <span style={{ color: '#dc2626', fontSize: '0.75rem' }}>{saveError}</span>}
               </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                <span>
+                  {selectedTicket?.closed_at
+                    ? `Zatvoreno za: ${formatOpenDuration(selectedTicket.time_open_hours)}`
+                    : `Otvoreno: ${formatOpenDuration(selectedTicket?.time_open_hours)}`}
+                </span>
+                <span>AI kategorija: {selectedTicket?.ai_category ?? '—'}</span>
+                {selectedTicket?.closed_at && <span>Zatvoreno: {formatClosedAtDisplay(selectedTicket.closed_at)}</span>}
+              </div>
             </div>
+
+            {selectedConversationId && analysisByConversationId[selectedConversationId] && (
+              <div
+                style={{
+                  margin: '0.75rem 1rem 0',
+                  padding: '0.75rem',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '0.5rem',
+                  backgroundColor: 'var(--bg-primary)',
+                }}
+              >
+                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                  AI kategorija: {analysisByConversationId[selectedConversationId].ai_category ?? '—'}
+                </div>
+                {(analysisByConversationId[selectedConversationId].is_suspicious ||
+                  analysisByConversationId[selectedConversationId].spam_score >= 70) ? (
+                  <div
+                    style={{
+                      padding: '0.65rem',
+                      borderRadius: '0.5rem',
+                      backgroundColor: '#fef3c7',
+                      border: '1px solid #f59e0b',
+                      color: '#92400e',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                      ⚠️ Sumnjiv tiket — spam score: {analysisByConversationId[selectedConversationId].spam_score}/100
+                    </div>
+                    {analysisByConversationId[selectedConversationId].spam_reasons.length > 0 && (
+                      <ul style={{ margin: '0 0 0.5rem 1rem', padding: 0 }}>
+                        {analysisByConversationId[selectedConversationId].spam_reasons.map((reason, idx) => (
+                          <li key={`${selectedConversationId}-reason-${idx}`} style={{ fontSize: '0.8125rem', marginBottom: '0.15rem' }}>
+                            {reason}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!selectedConversationId) return;
+                        const spamFlaggedAt = new Date().toISOString();
+                        try {
+                          await patchTicketFields(selectedConversationId, { status: 'spam', spam_flagged_at: spamFlaggedAt });
+                          updateTicketLocally(selectedConversationId, { status: 'spam', spam_flagged_at: spamFlaggedAt });
+                          setConversationDetail((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  conversation: {
+                                    ...prev.conversation,
+                                    status: 'spam',
+                                  },
+                                }
+                              : prev
+                          );
+                          setStatusChip('spam');
+                        } catch (err) {
+                          console.error('Move to spam failed:', err);
+                        }
+                      }}
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        borderRadius: '0.35rem',
+                        border: '1px solid #dc2626',
+                        backgroundColor: '#fee2e2',
+                        color: '#991b1b',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Premjesti u spam
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: '0.65rem',
+                      borderRadius: '0.5rem',
+                      backgroundColor: '#dcfce7',
+                      border: '1px solid #4ade80',
+                      color: '#166534',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✓ Tiket izgleda legitimno
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Transcript - flex-grow with own scroll */}
             <div

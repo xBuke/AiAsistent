@@ -35,6 +35,18 @@ interface AdminReportsQuery {
   range?: '7d' | '30d' | '365d';
 }
 
+interface UpdateTicketBody {
+  status?: string;
+  is_urgent?: boolean;
+  department_id?: string;
+  read_at?: string;
+  closed_at?: string;
+  opened_at?: string;
+  spam_flagged_at?: string;
+  spam_flag_reason?: string;
+  ai_category?: string;
+}
+
 interface FormDefinitionAdmin extends FormDefinitionPublic {
   city_id: string;
   is_active: boolean;
@@ -107,6 +119,41 @@ function extractJsonArray(raw: string): unknown[] {
     throw new Error('Model response is not a JSON array');
   }
   return parsed;
+}
+
+function extractJsonObject(raw: string): Record<string, unknown> {
+  let jsonText = raw.trim();
+  if (jsonText.startsWith('```')) {
+    const match = jsonText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/i);
+    if (match?.[1]) {
+      jsonText = match[1];
+    }
+  }
+  const parsed = JSON.parse(jsonText);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Model response is not a JSON object');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function calculateTimeOpenHours(createdAt: string, closedAt: string | null): number | null {
+  const createdTs = Date.parse(createdAt);
+  if (Number.isNaN(createdTs)) {
+    return null;
+  }
+  const endTs = closedAt ? Date.parse(closedAt) : Date.now();
+  if (Number.isNaN(endTs)) {
+    return null;
+  }
+  return Math.round((endTs - createdTs) / (1000 * 60 * 60));
+}
+
+function isValidIsoDate(value: string): boolean {
+  return !Number.isNaN(Date.parse(value));
+}
+
+function isValidUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 /**
@@ -564,6 +611,15 @@ export async function getTicketsListHandler(
 
     // Get user messages for question text
     const conversationIds = (tickets || []).map(t => t.id);
+    const { data: ticketRows } = conversationIds.length
+      ? await supabase
+          .from('tickets')
+          .select(
+            'conversation_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, is_urgent'
+          )
+          .in('conversation_id', conversationIds)
+          .eq('city_id', city.id)
+      : { data: [] as any[] };
     const { data: userMessages } = await supabase
       .from('messages')
       .select('conversation_id, content_redacted')
@@ -577,15 +633,32 @@ export async function getTicketsListHandler(
       }
     });
 
-    let result = (tickets || []).map(ticket => ({
-      id: ticket.id,
-      status: ticket.status || 'open',
-      reason: ticket.fallback_count > 0 ? 'ai_fallback' : 'no_context',
-      created_at: ticket.created_at,
-      updated_at: ticket.updated_at,
-      question: messagesByConv.get(ticket.id) || '',
-      confidence: null,
-    }));
+    const ticketByConversationId = new Map<string, any>();
+    (ticketRows || []).forEach((row) => {
+      ticketByConversationId.set(row.conversation_id, row);
+    });
+
+    let result = (tickets || []).map(ticket => {
+      const ticketMeta = ticketByConversationId.get(ticket.id);
+      const closedAt = ticketMeta?.closed_at ?? null;
+      return {
+        id: ticket.id,
+        status: ticket.status || 'open',
+        reason: ticket.fallback_count > 0 ? 'ai_fallback' : 'no_context',
+        created_at: ticket.created_at,
+        updated_at: ticket.updated_at,
+        question: messagesByConv.get(ticket.id) || '',
+        confidence: null,
+        read_at: ticketMeta?.read_at ?? null,
+        closed_at: closedAt,
+        opened_at: ticketMeta?.opened_at ?? null,
+        spam_flagged_at: ticketMeta?.spam_flagged_at ?? null,
+        spam_flag_reason: ticketMeta?.spam_flag_reason ?? null,
+        ai_category: ticketMeta?.ai_category ?? null,
+        is_urgent: ticketMeta?.is_urgent ?? false,
+        time_open_hours: calculateTimeOpenHours(ticket.created_at, closedAt),
+      };
+    });
 
     if (search) {
       result = result.filter(t => t.question.toLowerCase().includes(search.toLowerCase()));
@@ -658,6 +731,15 @@ export async function getTicketDetailHandler(
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
+    const { data: ticketMeta } = await supabase
+      .from('tickets')
+      .select(
+        'conversation_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, is_urgent'
+      )
+      .eq('conversation_id', id)
+      .eq('city_id', city.id)
+      .maybeSingle();
+
     // Get messages
     const { data: messages } = await supabase
       .from('messages')
@@ -672,6 +754,14 @@ export async function getTicketDetailHandler(
       created_at: conversation.created_at,
       question: (messages || []).find(m => m.role === 'user')?.content_redacted || '',
       confidence: null,
+      read_at: ticketMeta?.read_at ?? null,
+      closed_at: ticketMeta?.closed_at ?? null,
+      opened_at: ticketMeta?.opened_at ?? null,
+      spam_flagged_at: ticketMeta?.spam_flagged_at ?? null,
+      spam_flag_reason: ticketMeta?.spam_flag_reason ?? null,
+      ai_category: ticketMeta?.ai_category ?? null,
+      is_urgent: ticketMeta?.is_urgent ?? false,
+      time_open_hours: calculateTimeOpenHours(conversation.created_at, ticketMeta?.closed_at ?? null),
       messages: (messages || []).map(msg => ({
         id: msg.id,
         role: msg.role,
@@ -679,6 +769,296 @@ export async function getTicketDetailHandler(
         created_at: msg.created_at,
         metadata: msg.metadata,
       })),
+    });
+  } catch (error) {
+    request.log.error(error, 'Internal server error');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * PATCH /admin/tickets/:id
+ * Updates ticket fields for conversation in current city
+ */
+export async function patchTicketHandler(
+  request: FastifyRequest<{
+    Params: { id: string };
+    Body: UpdateTicketBody;
+  }>,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const { id } = request.params;
+  const body = request.body ?? {};
+
+  try {
+    let city = null;
+    if (session.cityCode) {
+      city = await resolveCity(session.cityCode);
+    }
+    if (!city && session.cityId) {
+      const { data: cityById } = await supabase
+        .from('cities')
+        .select('id, code')
+        .eq('id', session.cityId)
+        .single();
+      city = cityById;
+    }
+    if (!city) {
+      return reply.status(404).send({ error: 'City not found' });
+    }
+    if (session.cityId !== city.id) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    const updatePatch: Record<string, unknown> = {};
+
+    if ('status' in body && body.status !== undefined) {
+      if (typeof body.status !== 'string') {
+        return reply.status(400).send({ error: 'status must be text' });
+      }
+      updatePatch.status = body.status.trim();
+    }
+    if ('is_urgent' in body && body.is_urgent !== undefined) {
+      if (typeof body.is_urgent !== 'boolean') {
+        return reply.status(400).send({ error: 'is_urgent must be boolean' });
+      }
+      updatePatch.is_urgent = body.is_urgent;
+    }
+    if ('department_id' in body && body.department_id !== undefined) {
+      if (typeof body.department_id !== 'string' || !isValidUuid(body.department_id)) {
+        return reply.status(400).send({ error: 'department_id must be uuid' });
+      }
+      updatePatch.department_id = body.department_id;
+    }
+
+    const datetimeFields: Array<keyof Pick<
+      UpdateTicketBody,
+      'read_at' | 'closed_at' | 'opened_at' | 'spam_flagged_at'
+    >> = ['read_at', 'closed_at', 'opened_at', 'spam_flagged_at'];
+    for (const field of datetimeFields) {
+      if (field in body && body[field] !== undefined) {
+        const value = body[field];
+        if (typeof value !== 'string' || !isValidIsoDate(value)) {
+          return reply.status(400).send({ error: `${field} must be timestamptz` });
+        }
+        updatePatch[field] = new Date(value).toISOString();
+      }
+    }
+
+    if ('spam_flag_reason' in body && body.spam_flag_reason !== undefined) {
+      if (typeof body.spam_flag_reason !== 'string') {
+        return reply.status(400).send({ error: 'spam_flag_reason must be text' });
+      }
+      updatePatch.spam_flag_reason = body.spam_flag_reason.trim();
+    }
+    if ('ai_category' in body && body.ai_category !== undefined) {
+      if (typeof body.ai_category !== 'string') {
+        return reply.status(400).send({ error: 'ai_category must be text' });
+      }
+      updatePatch.ai_category = body.ai_category.trim();
+    }
+
+    if (Object.keys(updatePatch).length === 0) {
+      return reply.status(400).send({ error: 'No valid fields provided' });
+    }
+
+    if ((updatePatch.status === 'closed' || body.status === 'closed') && !('closed_at' in updatePatch)) {
+      updatePatch.closed_at = new Date().toISOString();
+    }
+    updatePatch.updated_at = new Date().toISOString();
+
+    const { data: updatedTicket, error: updateError } = await supabase
+      .from('tickets')
+      .update(updatePatch)
+      .eq('conversation_id', id)
+      .eq('city_id', city.id)
+      .select(
+        'id, conversation_id, city_id, status, is_urgent, department_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, updated_at, created_at'
+      )
+      .maybeSingle();
+
+    if (updateError) {
+      request.log.error(updateError, 'Ticket update failed');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+    if (!updatedTicket) {
+      return reply.status(404).send({ error: 'Ticket not found' });
+    }
+
+    return reply.send(updatedTicket);
+  } catch (error) {
+    request.log.error(error, 'Internal server error');
+    return reply.status(500).send({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * POST /admin/tickets/:id/analyze
+ * AI analysis of ticket contact + latest user messages
+ */
+export async function postTicketAnalyzeHandler(
+  request: FastifyRequest<{
+    Params: { id: string };
+  }>,
+  reply: FastifyReply
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+
+  if (session.role !== 'admin') {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  const { id } = request.params;
+
+  try {
+    let city = null;
+    if (session.cityCode) {
+      city = await resolveCity(session.cityCode);
+    }
+    if (!city && session.cityId) {
+      const { data: cityById } = await supabase
+        .from('cities')
+        .select('id, code')
+        .eq('id', session.cityId)
+        .single();
+      city = cityById;
+    }
+    if (!city) {
+      return reply.status(404).send({ error: 'City not found' });
+    }
+    if (session.cityId !== city.id) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('id, city_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!conversation || conversation.city_id !== city.id) {
+      return reply.status(404).send({ error: 'Ticket not found' });
+    }
+
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select('id, conversation_id, city_id, contact_name, contact_email, contact_phone, contact_note')
+      .eq('conversation_id', id)
+      .eq('city_id', city.id)
+      .maybeSingle();
+
+    if (ticketError) {
+      request.log.error(ticketError, 'Failed to fetch ticket for analysis');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+    if (!ticket) {
+      return reply.status(404).send({ error: 'Ticket not found' });
+    }
+
+    const { data: recentUserMessages } = await supabase
+      .from('messages')
+      .select('content_redacted, created_at')
+      .eq('conversation_id', id)
+      .eq('role', 'user')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const messagesChronological = [...(recentUserMessages || [])].reverse().map((msg) => ({
+      content: msg.content_redacted ?? '',
+      created_at: msg.created_at,
+    }));
+
+    const openai = getOpenAIClient();
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content:
+            "You are analyzing a citizen support ticket for a Croatian municipality. Analyze the provided contact information and conversation messages.\n\nReturn ONLY valid JSON, no markdown:\n{\n  \"spam_score\": 0-100,\n  \"spam_reasons\": [\"reason1\", \"reason2\"],\n  \"is_suspicious\": true/false,\n  \"ai_category\": \"category name in Croatian\",\n  \"category_reason\": \"brief explanation\"\n}\n\nSpam indicators: fake/test names (e.g. asdf, test, 111), obviously fake emails, nonsense phone numbers, incoherent or offensive messages, repeated identical submissions.\nCategory should match the nature of the citizen request (e.g. 'Komunalne usluge', 'Socijalna pomoć', 'Parking', 'Građevinske dozvole', 'Opće informacije').",
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            contact: {
+              contact_name: ticket.contact_name ?? null,
+              contact_email: ticket.contact_email ?? null,
+              contact_phone: ticket.contact_phone ?? null,
+              contact_note: ticket.contact_note ?? null,
+            },
+            messages: messagesChronological,
+          }),
+        },
+      ],
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Empty model response');
+    }
+
+    const analysis = extractJsonObject(content);
+    const spamScoreRaw = analysis.spam_score;
+    const spamScore = typeof spamScoreRaw === 'number' ? spamScoreRaw : Number(spamScoreRaw);
+    const spamReasons = Array.isArray(analysis.spam_reasons)
+      ? analysis.spam_reasons.filter((reason): reason is string => typeof reason === 'string')
+      : [];
+    const isSuspicious = analysis.is_suspicious === true;
+    const aiCategory =
+      typeof analysis.ai_category === 'string' && analysis.ai_category.trim()
+        ? analysis.ai_category.trim()
+        : null;
+
+    const shouldFlagSpam = isSuspicious || (!Number.isNaN(spamScore) && spamScore >= 70);
+    const nowIso = new Date().toISOString();
+    const ticketUpdate: Record<string, unknown> = {
+      ai_category: aiCategory,
+      updated_at: nowIso,
+    };
+
+    if (shouldFlagSpam) {
+      ticketUpdate.spam_flagged_at = nowIso;
+      ticketUpdate.spam_flag_reason = spamReasons.join('; ') || 'AI suspicious/spam detection';
+    }
+
+    const { data: updatedTicket, error: updateError } = await supabase
+      .from('tickets')
+      .update(ticketUpdate)
+      .eq('conversation_id', id)
+      .eq('city_id', city.id)
+      .select(
+        'id, conversation_id, city_id, status, is_urgent, department_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, updated_at, created_at'
+      )
+      .single();
+
+    if (updateError) {
+      request.log.error(updateError, 'Failed to persist ticket analysis');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+
+    return reply.send({
+      analysis: {
+        spam_score: Number.isNaN(spamScore) ? null : spamScore,
+        spam_reasons: spamReasons,
+        is_suspicious: isSuspicious,
+        ai_category: aiCategory,
+        category_reason:
+          typeof analysis.category_reason === 'string' ? analysis.category_reason : null,
+      },
+      ticket: updatedTicket,
     });
   } catch (error) {
     request.log.error(error, 'Internal server error');
@@ -1804,6 +2184,8 @@ export async function registerAdminDashboardRoutes(server: FastifyInstance) {
   server.get('/admin/reports', getAdminReportsHandler);
   server.get('/admin/tickets', getTicketsListHandler);
   server.get('/admin/tickets/:id', getTicketDetailHandler);
+  server.patch('/admin/tickets/:id', patchTicketHandler);
+  server.post('/admin/tickets/:id/analyze', postTicketAnalyzeHandler);
   server.get('/admin/knowledge-gaps', getKnowledgeGapsListHandler);
   server.post('/admin/knowledge-gaps/categorize', postKnowledgeGapsCategorizeHandler);
   server.get('/admin/knowledge-gaps/suggestions', getKnowledgeGapsSuggestionsHandler);
