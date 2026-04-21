@@ -189,14 +189,14 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
     setDetailError(null);
     
     try {
-      const detail = await fetchConversationDetail(cityCode, conversationUuid);
+      const detail = await fetchConversationDetail(conversationUuid);
       setConversationDetail(detail);
       // Store initial values for autosave comparison (only on initial load)
       if (!isBackgroundRefresh) {
         initialConversationRef.current = {
           status: detail.conversation.status,
           department: detail.conversation.department,
-          urgent: detail.conversation.urgent,
+          urgent: detail.conversation.is_urgent,
         };
         // Initialize workflow form from detail (in_progress treated as open for dropdown)
         setWorkflowStatus(
@@ -212,7 +212,7 @@ export function Inbox({ cityId, liveEnabled, onNavigateToAllConversations, onNee
             : 'open'
         );
         setWorkflowDepartment(detail.conversation.department || '');
-        setWorkflowUrgent(detail.conversation.urgent || false);
+        setWorkflowUrgent(detail.conversation.is_urgent || false);
       }
       setSaveError(null);
       setDetailLoading(false);

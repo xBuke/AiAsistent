@@ -352,7 +352,6 @@ export interface ApiConversationDetail {
  * GET /admin/:cityCode/conversations/:conversationUuid — get conversation detail with messages and notes.
  */
 export async function fetchConversationDetail(
-  cityCode: string,
   conversationUuid: string
 ): Promise<ApiConversationDetail> {
   const res = await fetch(
@@ -675,7 +674,7 @@ export async function fetchTicketDetail(
   cityCode: string,
   ticketId: string
 ): Promise<ApiConversationDetail> {
-  return fetchConversationDetail(cityCode, ticketId);
+  return fetchConversationDetail(ticketId);
 }
 
 /** API form request item (GET /admin/forms) */
