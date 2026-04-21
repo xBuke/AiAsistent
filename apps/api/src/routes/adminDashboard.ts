@@ -832,7 +832,7 @@ export async function postKnowledgeGapsCategorizeHandler(
         continue;
       }
 
-      const { error: updateError, count } = await supabase
+      const { error: updateError, data: updatedRows } = await supabase
         .from('knowledge_gaps')
         .update({
           category: trimmedCategory,
@@ -840,14 +840,14 @@ export async function postKnowledgeGapsCategorizeHandler(
         })
         .eq('id', item.id)
         .eq('city_id', city.id)
-        .select('id', { count: 'exact', head: true });
+        .select('id');
 
       if (updateError) {
         request.log.warn({ updateError, id: item.id }, 'failed to update knowledge gap category');
         continue;
       }
 
-      categorized += count || 0;
+      categorized += updatedRows?.length || 0;
     }
 
     return reply.send({ categorized });
