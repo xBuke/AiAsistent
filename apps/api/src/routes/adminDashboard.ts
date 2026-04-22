@@ -883,7 +883,7 @@ export async function patchTicketHandler(
       .eq('conversation_id', id)
       .eq('city_id', city.id)
       .select(
-        'id, conversation_id, city_id, status, is_urgent, department_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, updated_at, created_at'
+        'conversation_id, city_id, status, is_urgent, department_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, updated_at, created_at'
       )
       .maybeSingle();
 
@@ -955,7 +955,7 @@ export async function postTicketAnalyzeHandler(
 
     const { data: ticket, error: ticketError } = await supabase
       .from('tickets')
-      .select('id, conversation_id, city_id, contact_name, contact_email, contact_phone, contact_note')
+      .select('conversation_id, city_id, contact_name, contact_email, contact_phone, contact_note')
       .eq('conversation_id', id)
       .eq('city_id', city.id)
       .maybeSingle();
@@ -1041,7 +1041,7 @@ export async function postTicketAnalyzeHandler(
       .eq('conversation_id', id)
       .eq('city_id', city.id)
       .select(
-        'id, conversation_id, city_id, status, is_urgent, department_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, updated_at, created_at'
+        'conversation_id, city_id, status, is_urgent, department_id, read_at, closed_at, opened_at, spam_flagged_at, spam_flag_reason, ai_category, updated_at, created_at'
       )
       .single();
 
